@@ -1,36 +1,140 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ConvertIQ
+
+ConvertIQ is a SaaS platform that empowers small businesses to improve their website marketing and sales conversions independently. We provide accessible, data-driven analysis and actionable recommendations that were traditionally only available through expensive agencies.
+
+## Overview
+
+ConvertIQ analyzes existing ecommerce platforms or specific product/service pages to identify optimization opportunities. Our AI-powered analysis focuses on conversion psychology, UX/UI improvements, technical SEO, and performance optimization to help businesses increase their revenue.
+
+### Target Audience
+
+- **Local service businesses** (plumbers, electricians, beauty salons, consultants)
+- **Creative businesses** (photographers, graphic designers, content creators, artists)  
+- **E-commerce stores** (businesses selling physical or digital products online)
+
+### Key Features
+
+- **Website Audit & Analysis** - Comprehensive scanning of URLs for optimization opportunities
+- **AI-Powered Recommendations** - Prioritized suggestions based on conversion psychology principles
+- **Performance Benchmarking** - Compare against industry standards and track improvements
+- **Integration Support** - Connect with Google Analytics, Shopify, WooCommerce, and more
+- **Actionable Reports** - Step-by-step guidance for implementing improvements
+
+## Tech Stack
+
+- **Framework**: Next.js 15.4.1 with App Router
+- **Language**: TypeScript with strict mode
+- **Styling**: Tailwind CSS v4 (alpha)
+- **Package Manager**: Bun
+- **AI Integration**: Vercel AI SDK v5 with Anthropic Claude and OpenAI support
+- **Planned**: tRPC, PostgreSQL, Redis, BetterAuth, Vercel hosting
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- [Bun](https://bun.sh/) v1.2.14 or higher
+- Node.js 18+ 
+- Git
+
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/your-username/convertiq.git
+cd convertiq
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+bun install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Run the development server:
+```bash
+bun run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Learn More
+The development server uses Turbopack for faster builds and hot reloading. You can start editing pages by modifying files in `src/app/` - changes will be reflected immediately.
 
-To learn more about Next.js, take a look at the following resources:
+### Available Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Start development server with Turbopack
+bun run dev
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Build for production
+bun run build
 
-## Deploy on Vercel
+# Start production server
+bun run start
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Run ESLint
+bun run lint
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+convertiq/
+├── src/
+│   └── app/          # Next.js App Router pages and layouts
+├── _product/         # Product documentation (git-ignored)
+├── CLAUDE.md         # AI development guidance
+└── package.json
+```
+
+## Development
+
+This project uses:
+- **Next.js App Router** for routing and server components
+- **TypeScript** with strict mode for type safety
+- **Tailwind CSS v4** for styling
+- **Bun** as the package manager and runtime
+- **Vercel AI SDK v5** for AI integrations
+
+## Contributing
+
+We welcome contributions! Please see our contributing guidelines and development setup:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make your changes and test thoroughly
+4. Submit a pull request with a clear description
+
+## Roadmap
+
+### Phase 1 (MVP)
+- [ ] User authentication and account management
+- [ ] Single URL analysis and basic reporting
+- [ ] Core AI-powered recommendations
+- [ ] Basic task tracking for recommendations
+
+### Phase 2
+- [ ] Google Analytics integration
+- [ ] E-commerce platform integrations (Shopify, WooCommerce)
+- [ ] Historical performance tracking
+- [ ] Advanced competitor analysis
+
+### Phase 3
+- [ ] Multi-site management
+- [ ] White-label solutions
+- [ ] Advanced integrations (CRM, email marketing)
+- [ ] API access for third-party developers
+
+## Resources
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Vercel AI SDK](https://sdk.vercel.ai/docs)
+- [Tailwind CSS v4](https://tailwindcss.com/docs/v4-alpha)
+- [Bun Documentation](https://bun.sh/docs)
+
+## License
+
+This project is proprietary software. All rights reserved.
+
+## Contact
+
+For questions or support, please contact the development team.
