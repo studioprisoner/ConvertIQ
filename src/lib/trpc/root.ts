@@ -1,6 +1,7 @@
 import { createTRPCRouter } from './server';
 import { urlRouter } from './routers/urls';
 import { aiAnalysisRouter } from './routers/ai-analysis';
+import { reportsRouter } from './routers/reports-simple';
 
 /**
  * Main tRPC router for the application.
@@ -9,6 +10,7 @@ import { aiAnalysisRouter } from './routers/ai-analysis';
 export const appRouter = createTRPCRouter({
   url: urlRouter,
   ai: aiAnalysisRouter,
+  reports: reportsRouter,
 });
 
 export type AppRouter = typeof appRouter;
