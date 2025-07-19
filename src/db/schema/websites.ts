@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, text } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, text, boolean } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
@@ -10,6 +10,11 @@ export const websites = pgTable('websites', {
   url: varchar('url', { length: 500 }).notNull(),
   name: varchar('name', { length: 255 }),
   description: text('description'),
+  pageType: varchar('page_type', { length: 50 }), // homepage, product, service, landing
+  isValidated: boolean('is_validated').default(false),
+  validationStatus: varchar('validation_status', { length: 50 }), // pending, valid, invalid, error
+  validationMessage: text('validation_message'),
+  lastValidatedAt: timestamp('last_validated_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
