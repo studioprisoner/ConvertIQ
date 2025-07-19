@@ -38,6 +38,7 @@
     "resend": "^4.7.0",
     "robots-parser": "^3.0.1",
     "superjson": "^2.2.2",
+    "uuid": "^11.1.0",
     "zod": "^4.0.5"
   },
   "devDependencies": {
@@ -47,6 +48,7 @@
     "@types/pg": "^8.15.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "drizzle-kit": "^0.31.4",
     "eslint": "^9",
     "eslint-config-next": "15.4.1",
