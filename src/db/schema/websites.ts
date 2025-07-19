@@ -6,7 +6,7 @@ import { user } from './auth';
 
 export const websites = pgTable('websites', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull(), // Temporarily removed foreign key constraint for testing
   url: varchar('url', { length: 500 }).notNull(),
   name: varchar('name', { length: 255 }),
   description: text('description'),

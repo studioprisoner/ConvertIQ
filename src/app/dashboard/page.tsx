@@ -45,7 +45,7 @@ export default function DashboardPage() {
             View your latest conversion analysis reports
           </Text>
           <button 
-            onClick={() => router.push('/reports')}
+            onClick={() => router.push('/dashboard/reports')}
             className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
           >
             View Reports
@@ -60,7 +60,7 @@ export default function DashboardPage() {
             Browse your complete scan history
           </Text>
           <button 
-            onClick={() => router.push('/history')}
+            onClick={() => router.push('/dashboard/history')}
             className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
           >
             View History
