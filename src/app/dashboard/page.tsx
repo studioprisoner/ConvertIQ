@@ -29,7 +29,10 @@ export default function DashboardPage() {
           <Text className="text-sm mb-4">
             Analyze a webpage for conversion opportunities
           </Text>
-          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+          <button 
+            onClick={() => router.push('/dashboard/scan')}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+          >
             Start New Scan
           </button>
         </div>
