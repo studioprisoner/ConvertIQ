@@ -14,9 +14,9 @@ export default function Home() {
             Transform your website into a conversion machine with data-driven insights and actionable recommendations that were once only available to enterprise companies.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg">
-              Get Early Access
-            </button>
+            <a href="/login" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg text-center">
+              Sign In / Get Early Access
+            </a>
             <button className="border border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold py-3 px-8 rounded-lg transition-colors text-lg">
               Learn More
             </button>
