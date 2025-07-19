@@ -76,11 +76,7 @@ function AccountDropdownMenu({
   );
 }
 
-export function ApplicationLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function ApplicationLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, isPending } = useSession();
@@ -122,13 +118,24 @@ export function ApplicationLayout({
           <NavbarSection>
             <Dropdown>
               <DropdownButton as={NavbarItem}>
-                <Avatar 
-                  src={user?.image || undefined} 
-                  initials={user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}
-                  square 
+                <Avatar
+                  src={user?.image || undefined}
+                  initials={
+                    user?.name
+                      ? user.name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .toUpperCase()
+                      : "U"
+                  }
+                  square
                 />
               </DropdownButton>
-              <AccountDropdownMenu anchor="bottom end" onSignOut={handleSignOut} />
+              <AccountDropdownMenu
+                anchor="bottom end"
+                onSignOut={handleSignOut}
+              />
             </Dropdown>
           </NavbarSection>
         </Navbar>
@@ -137,17 +144,22 @@ export function ApplicationLayout({
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-3 px-4 py-3">
-              <Avatar 
-                initials="CQ" 
-                className="bg-blue-600 text-white"
+              <Avatar
+                initials="CQ"
+                className="bg-blue-600 text-white w-6 h-6"
               />
-              <SidebarLabel className="text-lg font-semibold">ConvertIQ</SidebarLabel>
+              <SidebarLabel className="text-lg font-semibold">
+                ConvertIQ
+              </SidebarLabel>
             </div>
           </SidebarHeader>
 
           <SidebarBody>
             <SidebarSection>
-              <SidebarItem href="/dashboard" current={pathname === "/dashboard"}>
+              <SidebarItem
+                href="/dashboard"
+                current={pathname === "/dashboard"}
+              >
                 <HomeIcon />
                 <SidebarLabel>Dashboard</SidebarLabel>
               </SidebarItem>
@@ -194,23 +206,34 @@ export function ApplicationLayout({
                 <span className="flex min-w-0 items-center gap-3">
                   <Avatar
                     src={user?.image || undefined}
-                    initials={user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}
+                    initials={
+                      user?.name
+                        ? user.name
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .join("")
+                            .toUpperCase()
+                        : "U"
+                    }
                     className="size-10"
                     square
                     alt=""
                   />
                   <span className="min-w-0">
                     <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">
-                      {user?.name || 'User'}
+                      {user?.name || "User"}
                     </span>
                     <span className="block truncate text-xs/5 font-normal text-zinc-500 dark:text-zinc-400">
-                      {user?.email || ''}
+                      {user?.email || ""}
                     </span>
                   </span>
                 </span>
                 <ChevronUpIcon />
               </DropdownButton>
-              <AccountDropdownMenu anchor="top start" onSignOut={handleSignOut} />
+              <AccountDropdownMenu
+                anchor="top start"
+                onSignOut={handleSignOut}
+              />
             </Dropdown>
           </SidebarFooter>
         </Sidebar>
