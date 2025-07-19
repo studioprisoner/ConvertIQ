@@ -8,27 +8,42 @@ import { trpc } from '@/lib/trpc/client';
 import type { UrlValidationInput } from '@/lib/url-validation';
 
 import type { CrawlResult } from '@/lib/crawler/types';
+import type { AIAnalysisResult } from '@/lib/ai/types';
 
 export default function ScanPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
+
+  const aiAnalysisMutation = trpc.ai.analyze.useMutation({
+    onSuccess: (result) => {
+      console.log('🤖 AI analysis completed successfully:', result);
+      setAiAnalysisResult(result);
+      setProcessingMessage('🎉 AI analysis complete! Review your optimization recommendations below.');
+      setIsProcessing(false);
+    },
+    onError: (error) => {
+      console.error('🤖 AI analysis failed:', error);
+      setProcessingMessage(`❌ AI analysis failed: ${error.message}`);
+      setIsProcessing(false);
+    },
+  });
 
   const crawlMutation = trpc.url.crawl.useMutation({
     onSuccess: (result) => {
       console.log('🕷️ Crawl completed successfully:', result);
       setCrawlResult(result);
-      setProcessingMessage('✅ Website crawling completed! Analyzing content...');
+      setProcessingMessage('✅ Website crawling completed! Starting AI analysis...');
       
-      // TODO: In future issues, this will trigger:
-      // - AI analysis (CLD-65)
-      // - Report generation (CLD-66)
-      // - Redirect to results dashboard (CLD-67)
-      
-      // For now, show results after a delay
-      setTimeout(() => {
-        setProcessingMessage('🎉 Analysis complete! Review your results below.');
-      }, 2000);
+      // For now, disable database saving until we have proper website records
+      // TODO: Implement proper website creation flow
+      aiAnalysisMutation.mutate({
+        crawlData: result,
+        websiteId: '550e8400-e29b-41d4-a716-446655440000', // Mock ID
+        analysisType: 'comprehensive',
+        saveToDb: false, // Disable DB save for now
+      });
     },
     onError: (error) => {
       console.error('🕷️ Crawl failed:', error);
@@ -94,9 +109,12 @@ export default function ScanPage() {
               <strong>Status:</strong> {processingMessage}
             </div>
             
-            {crawlMutation.isPending && (
+            {(crawlMutation.isPending || aiAnalysisMutation.isPending) && (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-sm text-zinc-600 dark:text-zinc-400">
+                  {crawlMutation.isPending ? 'Crawling website...' : 'Running AI analysis...'}
+                </span>
               </div>
             )}
             
@@ -152,11 +170,106 @@ export default function ScanPage() {
                   </div>
                 )}
 
-                <div className="bg-zinc-50 dark:bg-zinc-950 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 text-center">
-                    🚀 <strong>Next:</strong> This crawl data will be used by AI analysis (CLD-65) to generate actionable recommendations for conversion optimization.
-                  </p>
-                </div>
+                {aiAnalysisResult && (
+                  <div className="space-y-6">
+                    <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 dark:border-blue-800 dark:bg-blue-950">
+                      <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                        🤖 AI Analysis Results
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                            {aiAnalysisResult.overallScore}/10
+                          </div>
+                          <div className="text-sm text-blue-700 dark:text-blue-200">Overall Score</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                            {aiAnalysisResult.recommendations.length}
+                          </div>
+                          <div className="text-sm text-blue-700 dark:text-blue-200">Recommendations</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                            {aiAnalysisResult.keyInsights.length}
+                          </div>
+                          <div className="text-sm text-blue-700 dark:text-blue-200">Key Insights</div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-blue-800 dark:text-blue-200">
+                        <p><strong>Summary:</strong> {aiAnalysisResult.summary}</p>
+                      </div>
+                    </div>
+
+                    {aiAnalysisResult.recommendations.length > 0 && (
+                      <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+                        <h5 className="font-semibold text-zinc-900 dark:text-white mb-4">
+                          🎯 Top Recommendations
+                        </h5>
+                        <div className="space-y-4">
+                          {aiAnalysisResult.recommendations.slice(0, 3).map((rec) => (
+                            <div key={rec.id} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4">
+                              <div className="flex items-start justify-between mb-2">
+                                <h6 className="font-medium text-zinc-900 dark:text-white">{rec.title}</h6>
+                                <div className="flex items-center space-x-2">
+                                  <span className={`px-2 py-1 text-xs rounded-full ${
+                                    rec.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                    rec.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  }`}>
+                                    {rec.priority} priority
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">{rec.description}</p>
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                  <span className="font-medium">Impact:</span> {rec.impact.score}/10 ({rec.impact.category})
+                                </div>
+                                <div>
+                                  <span className="font-medium">Effort:</span> {rec.effort.score}/10 ({rec.effort.category})
+                                </div>
+                              </div>
+                              <div className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
+                                <span className="font-medium">Why it matters:</span> {rec.whyItMatters}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {aiAnalysisResult.keyInsights.length > 0 && (
+                      <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+                        <h5 className="font-semibold text-zinc-900 dark:text-white mb-4">
+                          💡 Key Insights
+                        </h5>
+                        <ul className="space-y-2">
+                          {aiAnalysisResult.keyInsights.map((insight, index) => (
+                            <li key={index} className="text-sm text-zinc-600 dark:text-zinc-400 flex items-start">
+                              <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                              {insight}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800 p-4">
+                      <p className="text-sm text-green-800 dark:text-green-200 text-center">
+                        ✅ <strong>Analysis Complete!</strong> Your website has been analyzed by ConvertIQ AI. Implement the recommendations above to improve your conversion rates.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {!aiAnalysisResult && crawlResult && (
+                  <div className="bg-zinc-50 dark:bg-zinc-950 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 text-center">
+                      🚀 <strong>Next:</strong> AI analysis is running to generate actionable recommendations for conversion optimization.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
