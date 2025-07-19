@@ -2,11 +2,11 @@ import { pgTable, uuid, varchar, timestamp, text } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
-import { users } from './users';
+import { user } from './auth';
 
 export const websites = pgTable('websites', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   url: varchar('url', { length: 500 }).notNull(),
   name: varchar('name', { length: 255 }),
   description: text('description'),
@@ -16,9 +16,9 @@ export const websites = pgTable('websites', {
 
 // Relations
 export const websitesRelations = relations(websites, ({ one, many }) => ({
-  user: one(users, {
+  user: one(user, {
     fields: [websites.userId],
-    references: [users.id],
+    references: [user.id],
   }),
 }));
 
