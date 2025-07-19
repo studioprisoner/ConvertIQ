@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../server';
 import { validateUrl } from '@/lib/url-validation';
+import { WebCrawler } from '@/lib/crawler/crawler';
+import { crawlerOptionsSchema } from '@/lib/crawler/types';
 
 export const urlRouter = createTRPCRouter({
   // No-input test procedure
@@ -39,6 +41,27 @@ export const urlRouter = createTRPCRouter({
       const result = await validateUrl(url, validPageType);
       
       console.log('tRPC url.validate returning result:', JSON.stringify(result, null, 2));
+      return result;
+    }),
+
+  // Crawl a website and extract content
+  crawl: publicProcedure
+    .input(z.object({
+      url: z.string().url(),
+      options: crawlerOptionsSchema.optional(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log('🕷️ tRPC url.crawl received input:', JSON.stringify(input, null, 2));
+      
+      const { url, options = {} } = input;
+      
+      // Create crawler instance with options
+      const crawler = new WebCrawler(options);
+      
+      // Perform the crawl
+      const result = await crawler.crawl(url);
+      
+      console.log('🕷️ tRPC url.crawl completed for:', url);
       return result;
     }),
 });

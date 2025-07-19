@@ -58,6 +58,7 @@ export function UrlScanner({ onScanStart, onValidationResult }: UrlScannerProps)
     },
   });
 
+
   const handleUrlChange = (value: string) => {
     setUrl(value);
     setValidationMessage(null);
