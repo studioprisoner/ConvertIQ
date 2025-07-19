@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Heading } from '@/components/heading';
 import { Text } from '@/components/text';
 import { UrlScanner } from '@/components/url-scanner';
@@ -11,17 +12,54 @@ import type { CrawlResult } from '@/lib/crawler/types';
 import type { AIAnalysisResult } from '@/lib/ai/types';
 
 export default function ScanPage() {
+  const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
+  const [currentWebsiteId, setCurrentWebsiteId] = useState<string | null>(null);
+
+  const websiteCreateMutation = trpc.websites.createOrGet.useMutation({
+    onSuccess: (website) => {
+      console.log('📝 Website created/found:', website);
+      console.log('🔍 Setting websiteId:', website.id);
+      setCurrentWebsiteId(website.id);
+      setProcessingMessage('✅ Website registered! Starting content crawl...');
+      
+      // Now start the crawling process
+      crawlMutation.mutate({
+        url: website.url,
+        options: {
+          timeout: 30000,
+          followRedirects: true,
+          respectRobots: true,
+          includeRawHtml: false, // Don't include raw HTML to save space
+        },
+      });
+    },
+    onError: (error) => {
+      console.error('📝 Website creation failed:', error);
+      setProcessingMessage(`❌ Website registration failed: ${error.message}`);
+      setIsProcessing(false);
+    },
+  });
 
   const aiAnalysisMutation = trpc.ai.analyze.useMutation({
     onSuccess: (result) => {
       console.log('🤖 AI analysis completed successfully:', result);
       setAiAnalysisResult(result);
-      setProcessingMessage('🎉 AI analysis complete! Review your optimization recommendations below.');
+      setProcessingMessage('🎉 AI analysis complete! Redirecting to full dashboard...');
       setIsProcessing(false);
+      
+      // Automatically redirect to reports dashboard after 2 seconds
+      setTimeout(() => {
+        if (currentWebsiteId) {
+          router.push(`/dashboard/reports?websiteId=${currentWebsiteId}`);
+        } else {
+          console.warn('No websiteId available for redirect');
+          router.push('/dashboard/reports');
+        }
+      }, 2000);
     },
     onError: (error) => {
       console.error('🤖 AI analysis failed:', error);
@@ -36,13 +74,18 @@ export default function ScanPage() {
       setCrawlResult(result);
       setProcessingMessage('✅ Website crawling completed! Starting AI analysis...');
       
-      // For now, disable database saving until we have proper website records
-      // TODO: Implement proper website creation flow
+      // Use the actual website ID and enable database saving
+      if (!currentWebsiteId) {
+        setProcessingMessage('❌ Error: Website ID not found. Please try again.');
+        setIsProcessing(false);
+        return;
+      }
+
       aiAnalysisMutation.mutate({
         crawlData: result,
-        websiteId: '550e8400-e29b-41d4-a716-446655440000', // Mock ID
+        websiteId: currentWebsiteId,
         analysisType: 'comprehensive',
-        saveToDb: false, // Disable DB save for now
+        saveToDb: true, // Enable DB save with real website ID
       });
     },
     onError: (error) => {
@@ -54,21 +97,18 @@ export default function ScanPage() {
 
   const handleScanStart = async (data: UrlValidationInput & { detectedPageType: string }) => {
     setIsProcessing(true);
-    setProcessingMessage('🔍 Starting website crawl...');
+    setProcessingMessage('📝 Registering website...');
     setCrawlResult(null);
+    setAiAnalysisResult(null);
+    setCurrentWebsiteId(null);
 
     try {
       console.log('🚀 Starting scan for:', data);
       
-      // Start the actual crawling process
-      crawlMutation.mutate({
+      // First, create or get the website record
+      websiteCreateMutation.mutate({
         url: data.url,
-        options: {
-          timeout: 30000,
-          followRedirects: true,
-          respectRobots: true,
-          includeRawHtml: false, // Don't include raw HTML to save space
-        },
+        pageType: data.detectedPageType,
       });
       
     } catch (error) {
@@ -256,9 +296,30 @@ export default function ScanPage() {
                     )}
 
                     <div className="bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800 p-4">
-                      <p className="text-sm text-green-800 dark:text-green-200 text-center">
+                      <p className="text-sm text-green-800 dark:text-green-200 text-center mb-4">
                         ✅ <strong>Analysis Complete!</strong> Your website has been analyzed by ConvertIQ AI. Implement the recommendations above to improve your conversion rates.
                       </p>
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => {
+                            console.log('Manual redirect clicked, websiteId:', currentWebsiteId);
+                            if (currentWebsiteId) {
+                              router.push(`/dashboard/reports?websiteId=${currentWebsiteId}`);
+                            } else {
+                              console.warn('No websiteId available, redirecting to general reports');
+                              router.push('/dashboard/reports');
+                            }
+                          }}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                        >
+                          View Full Dashboard
+                          {currentWebsiteId && (
+                            <span className="ml-2 text-xs opacity-75">
+                              ({currentWebsiteId.slice(0, 8)}...)
+                            </span>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
