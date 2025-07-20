@@ -2,6 +2,20 @@
 
 import { useState } from "react";
 import { useSession } from "@/lib/auth-client";
+
+// Extended user type to include our custom fields
+type ExtendedUser = {
+  id: string;
+  name: string;
+  emailVerified: boolean;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+  image?: string | null;
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string;
+};
 import { Button } from "@/components/button";
 import { Input } from "@/components/input";
 import { Avatar } from "@/components/avatar";
@@ -12,7 +26,7 @@ import { UserIcon, CameraIcon } from "@heroicons/react/24/outline";
 
 export default function AccountPage() {
   const { data: session } = useSession();
-  const user = session?.user;
+  const user = session?.user as ExtendedUser | undefined;
 
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.firstName || "");
@@ -169,7 +183,6 @@ export default function AccountPage() {
                 onChange={handleAvatarChange}
               />
               <Button 
-                color="white" 
                 outline
                 onClick={handleRemoveAvatar}
                 disabled={isLoading}
@@ -285,7 +298,7 @@ export default function AccountPage() {
               </p>
             </div>
             {!user?.emailVerified && (
-              <Button color="blue" outline>
+              <Button outline>
                 Verify Email
               </Button>
             )}
