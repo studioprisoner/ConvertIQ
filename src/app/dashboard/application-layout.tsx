@@ -1,6 +1,20 @@
 "use client";
 
 import { Avatar } from "@/components/avatar";
+
+// Extended user type to include our custom fields
+type ExtendedUser = {
+  id: string;
+  name: string;
+  emailVerified: boolean;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+  image?: string | null;
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string;
+};
 import {
   Dropdown,
   DropdownButton,
@@ -108,7 +122,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  const user = session.user;
+  const user = session.user as ExtendedUser;
 
   return (
     <SidebarLayout
