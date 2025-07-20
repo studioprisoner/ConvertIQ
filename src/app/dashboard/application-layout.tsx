@@ -52,6 +52,7 @@ import {
   ChartBarIcon,
   ClockIcon,
   Cog6ToothIcon,
+  CreditCardIcon,
   HomeIcon,
   QuestionMarkCircleIcon,
   SparklesIcon,
@@ -190,6 +191,13 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
               >
                 <ClockIcon />
                 <SidebarLabel>History</SidebarLabel>
+              </SidebarItem>
+              <SidebarItem
+                href="/pricing"
+                current={pathname.startsWith("/pricing")}
+              >
+                <CreditCardIcon />
+                <SidebarLabel>Pricing & Billing</SidebarLabel>
               </SidebarItem>
               <SidebarItem
                 href="/dashboard/settings"

@@ -1,6 +1,6 @@
 import { db } from '@/db/connection';
 import { subscriptionPlans, planPrices } from '@/db/schema/subscriptions';
-import { POLAR_CONFIG } from './polar';
+import { POLAR_CONFIG } from './polar-config';
 import { seedPlanFeatures } from './feature-gate';
 
 /**

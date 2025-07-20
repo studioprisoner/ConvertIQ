@@ -71,6 +71,11 @@ const createCheckoutSchema = z.object({
   cancelUrl: z.string().url().optional(),
 });
 
+const planSelectionSchema = z.object({
+  planType: z.enum(['basic', 'pro']),
+  billingCycle: z.enum(['monthly', 'annual']).default('monthly'),
+});
+
 // Removed unused schema
 
 const createTrialSchema = z.object({
@@ -125,10 +130,8 @@ export async function POST(request: NextRequest) {
         return await handleCheckLimits(session.user.id, body);
       
       default:
-        return NextResponse.json(
-          { error: 'Invalid operation' },
-          { status: 400 }
-        );
+        // No operation specified - handle direct plan selection from pricing page
+        return await handlePlanSelection(session.user.id, session.user.email, body);
     }
   } catch (error) {
     console.error('Error handling subscription operation:', error);
@@ -230,4 +233,42 @@ async function handleCheckLimits(userId: string, body: unknown) {
   const result = await checkSubscriptionLimits(userId, validatedData.action);
   
   return NextResponse.json(result);
+}
+
+async function handlePlanSelection(userId: string, userEmail: string, body: unknown) {
+  const validatedData = planSelectionSchema.parse(body);
+  
+  // Check if user already has a subscription
+  const existingSubscription = await getUserSubscription(userId);
+  
+  if (existingSubscription) {
+    // Existing user - change their plan
+    const subscription = await changeSubscriptionPlan(
+      userId, 
+      validatedData.planType, 
+      validatedData.billingCycle
+    );
+    
+    return NextResponse.json({
+      success: true,
+      subscription,
+      message: 'Plan changed successfully',
+      checkoutUrl: null,
+    });
+  } else {
+    // New user - create trial subscription
+    const subscription = await createSubscriptionWithTrial(
+      userId,
+      userEmail,
+      validatedData.planType,
+      validatedData.billingCycle
+    );
+    
+    return NextResponse.json({
+      success: true,
+      subscription,
+      message: 'Trial subscription created successfully',
+      checkoutUrl: null,
+    });
+  }
 }
