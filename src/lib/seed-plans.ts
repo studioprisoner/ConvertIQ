@@ -1,6 +1,7 @@
 import { db } from '@/db/connection';
 import { subscriptionPlans, planPrices } from '@/db/schema/subscriptions';
 import { POLAR_CONFIG } from './polar';
+import { seedPlanFeatures } from './feature-gate';
 
 /**
  * Seed the database with subscription plans
@@ -81,6 +82,10 @@ export async function seedSubscriptionPlans() {
     ]);
 
     console.log('Subscription plans seeded successfully');
+    
+    // Also seed plan features
+    await seedPlanFeatures();
+    console.log('Plan features seeded successfully');
   } catch (error) {
     console.error('Error seeding subscription plans:', error);
     throw error;

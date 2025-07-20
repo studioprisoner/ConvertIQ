@@ -94,3 +94,41 @@ export const subscriptionEvents = pgTable('subscription_events', {
   
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+// Plan feature definitions for granular feature gating
+export const planFeatures = pgTable('plan_features', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  planSlug: text('plan_slug').notNull(), // 'basic', 'pro', 'enterprise'
+  featureKey: text('feature_key').notNull(), // 'multiple_websites', 'task_management', 'integrations'
+  isEnabled: boolean('is_enabled').default(true),
+  usageLimit: integer('usage_limit'), // null = unlimited, number = specific limit
+  featureType: text('feature_type').notNull().default('boolean'), // 'boolean', 'count', 'usage'
+  metadata: jsonb('metadata'), // Additional feature configuration
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Feature usage tracking for detailed analytics
+export const featureUsage = pgTable('feature_usage', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  featureName: text('feature_name').notNull(),
+  usageCount: integer('usage_count').default(0),
+  lastUsed: timestamp('last_used'),
+  periodStart: timestamp('period_start').notNull(),
+  periodEnd: timestamp('period_end').notNull(),
+  metadata: jsonb('metadata'), // Store additional usage context
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Feature access attempts for conversion analytics
+export const featureAccessAttempts = pgTable('feature_access_attempts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  featureKey: text('feature_key').notNull(),
+  accessGranted: boolean('access_granted'),
+  userPlan: text('user_plan'),
+  upgradePromptShown: boolean('upgrade_prompt_shown').default(false),
+  upgradeCompleted: boolean('upgrade_completed').default(false),
+  sessionId: text('session_id'), // Track user session for funnel analysis
+  createdAt: timestamp('created_at').defaultNow(),
+});
