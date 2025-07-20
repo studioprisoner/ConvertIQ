@@ -6,7 +6,12 @@ import {
   getSubscriptionStats,
   createCheckoutSession,
   cancelSubscription,
-  reactivateSubscription
+  reactivateSubscription,
+  createSubscriptionWithTrial,
+  changeSubscriptionPlan,
+  getSubscriptionEventHistory,
+  getAvailablePlans,
+  getSubscriptionAnalytics
 } from '@/lib/subscription-service';
 import { z } from 'zod';
 
@@ -24,13 +29,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const subscription = await getUserSubscription(session.user.id);
-    const stats = await getSubscriptionStats(session.user.id);
+    const { searchParams } = new URL(request.url);
+    const operation = searchParams.get('operation');
 
-    return NextResponse.json({
-      subscription,
-      stats,
-    });
+    switch (operation) {
+      case 'analytics':
+        const analytics = await getSubscriptionAnalytics(session.user.id);
+        return NextResponse.json({ analytics });
+
+      case 'plans':
+        const plans = await getAvailablePlans();
+        return NextResponse.json({ plans });
+
+      case 'events':
+        const limit = parseInt(searchParams.get('limit') || '10');
+        const events = await getSubscriptionEventHistory(session.user.id, limit);
+        return NextResponse.json({ events });
+
+      default:
+        // Default behavior - get subscription and stats
+        const subscription = await getUserSubscription(session.user.id);
+        const stats = await getSubscriptionStats(session.user.id);
+        return NextResponse.json({
+          subscription,
+          stats,
+        });
+    }
   } catch (error) {
     console.error('Error getting subscription:', error);
     return NextResponse.json(
@@ -42,11 +66,22 @@ export async function GET(request: NextRequest) {
 
 const createCheckoutSchema = z.object({
   planType: z.enum(['basic', 'pro']),
+  billingCycle: z.enum(['monthly', 'annual']).default('monthly'),
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
 });
 
 // Removed unused schema
+
+const createTrialSchema = z.object({
+  planSlug: z.enum(['basic', 'pro']),
+  billingCycle: z.enum(['monthly', 'annual']).default('monthly'),
+});
+
+const changePlanSchema = z.object({
+  newPlanSlug: z.enum(['basic', 'pro']),
+  newBillingCycle: z.enum(['monthly', 'annual']).optional(),
+});
 
 const checkLimitsSchema = z.object({
   action: z.enum(['add_website', 'scan_website']),
@@ -73,6 +108,12 @@ export async function POST(request: NextRequest) {
     switch (operation) {
       case 'create_checkout':
         return await handleCreateCheckout(session.user.id, body);
+      
+      case 'create_trial':
+        return await handleCreateTrial(session.user.id, session.user.email, body);
+      
+      case 'change_plan':
+        return await handleChangePlan(session.user.id, body);
       
       case 'cancel':
         return await handleCancelSubscription(session.user.id);
@@ -107,6 +148,7 @@ async function handleCreateCheckout(userId: string, body: unknown) {
   const checkoutSession = await createCheckoutSession(
     userId,
     validatedData.planType,
+    validatedData.billingCycle,
     validatedData.successUrl || defaultSuccessUrl,
     validatedData.cancelUrl || defaultCancelUrl
   );
@@ -146,6 +188,39 @@ async function handleReactivateSubscription(userId: string) {
   return NextResponse.json({
     success: true,
     message: 'Subscription has been reactivated',
+  });
+}
+
+async function handleCreateTrial(userId: string, userEmail: string, body: unknown) {
+  const validatedData = createTrialSchema.parse(body);
+  
+  const subscription = await createSubscriptionWithTrial(
+    userId,
+    userEmail,
+    validatedData.planSlug,
+    validatedData.billingCycle
+  );
+  
+  return NextResponse.json({
+    success: true,
+    subscription,
+    message: 'Trial subscription created successfully',
+  });
+}
+
+async function handleChangePlan(userId: string, body: unknown) {
+  const validatedData = changePlanSchema.parse(body);
+  
+  const subscription = await changeSubscriptionPlan(
+    userId,
+    validatedData.newPlanSlug,
+    validatedData.newBillingCycle
+  );
+  
+  return NextResponse.json({
+    success: true,
+    subscription,
+    message: 'Plan changed successfully',
   });
 }
 

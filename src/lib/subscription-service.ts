@@ -1,14 +1,17 @@
 import { db } from '@/db/connection';
-import { polar, getPlanDetails } from './polar';
+import { polar } from './polar';
 import { 
   subscriptions, 
   subscriptionPlans, 
-  usageTracking
+  usageTracking,
+  planPrices,
+  subscriptionEvents
 } from '@/db/schema/subscriptions';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 export type PlanType = 'basic' | 'pro';
 export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
+export type BillingCycle = 'monthly' | 'annual';
 
 export interface UserSubscription {
   id: string;
@@ -19,6 +22,7 @@ export interface UserSubscription {
   currentPeriodEnd: Date | null;
   trialEnd: Date | null;
   cancelAtPeriodEnd: boolean;
+  billingCycle: BillingCycle;
   plan?: {
     name: string;
     slug: string;
@@ -29,6 +33,187 @@ export interface UserSubscription {
     websiteCount: number;
     scansThisMonth: number;
   };
+}
+
+/**
+ * Get or create a Polar customer for the user
+ */
+async function getOrCreatePolarCustomer(userId: string, userEmail: string): Promise<{ id: string; email: string; metadata?: Record<string, unknown> }> {
+  try {
+    // For now, create a new customer - in production you'd want to search existing ones
+    // TODO: Search for existing customers by metadata when Polar API supports it
+    const customer = await polar.customers.create({
+      organizationName: 'convertiq',
+      email: userEmail,
+      metadata: {
+        userId: userId,
+        source: 'convertiq'
+      }
+    });
+    
+    return customer;
+  } catch (error) {
+    console.error('Error managing Polar customer:', error);
+    throw new Error('Failed to manage customer in Polar');
+  }
+}
+
+/**
+ * Get Polar price ID for a plan and billing cycle
+ */
+async function getPolarPriceId(planSlug: string, billingCycle: BillingCycle): Promise<string> {
+  try {
+    // First get the plan ID from database
+    const [plan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.slug, planSlug))
+      .limit(1);
+    
+    if (!plan) {
+      throw new Error(`Plan ${planSlug} not found`);
+    }
+    
+    // Then get the price for this billing cycle
+    const [price] = await db
+      .select()
+      .from(planPrices)
+      .where(
+        and(
+          eq(planPrices.planId, plan.id),
+          eq(planPrices.billingInterval, billingCycle),
+          eq(planPrices.isActive, true)
+        )
+      )
+      .limit(1);
+    
+    if (!price?.polarPriceId) {
+      throw new Error(`Price for ${planSlug} ${billingCycle} not found in database`);
+    }
+    
+    return price.polarPriceId;
+  } catch (error) {
+    console.error('Error getting Polar price ID:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new subscription with Polar integration and trial period
+ */
+export async function createSubscriptionWithTrial(
+  userId: string, 
+  userEmail: string,
+  planSlug: string, 
+  billingCycle: BillingCycle = 'monthly'
+): Promise<UserSubscription> {
+  try {
+    // Get plan details
+    const [plan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.slug, planSlug))
+      .limit(1);
+    
+    if (!plan) {
+      throw new Error(`Plan ${planSlug} not found`);
+    }
+    
+    // Get Polar price ID
+    const priceId = await getPolarPriceId(planSlug, billingCycle);
+    
+    // Get or create customer in Polar
+    const customer = await getOrCreatePolarCustomer(userId, userEmail);
+    
+    // Create subscription in Polar with trial
+    const polarSubscription = await polar.subscriptions.create({
+      customerId: customer.id,
+      priceId: priceId,
+      trialPeriodDays: 14,
+      metadata: {
+        userId: userId,
+        planSlug: planSlug,
+        source: 'convertiq'
+      }
+    });
+    
+    // Calculate trial dates
+    const trialStart = new Date();
+    const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days from now
+    
+    // Store subscription locally
+    const [subscription] = await db.insert(subscriptions).values({
+      userId: userId,
+      planId: plan.id,
+      polarSubscriptionId: polarSubscription.id,
+      polarCustomerId: customer.id,
+      polarProductId: polarSubscription.productId,
+      polarPriceId: priceId,
+      status: 'trialing',
+      billingCycle: billingCycle,
+      trialStart: trialStart,
+      trialEnd: trialEnd,
+      currentPeriodStart: new Date(polarSubscription.currentPeriodStart),
+      currentPeriodEnd: new Date(polarSubscription.currentPeriodEnd),
+      metadata: {
+        polarMetadata: polarSubscription.metadata
+      },
+    }).returning();
+    
+    // Log subscription creation event
+    await db.insert(subscriptionEvents).values({
+      subscriptionId: subscription.id,
+      eventType: 'subscription.created',
+      eventData: {
+        action: 'trial_started',
+        planSlug: planSlug,
+        billingCycle: billingCycle,
+        trialDays: 14
+      },
+    });
+    
+    // Initialize usage tracking
+    await initializeUsageTracking(userId, subscription.id);
+    
+    return {
+      id: subscription.id,
+      userId: subscription.userId,
+      planId: subscription.planId,
+      status: subscription.status as SubscriptionStatus,
+      currentPeriodStart: subscription.currentPeriodStart,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      trialEnd: subscription.trialEnd,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      billingCycle: subscription.billingCycle as BillingCycle,
+      plan: {
+        name: plan.name,
+        slug: plan.slug,
+        maxWebsites: plan.maxWebsites || 1,
+        maxScansPerMonth: plan.maxScansPerMonth || 1,
+      }
+    };
+  } catch (error) {
+    console.error('Subscription creation failed:', error);
+    throw new Error('Failed to create subscription');
+  }
+}
+
+/**
+ * Initialize usage tracking for a new subscription
+ */
+async function initializeUsageTracking(userId: string, subscriptionId: string): Promise<void> {
+  const now = new Date();
+  const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  
+  await db.insert(usageTracking).values({
+    userId,
+    subscriptionId,
+    websiteCount: 0,
+    scansThisMonth: 0,
+    periodStart: currentMonth,
+    periodEnd: nextMonth,
+  });
 }
 
 /**
@@ -67,6 +252,7 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
       currentPeriodEnd: subscription.currentPeriodEnd,
       trialEnd: subscription.trialEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      billingCycle: (subscription.billingCycle as BillingCycle) || 'monthly',
       plan: plan ? {
         name: plan.name,
         slug: plan.slug,
@@ -206,29 +392,141 @@ export async function trackUsage(
 }
 
 /**
+ * Change subscription plan (upgrade/downgrade) with Polar proration
+ */
+export async function changeSubscriptionPlan(
+  userId: string,
+  newPlanSlug: string,
+  newBillingCycle?: BillingCycle
+): Promise<UserSubscription> {
+  try {
+    // Get current subscription
+    const currentSubscription = await getUserSubscription(userId);
+    if (!currentSubscription) {
+      throw new Error('No active subscription found');
+    }
+
+    // Get full subscription record for Polar IDs
+    const [fullSubscription] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.id, currentSubscription.id))
+      .limit(1);
+
+    if (!fullSubscription.polarSubscriptionId) {
+      throw new Error('Polar subscription ID not found');
+    }
+
+    // Get new plan details
+    const [newPlan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.slug, newPlanSlug))
+      .limit(1);
+
+    if (!newPlan) {
+      throw new Error(`Plan ${newPlanSlug} not found`);
+    }
+
+    // Use current billing cycle if not specified
+    const billingCycle = newBillingCycle || currentSubscription.billingCycle;
+
+    // Get new Polar price ID
+    const newPriceId = await getPolarPriceId(newPlanSlug, billingCycle);
+
+    // Update subscription in Polar with proration
+    const updatedPolarSubscription = await polar.subscriptions.update({
+      id: fullSubscription.polarSubscriptionId,
+      priceId: newPriceId,
+      // Polar handles proration automatically
+    });
+
+    // Determine event type
+    const eventType = getChangeEventType(currentSubscription.plan?.slug || '', newPlanSlug);
+
+    // Log the change event
+    await db.insert(subscriptionEvents).values({
+      subscriptionId: currentSubscription.id,
+      eventType,
+      eventData: {
+        fromPlan: currentSubscription.plan?.slug,
+        toPlan: newPlanSlug,
+        fromBillingCycle: currentSubscription.billingCycle,
+        toBillingCycle: billingCycle,
+        effectiveDate: new Date(),
+      },
+    });
+
+    // Update local subscription
+    await db
+      .update(subscriptions)
+      .set({
+        planId: newPlan.id,
+        polarPriceId: newPriceId,
+        billingCycle: billingCycle,
+        currentPeriodStart: new Date(updatedPolarSubscription.currentPeriodStart),
+        currentPeriodEnd: new Date(updatedPolarSubscription.currentPeriodEnd),
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, currentSubscription.id));
+
+    // Return updated subscription
+    return await getUserSubscription(userId) as UserSubscription;
+  } catch (error) {
+    console.error('Plan change failed:', error);
+    throw new Error('Failed to change subscription plan');
+  }
+}
+
+/**
+ * Helper function to determine event type for plan changes
+ */
+function getChangeEventType(fromPlan: string, toPlan: string): string {
+  const planHierarchy: Record<string, number> = {
+    'basic': 1,
+    'pro': 2,
+  };
+
+  const fromLevel = planHierarchy[fromPlan] || 0;
+  const toLevel = planHierarchy[toPlan] || 0;
+
+  if (toLevel > fromLevel) {
+    return 'subscription.upgraded';
+  } else if (toLevel < fromLevel) {
+    return 'subscription.downgraded';
+  } else {
+    return 'subscription.updated';
+  }
+}
+
+/**
  * Create a checkout session for subscription upgrade/downgrade
  */
 export async function createCheckoutSession(
   userId: string,
   planType: PlanType,
-  _successUrl: string,
-  _cancelUrl: string
+  billingCycle: BillingCycle = 'monthly',
+  successUrl: string,
+  cancelUrl: string
 ) {
   try {
-    const planDetails = getPlanDetails(planType);
+    // Check if user already has a subscription
+    const existingSubscription = await getUserSubscription(userId);
     
-    // TODO: Implement Polar checkout session creation
-    // This would involve creating a product and price in Polar if they don't exist
-    // and then creating a checkout session
-    
-    console.log('Creating checkout session for plan:', planType);
-    console.log('Plan details:', planDetails);
-    
-    // For now, return a placeholder
-    return {
-      checkoutUrl: `https://checkout.polar.sh/placeholder?plan=${planType}`,
-      sessionId: 'placeholder-session-id',
-    };
+    if (existingSubscription) {
+      // For existing users, use the plan change function
+      const updatedSubscription = await changeSubscriptionPlan(userId, planType, billingCycle);
+      return {
+        checkoutUrl: null, // No checkout needed for existing subscribers
+        sessionId: null,
+        subscription: updatedSubscription,
+        message: 'Plan changed successfully',
+      };
+    }
+
+    // For new users, we need user email to create customer
+    // This should be handled by a separate endpoint that can access user data
+    throw new Error('New subscription creation requires user email. Use createSubscriptionWithTrial instead.');
   } catch (error) {
     console.error('Error creating checkout session:', error);
     throw new Error('Failed to create checkout session');
@@ -316,15 +614,35 @@ export async function getSubscriptionStats(userId: string) {
       ? Math.ceil((subscription.currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
+    const daysInTrial = subscription.trialEnd && subscription.status === 'trialing'
+      ? Math.ceil((subscription.trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    // Calculate usage percentages
+    const websiteUsagePercent = subscription.plan?.maxWebsites === -1 
+      ? 0 
+      : Math.round(((subscription.usage?.websiteCount || 0) / (subscription.plan?.maxWebsites || 1)) * 100);
+
+    const scanUsagePercent = subscription.plan?.maxScansPerMonth === -1
+      ? 0
+      : Math.round(((subscription.usage?.scansThisMonth || 0) / (subscription.plan?.maxScansPerMonth || 1)) * 100);
+
     return {
       planName: subscription.plan?.name || 'Unknown',
+      planSlug: subscription.plan?.slug || '',
       status: subscription.status,
+      billingCycle: subscription.billingCycle,
       renewalDate: subscription.currentPeriodEnd,
       daysUntilRenewal,
+      daysInTrial: Math.max(0, daysInTrial),
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       isTrialing: subscription.status === 'trialing',
       trialEnd: subscription.trialEnd,
-      usage: subscription.usage,
+      usage: {
+        ...subscription.usage,
+        websiteUsagePercent,
+        scanUsagePercent,
+      },
       limits: {
         websites: subscription.plan?.maxWebsites || 0,
         scansPerMonth: subscription.plan?.maxScansPerMonth || 0,
@@ -332,6 +650,146 @@ export async function getSubscriptionStats(userId: string) {
     };
   } catch (error) {
     console.error('Error getting subscription stats:', error);
+    return null;
+  }
+}
+
+/**
+ * Get subscription events history for analytics
+ */
+export async function getSubscriptionEventHistory(userId: string, limit: number = 10) {
+  try {
+    const subscription = await getUserSubscription(userId);
+    if (!subscription) return [];
+
+    const events = await db
+      .select({
+        id: subscriptionEvents.id,
+        eventType: subscriptionEvents.eventType,
+        eventData: subscriptionEvents.eventData,
+        createdAt: subscriptionEvents.createdAt,
+      })
+      .from(subscriptionEvents)
+      .where(eq(subscriptionEvents.subscriptionId, subscription.id))
+      .orderBy(desc(subscriptionEvents.createdAt))
+      .limit(limit);
+
+    return events;
+  } catch (error) {
+    console.error('Error getting subscription event history:', error);
+    return [];
+  }
+}
+
+/**
+ * Get available plans for plan comparison
+ */
+export async function getAvailablePlans() {
+  try {
+    const plans = await db
+      .select({
+        id: subscriptionPlans.id,
+        name: subscriptionPlans.name,
+        slug: subscriptionPlans.slug,
+        priceMonthly: subscriptionPlans.priceMonthly,
+        priceYearly: subscriptionPlans.priceYearly,
+        features: subscriptionPlans.features,
+        maxWebsites: subscriptionPlans.maxWebsites,
+        maxScansPerMonth: subscriptionPlans.maxScansPerMonth,
+      })
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.isActive, true))
+      .orderBy(subscriptionPlans.priceMonthly);
+
+    // Get pricing for each plan
+    const plansWithPricing = await Promise.all(
+      plans.map(async (plan) => {
+        const prices = await db
+          .select()
+          .from(planPrices)
+          .where(
+            and(
+              eq(planPrices.planId, plan.id),
+              eq(planPrices.isActive, true)
+            )
+          );
+
+        const monthlyPrice = prices.find(p => p.billingInterval === 'monthly');
+        const annualPrice = prices.find(p => p.billingInterval === 'annual');
+
+        return {
+          ...plan,
+          pricing: {
+            monthly: monthlyPrice ? {
+              amount: monthlyPrice.amount,
+              polarPriceId: monthlyPrice.polarPriceId,
+            } : null,
+            annual: annualPrice ? {
+              amount: annualPrice.amount,
+              polarPriceId: annualPrice.polarPriceId,
+            } : null,
+          }
+        };
+      })
+    );
+
+    return plansWithPricing;
+  } catch (error) {
+    console.error('Error getting available plans:', error);
+    return [];
+  }
+}
+
+/**
+ * Get comprehensive subscription analytics for admin/reporting
+ */
+export async function getSubscriptionAnalytics(userId: string) {
+  try {
+    const subscription = await getUserSubscription(userId);
+    if (!subscription) return null;
+
+    // Get subscription history events
+    const events = await getSubscriptionEventHistory(userId, 50);
+
+    // Calculate subscription lifetime metrics
+    const subscriptionStartDate = events.find(e => e.eventType === 'subscription.created')?.createdAt;
+    const daysSinceStart = subscriptionStartDate
+      ? Math.floor((new Date().getTime() - new Date(subscriptionStartDate).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    // Count usage over time
+    const usageHistory = await db
+      .select()
+      .from(usageTracking)
+      .where(eq(usageTracking.userId, userId))
+      .orderBy(desc(usageTracking.periodStart))
+      .limit(12); // Last 12 months
+
+    // Calculate total scans and websites ever created
+    const totalScans = usageHistory.reduce((sum, period) => sum + (period.scansThisMonth || 0), 0);
+    const maxWebsites = Math.max(...usageHistory.map(period => period.websiteCount || 0), 0);
+
+    return {
+      subscription: await getSubscriptionStats(userId),
+      metrics: {
+        daysSinceStart,
+        totalScans,
+        maxWebsites,
+        averageScansPerMonth: usageHistory.length > 0 ? Math.round(totalScans / usageHistory.length) : 0,
+      },
+      usageHistory: usageHistory.map(period => ({
+        period: period.periodStart,
+        websiteCount: period.websiteCount || 0,
+        scansThisMonth: period.scansThisMonth || 0,
+      })),
+      events: events.map(event => ({
+        type: event.eventType,
+        data: event.eventData,
+        date: event.createdAt,
+      })),
+    };
+  } catch (error) {
+    console.error('Error getting subscription analytics:', error);
     return null;
   }
 }

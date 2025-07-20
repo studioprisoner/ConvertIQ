@@ -35,6 +35,9 @@ export const subscriptions = pgTable('subscriptions', {
   canceledAt: timestamp('canceled_at'),
   cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false),
   
+  // Billing cycle
+  billingCycle: text('billing_cycle').default('monthly'), // monthly, annual
+  
   // Trial information
   trialStart: timestamp('trial_start'),
   trialEnd: timestamp('trial_end'),
@@ -44,6 +47,18 @@ export const subscriptions = pgTable('subscriptions', {
   
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Plan prices mapping to Polar
+export const planPrices = pgTable('plan_prices', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  planId: uuid('plan_id').notNull().references(() => subscriptionPlans.id, { onDelete: 'cascade' }),
+  polarPriceId: text('polar_price_id').unique(),
+  billingInterval: text('billing_interval').notNull(), // monthly, annual
+  amount: integer('amount').notNull(), // in cents
+  currency: text('currency').default('USD'),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
 // Usage tracking table for monitoring plan limits
