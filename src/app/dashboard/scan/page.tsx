@@ -6,6 +6,9 @@ import { Heading } from '@/components/heading';
 import { Text } from '@/components/text';
 import { UrlScanner } from '@/components/url-scanner';
 import { trpc } from '@/lib/trpc/client';
+import { useFeatureGate, useSubscriptionStatus } from '@/hooks/use-feature-gate';
+import { FeatureGate, UsageMeter } from '@/components/feature-gating/feature-gate';
+import { UpgradePrompt } from '@/components/feature-gating/upgrade-prompt';
 import type { UrlValidationInput } from '@/lib/url-validation';
 
 import type { CrawlResult } from '@/lib/crawler/types';
@@ -18,6 +21,10 @@ export default function ScanPage() {
   const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
   const [currentWebsiteId, setCurrentWebsiteId] = useState<string | null>(null);
+
+  // Feature gating hooks
+  const scanFeatureGate = useFeatureGate('unlimited_scans');
+  const { stats } = useSubscriptionStatus();
 
   const websiteCreateMutation = trpc.websites.createOrGet.useMutation({
     onSuccess: (website) => {
@@ -96,6 +103,12 @@ export default function ScanPage() {
   });
 
   const handleScanStart = async (data: UrlValidationInput & { detectedPageType: string }) => {
+    // Check feature access before starting scan
+    if (!scanFeatureGate.hasAccess) {
+      console.warn('Scan blocked by feature gate:', scanFeatureGate.reason);
+      return;
+    }
+
     setIsProcessing(true);
     setProcessingMessage('📝 Registering website...');
     setCrawlResult(null);
@@ -133,17 +146,85 @@ export default function ScanPage() {
         </Text>
       </div>
 
+      {/* Subscription Status & Usage */}
+      {stats && (
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+              Scan Usage
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                Current Plan:
+              </span>
+              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-md">
+                {stats.planName}
+              </span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Scans This Month
+                </span>
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {stats.usage?.scansThisMonth || 0} / {stats.limits?.scansPerMonth === -1 ? '∞' : stats.limits?.scansPerMonth}
+                </span>
+              </div>
+              <UsageMeter featureKey="unlimited_scans" />
+              
+              {scanFeatureGate.usagePercentage && scanFeatureGate.usagePercentage >= 80 && (
+                <div className="mt-3">
+                  <UpgradePrompt 
+                    featureKey="unlimited_scans"
+                    variant="banner"
+                    showFeatureList={false}
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Websites Tracked
+                </span>
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {stats.usage?.websiteCount || 0} / {stats.limits?.websites === -1 ? '∞' : stats.limits?.websites}
+                </span>
+              </div>
+              <UsageMeter featureKey="multiple_websites" />
+            </div>
+          </div>
+          
+          {stats.isTrialing && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                🎉 You&apos;re on a free trial! {stats.daysInTrial} days remaining.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
         <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
           URL Input & Validation
         </h3>
         
-        {!isProcessing ? (
-          <UrlScanner 
-            onScanStart={handleScanStart}
-            onValidationResult={handleValidationResult}
-          />
-        ) : (
+        <FeatureGate 
+          featureKey="unlimited_scans"
+          variant="block"
+          showUpgradePrompt={true}
+        >
+          {!isProcessing ? (
+            <UrlScanner 
+              onScanStart={handleScanStart}
+              onValidationResult={handleValidationResult}
+            />
+          ) : (
           <div className="space-y-4">
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
               <strong>Status:</strong> {processingMessage}
@@ -335,6 +416,7 @@ export default function ScanPage() {
             )}
           </div>
         )}
+        </FeatureGate>
       </div>
 
       <div className="bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 p-6">
