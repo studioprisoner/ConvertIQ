@@ -54,7 +54,7 @@ function AccountDropdownMenu({
 }) {
   return (
     <DropdownMenu className="min-w-64" anchor={anchor}>
-      <DropdownItem href="#">
+      <DropdownItem href="/dashboard/account">
         <UserCircleIcon />
         <DropdownLabel>My account</DropdownLabel>
       </DropdownItem>
@@ -119,7 +119,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
             <Dropdown>
               <DropdownButton as={NavbarItem}>
                 <Avatar
-                  src={user?.image || undefined}
+                  src={user?.avatarUrl || user?.image || undefined}
                   initials={
                     user?.name
                       ? user.name
@@ -148,7 +148,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 initials="CQ"
                 className="bg-blue-600 text-white w-6 h-6"
               />
-              <SidebarLabel className="text-lg font-semibold">
+              <SidebarLabel className="text-lg font-semibold dark:text-white text-black">
                 ConvertIQ
               </SidebarLabel>
             </div>
@@ -164,8 +164,8 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 <SidebarLabel>Dashboard</SidebarLabel>
               </SidebarItem>
               <SidebarItem
-                href="/reports"
-                current={pathname.startsWith("/reports")}
+                href="/dashboard/reports"
+                current={pathname.startsWith("/dashboard/reports")}
               >
                 <ChartBarIcon />
                 <SidebarLabel>Reports</SidebarLabel>
@@ -178,8 +178,8 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 <SidebarLabel>History</SidebarLabel>
               </SidebarItem>
               <SidebarItem
-                href="/settings"
-                current={pathname.startsWith("/settings")}
+                href="/dashboard/settings"
+                current={pathname.startsWith("/dashboard/settings")}
               >
                 <Cog6ToothIcon />
                 <SidebarLabel>Settings</SidebarLabel>
@@ -205,7 +205,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
               <DropdownButton as={SidebarItem}>
                 <span className="flex min-w-0 items-center gap-3">
                   <Avatar
-                    src={user?.image || undefined}
+                    src={user?.avatarUrl || user?.image || undefined}
                     initials={
                       user?.name
                         ? user.name

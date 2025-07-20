@@ -20,6 +20,18 @@ export const auth = betterAuth({
         type: "string",
         required: true,
       },
+      firstName: {
+        type: "string",
+        required: false,
+      },
+      lastName: {
+        type: "string",
+        required: false,
+      },
+      avatarUrl: {
+        type: "string",
+        required: false,
+      },
     },
   },
   plugins: [
