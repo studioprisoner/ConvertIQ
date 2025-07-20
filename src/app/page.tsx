@@ -17,9 +17,9 @@ export default function Home() {
             <a href="/login" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg text-center">
               Sign In / Get Early Access
             </a>
-            <button className="border border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold py-3 px-8 rounded-lg transition-colors text-lg">
-              Learn More
-            </button>
+            <a href="/pricing" className="border border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold py-3 px-8 rounded-lg transition-colors text-lg text-center">
+              View Pricing
+            </a>
           </div>
         </div>
       </section>
