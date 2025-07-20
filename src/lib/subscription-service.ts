@@ -119,23 +119,44 @@ export async function createSubscriptionWithTrial(
       throw new Error(`Plan ${planSlug} not found`);
     }
     
-    // Get Polar price ID
+    // Check if we're in development mode with placeholder price IDs
+    const isDevelopmentMode = process.env.NODE_ENV === 'development';
     const priceId = await getPolarPriceId(planSlug, billingCycle);
+    const isPlaceholder = priceId.includes('placeholder');
     
-    // Get or create customer in Polar
-    const customer = await getOrCreatePolarCustomer(userId, userEmail);
+    let polarSubscription: any;
+    let customer: any = { id: `dev_customer_${userId}`, email: userEmail };
     
-    // Create subscription in Polar with trial
-    const polarSubscription = await polar.subscriptions.create({
-      customerId: customer.id,
-      priceId: priceId,
-      trialPeriodDays: 14,
-      metadata: {
-        userId: userId,
-        planSlug: planSlug,
-        source: 'convertiq'
-      }
-    });
+    if (isDevelopmentMode && isPlaceholder) {
+      // Mock Polar subscription for development
+      polarSubscription = {
+        id: `dev_sub_${Date.now()}`,
+        productId: `dev_product_${planSlug}`,
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+        metadata: {
+          userId: userId,
+          planSlug: planSlug,
+          source: 'convertiq'
+        }
+      };
+      console.log('🔧 Development mode: Created mock subscription for', planSlug);
+    } else {
+      // Get or create customer in Polar
+      customer = await getOrCreatePolarCustomer(userId, userEmail);
+      
+      // Create subscription in Polar with trial
+      polarSubscription = await polar.subscriptions.create({
+        customerId: customer.id,
+        priceId: priceId,
+        trialPeriodDays: 14,
+        metadata: {
+          userId: userId,
+          planSlug: planSlug,
+          source: 'convertiq'
+        }
+      });
+    }
     
     // Calculate trial dates
     const trialStart = new Date();

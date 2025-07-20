@@ -135,8 +135,9 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error('Error handling subscription operation:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return NextResponse.json(
-      { error: 'Operation failed' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
@@ -236,39 +237,48 @@ async function handleCheckLimits(userId: string, body: unknown) {
 }
 
 async function handlePlanSelection(userId: string, userEmail: string, body: unknown) {
-  const validatedData = planSelectionSchema.parse(body);
-  
-  // Check if user already has a subscription
-  const existingSubscription = await getUserSubscription(userId);
-  
-  if (existingSubscription) {
-    // Existing user - change their plan
-    const subscription = await changeSubscriptionPlan(
-      userId, 
-      validatedData.planType, 
-      validatedData.billingCycle
-    );
+  try {
+    const validatedData = planSelectionSchema.parse(body);
     
-    return NextResponse.json({
-      success: true,
-      subscription,
-      message: 'Plan changed successfully',
-      checkoutUrl: null,
-    });
-  } else {
-    // New user - create trial subscription
-    const subscription = await createSubscriptionWithTrial(
-      userId,
-      userEmail,
-      validatedData.planType,
-      validatedData.billingCycle
-    );
+    // Check if user already has a subscription
+    const existingSubscription = await getUserSubscription(userId);
     
-    return NextResponse.json({
-      success: true,
-      subscription,
-      message: 'Trial subscription created successfully',
-      checkoutUrl: null,
-    });
+    if (existingSubscription) {
+      // Existing user - change their plan
+      const subscription = await changeSubscriptionPlan(
+        userId, 
+        validatedData.planType, 
+        validatedData.billingCycle
+      );
+      
+      return NextResponse.json({
+        success: true,
+        subscription,
+        message: 'Plan changed successfully',
+        checkoutUrl: null,
+      });
+    } else {
+      // New user - create trial subscription
+      const subscription = await createSubscriptionWithTrial(
+        userId,
+        userEmail,
+        validatedData.planType,
+        validatedData.billingCycle
+      );
+      
+      return NextResponse.json({
+        success: true,
+        subscription,
+        message: 'Trial subscription created successfully',
+        checkoutUrl: null,
+      });
+    }
+  } catch (error) {
+    console.error('Error in plan selection:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Plan selection failed';
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: 500 }
+    );
   }
 }

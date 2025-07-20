@@ -90,7 +90,8 @@ export default function PricingPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create subscription');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to create subscription`);
       }
 
       const result = await response.json();
@@ -104,7 +105,8 @@ export default function PricingPage() {
       }
     } catch (error) {
       console.error('Error selecting plan:', error);
-      alert('Error selecting plan. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Error selecting plan: ${errorMessage}. Please try again.`);
     } finally {
       setLoading(null);
     }
