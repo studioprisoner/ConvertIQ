@@ -119,16 +119,17 @@ export async function createSubscriptionWithTrial(
       throw new Error(`Plan ${planSlug} not found`);
     }
     
-    // Check if we're in development mode with placeholder price IDs
-    const isDevelopmentMode = process.env.NODE_ENV === 'development';
+    // Get Polar price ID
     const priceId = await getPolarPriceId(planSlug, billingCycle);
     const isPlaceholder = priceId.includes('placeholder');
+    const isUsingSandbox = process.env.POLAR_ENVIRONMENT === 'sandbox';
     
     let polarSubscription: any;
-    let customer: any = { id: `dev_customer_${userId}`, email: userEmail };
+    let customer: any;
     
-    if (isDevelopmentMode && isPlaceholder) {
-      // Mock Polar subscription for development
+    if (isPlaceholder) {
+      // Mock Polar subscription for development when using placeholder IDs
+      customer = { id: `dev_customer_${userId}`, email: userEmail };
       polarSubscription = {
         id: `dev_sub_${Date.now()}`,
         productId: `dev_product_${planSlug}`,
@@ -140,12 +141,11 @@ export async function createSubscriptionWithTrial(
           source: 'convertiq'
         }
       };
-      console.log('🔧 Development mode: Created mock subscription for', planSlug);
+      console.log(`🔧 Mock mode: Created mock subscription for ${planSlug} (placeholder price ID: ${priceId})`);
     } else {
-      // Get or create customer in Polar
+      // Use real Polar API (sandbox or production based on environment)
       customer = await getOrCreatePolarCustomer(userId, userEmail);
       
-      // Create subscription in Polar with trial
       polarSubscription = await polar.subscriptions.create({
         customerId: customer.id,
         priceId: priceId,
@@ -156,6 +156,9 @@ export async function createSubscriptionWithTrial(
           source: 'convertiq'
         }
       });
+      
+      const environment = isUsingSandbox ? 'sandbox' : 'production';
+      console.log(`🎯 ${environment}: Created real subscription for ${planSlug} (price ID: ${priceId})`);
     }
     
     // Calculate trial dates

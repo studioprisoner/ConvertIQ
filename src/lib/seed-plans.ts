@@ -42,10 +42,11 @@ export async function seedSubscriptionPlans() {
     }).returning();
 
     // Insert plan prices for Basic Plan
+    // Note: For real implementation, create these products/prices in Polar sandbox first
     await db.insert(planPrices).values([
       {
         planId: basicPlan.id,
-        polarPriceId: 'price_basic_monthly_placeholder', // Replace with real Polar price IDs
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'price_sandbox_basic_monthly' : 'price_basic_monthly_placeholder',
         billingInterval: 'monthly',
         amount: POLAR_CONFIG.plans.basic.priceMonthly,
         currency: 'USD',
@@ -53,7 +54,7 @@ export async function seedSubscriptionPlans() {
       },
       {
         planId: basicPlan.id,
-        polarPriceId: 'price_basic_annual_placeholder', // Replace with real Polar price IDs
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'price_sandbox_basic_annual' : 'price_basic_annual_placeholder',
         billingInterval: 'annual',
         amount: POLAR_CONFIG.plans.basic.priceMonthly * 10,
         currency: 'USD',
@@ -62,10 +63,11 @@ export async function seedSubscriptionPlans() {
     ]);
 
     // Insert plan prices for Pro Plan
+    // Note: For real implementation, create these products/prices in Polar sandbox first
     await db.insert(planPrices).values([
       {
         planId: proPlan.id,
-        polarPriceId: 'price_pro_monthly_placeholder', // Replace with real Polar price IDs
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'price_sandbox_pro_monthly' : 'price_pro_monthly_placeholder',
         billingInterval: 'monthly',
         amount: POLAR_CONFIG.plans.pro.priceMonthly,
         currency: 'USD',
@@ -73,7 +75,7 @@ export async function seedSubscriptionPlans() {
       },
       {
         planId: proPlan.id,
-        polarPriceId: 'price_pro_annual_placeholder', // Replace with real Polar price IDs
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'price_sandbox_pro_annual' : 'price_pro_annual_placeholder',
         billingInterval: 'annual',
         amount: POLAR_CONFIG.plans.pro.priceMonthly * 10,
         currency: 'USD',
