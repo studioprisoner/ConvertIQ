@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 // Extended user type to include our custom fields
 type ExtendedUser = {
@@ -22,17 +23,60 @@ import { Avatar } from "@/components/avatar";
 import { Heading } from "@/components/heading";
 import { Divider } from "@/components/divider";
 import { Field, Label, Description } from "@/components/fieldset";
-import { UserIcon, CameraIcon } from "@heroicons/react/24/outline";
+import { UserIcon, CameraIcon, CreditCardIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import { Badge } from "@/components/badge";
+
+// Subscription types
+type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
+type BillingCycle = 'monthly' | 'annual';
+
+interface UserSubscription {
+  id: string;
+  status: SubscriptionStatus;
+  plan?: {
+    name: string;
+    slug: string;
+  };
+  billingCycle: BillingCycle;
+  currentPeriodEnd: Date | null;
+  cancelAtPeriodEnd: boolean;
+}
 
 export default function AccountPage() {
   const { data: session } = useSession();
   const user = session?.user as ExtendedUser | undefined;
+  const router = useRouter();
 
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
   const [email, setEmail] = useState(user?.email || "");
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Subscription state
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+
+  // Fetch subscription data
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      if (!session?.user) return;
+      
+      try {
+        const response = await fetch('/api/subscription');
+        if (response.ok) {
+          const data = await response.json();
+          setSubscription(data.subscription);
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription:', error);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+
+    fetchSubscription();
+  }, [session]);
 
   const handleSave = async () => {
     setIsLoading(true);
@@ -320,6 +364,77 @@ export default function AccountPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <Divider />
+
+      {/* Subscription Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Heading level={2}>Subscription</Heading>
+          <Button 
+            color="blue"
+            onClick={() => router.push('/pricing')}
+          >
+            <CreditCardIcon className="size-4" />
+            Manage Plan
+          </Button>
+        </div>
+
+        {subscriptionLoading ? (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <div className="animate-pulse">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            </div>
+          </div>
+        ) : subscription ? (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  {subscription.plan?.name || 'Unknown Plan'}
+                  <Badge color={subscription.status === 'active' ? 'green' : 'yellow'}>
+                    {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                  </Badge>
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {subscription.billingCycle === 'monthly' ? 'Monthly billing' : 'Annual billing'}
+                  {subscription.currentPeriodEnd && (
+                    <> • Next billing: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}</>
+                  )}
+                </p>
+              </div>
+              <ArrowTopRightOnSquareIcon className="size-5 text-gray-400" />
+            </div>
+            
+            {subscription.cancelAtPeriodEnd && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  Your subscription will be canceled at the end of the current billing period.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <div className="text-center py-6">
+              <CreditCardIcon className="size-12 text-gray-400 mx-auto mb-4" />
+              <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                No Active Subscription
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Choose a plan to start optimizing your website's conversion rate.
+              </p>
+              <Button 
+                color="blue"
+                onClick={() => router.push('/pricing')}
+              >
+                View Plans
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

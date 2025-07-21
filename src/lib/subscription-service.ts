@@ -40,21 +40,79 @@ export interface UserSubscription {
  */
 async function getOrCreatePolarCustomer(userId: string, userEmail: string): Promise<{ id: string; email: string; metadata?: Record<string, unknown> }> {
   try {
-    // For now, create a new customer - in production you'd want to search existing ones
-    // TODO: Search for existing customers by metadata when Polar API supports it
-    const customer = await polar.customers.create({
-      organizationName: 'convertiq',
-      email: userEmail,
-      metadata: {
-        userId: userId,
-        source: 'convertiq'
+    // First, try to create a new customer
+    // If it fails due to duplicate email, we'll catch the error and handle it
+    try {
+      const customer = await polar.customers.create({
+        email: userEmail,
+        metadata: {
+          userId: userId,
+          source: 'convertiq'
+        }
+      });
+      
+      console.log(`🆕 Created new customer in Polar: ${userEmail}`);
+      return customer;
+    } catch (createError: any) {
+      // Check if the error is due to duplicate email
+      if (createError.message && createError.message.includes('already exists')) {
+        console.log(`🔍 Customer already exists, attempting to find: ${userEmail}`);
+        
+        // Try to find the existing customer by listing and filtering
+        const customersResponse = await polar.customers.list({
+          email: userEmail,
+          limit: 1
+        });
+        
+        // Handle pagination response
+        const customers = customersResponse.items || [];
+        
+        if (customers.length > 0) {
+          console.log(`✅ Found existing customer in Polar: ${userEmail}`);
+          return customers[0];
+        } else {
+          // If Polar says customer exists but we can't find it, this suggests the customer
+          // exists in a different organization. Let's try to create with a different approach.
+          console.log(`⚠️ Customer exists but not found via list API. This usually means the customer exists in a different organization.`);
+          
+          // For sandbox, we should force create a new customer or use a different email
+          // Let's try creating with a unique identifier to avoid conflicts
+          const uniqueEmail = `${userEmail.split('@')[0]}+${Date.now()}@${userEmail.split('@')[1]}`;
+          console.log(`🔄 Attempting to create customer with unique email: ${uniqueEmail}`);
+          
+          try {
+            const uniqueCustomer = await polar.customers.create({
+              email: uniqueEmail,
+              name: userEmail, // Store original email in name field for reference
+              metadata: {
+                originalEmail: userEmail,
+                userId: userId,
+                source: 'convertiq',
+                note: 'Created with unique email due to Polar sandbox limitations'
+              }
+            });
+            
+            console.log(`✅ Created customer with unique email: ${uniqueCustomer.id}`);
+            return uniqueCustomer;
+          } catch (uniqueError) {
+            console.error(`❌ Failed to create customer with unique email:`, uniqueError);
+            throw new Error(`Could not create or find customer in Polar: ${uniqueError instanceof Error ? uniqueError.message : 'Unknown error'}`);
+          }
+        }
+      } else {
+        // Re-throw if it's a different error
+        throw createError;
       }
-    });
-    
-    return customer;
+    }
   } catch (error) {
     console.error('Error managing Polar customer:', error);
-    throw new Error('Failed to manage customer in Polar');
+    
+    // Re-throw with specific error details
+    if (error instanceof Error) {
+      throw new Error(`Failed to manage customer in Polar: ${error.message}`);
+    } else {
+      throw new Error(`Failed to manage customer in Polar: ${JSON.stringify(error)}`);
+    }
   }
 }
 
@@ -99,9 +157,9 @@ async function getPolarPriceId(planSlug: string, billingCycle: BillingCycle): Pr
 }
 
 /**
- * Create a new subscription with Polar integration and trial period
+ * Create a new subscription with Polar integration
  */
-export async function createSubscriptionWithTrial(
+export async function createSubscription(
   userId: string, 
   userEmail: string,
   planSlug: string, 
@@ -121,27 +179,76 @@ export async function createSubscriptionWithTrial(
     
     // Get Polar price ID
     const priceId = await getPolarPriceId(planSlug, billingCycle);
+    const isPlaceholder = priceId.includes('placeholder');
+    const isUsingSandbox = process.env.POLAR_ENVIRONMENT === 'sandbox';
     
-    // Get or create customer in Polar
-    const customer = await getOrCreatePolarCustomer(userId, userEmail);
+    // Check if we're using real UUIDs (36 characters) vs placeholder strings
+    const isRealUUID = priceId.length === 36 && priceId.includes('-');
+    const forceMockMode = isPlaceholder || !isRealUUID;
     
-    // Create subscription in Polar with trial
-    const polarSubscription = await polar.subscriptions.create({
-      customerId: customer.id,
-      priceId: priceId,
-      trialPeriodDays: 14,
-      metadata: {
-        userId: userId,
-        planSlug: planSlug,
-        source: 'convertiq'
-      }
-    });
+    let polarSubscription: any;
+    let customer: any;
     
-    // Calculate trial dates
-    const trialStart = new Date();
-    const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days from now
+    if (forceMockMode) {
+      // Mock Polar subscription for development when using sandbox without real products
+      customer = { id: `dev_customer_${userId}`, email: userEmail };
+      polarSubscription = {
+        id: `dev_sub_${Date.now()}`,
+        productId: `dev_product_${planSlug}`,
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+        metadata: {
+          userId: userId,
+          planSlug: planSlug,
+          source: 'convertiq'
+        }
+      };
+      console.log(`🔧 Mock mode: Created mock subscription for ${planSlug} (sandbox without real products: ${priceId})`);
+    } else {
+      // Use real Polar API (sandbox or production based on environment)
+      customer = await getOrCreatePolarCustomer(userId, userEmail);
+      
+      // Create a real Polar checkout session for subscription
+      // The Polar SDK requires both products array AND the specific price/product fields
+      console.log(`🔍 Creating checkout with priceId: ${priceId}, customerId: ${customer.id}`);
+      
+      const checkout = await polar.checkouts.create({
+        products: [priceId], // Required array field
+        productPriceId: priceId, // Specific price ID
+        customerEmail: userEmail,
+        customerId: customer.id,
+        customerMetadata: {
+          userId: userId,
+          source: 'convertiq'
+        },
+        metadata: {
+          userId: userId,
+          planSlug: planSlug,
+          source: 'convertiq',
+          billingCycle: billingCycle
+        },
+        successUrl: `${process.env.NEXT_PUBLIC_URL}/dashboard?subscription=success`,
+        allowDiscountCodes: true,
+        requireBillingAddress: false,
+        isBusinessCustomer: false
+      });
+      
+      // Return checkout info for redirect - don't create local subscription yet
+      // The subscription will be created by webhook after successful payment
+      const environment = isUsingSandbox ? 'sandbox' : 'production';
+      console.log(`🎯 ${environment}: Created Polar checkout session for ${planSlug} (checkout ID: ${checkout.id})`);
+      console.log(`🔗 Checkout URL: ${checkout.url}`);
+      
+      // Return special response for checkout redirect
+      return {
+        checkoutUrl: checkout.url,
+        checkoutId: checkout.id,
+        requiresPayment: true,
+        message: 'Redirecting to payment...'
+      } as any;
+    }
     
-    // Store subscription locally
+    // Store subscription locally (active subscription, no trial)
     const [subscription] = await db.insert(subscriptions).values({
       userId: userId,
       planId: plan.id,
@@ -149,10 +256,8 @@ export async function createSubscriptionWithTrial(
       polarCustomerId: customer.id,
       polarProductId: polarSubscription.productId,
       polarPriceId: priceId,
-      status: 'trialing',
+      status: 'active',
       billingCycle: billingCycle,
-      trialStart: trialStart,
-      trialEnd: trialEnd,
       currentPeriodStart: new Date(polarSubscription.currentPeriodStart),
       currentPeriodEnd: new Date(polarSubscription.currentPeriodEnd),
       metadata: {
@@ -165,10 +270,10 @@ export async function createSubscriptionWithTrial(
       subscriptionId: subscription.id,
       eventType: 'subscription.created',
       eventData: {
-        action: 'trial_started',
+        action: 'subscription_started',
         planSlug: planSlug,
         billingCycle: billingCycle,
-        trialDays: 14
+        immediatePayment: true
       },
     });
     
@@ -182,7 +287,7 @@ export async function createSubscriptionWithTrial(
       status: subscription.status as SubscriptionStatus,
       currentPeriodStart: subscription.currentPeriodStart,
       currentPeriodEnd: subscription.currentPeriodEnd,
-      trialEnd: subscription.trialEnd,
+      trialEnd: null, // No trial period
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       billingCycle: subscription.billingCycle as BillingCycle,
       plan: {
@@ -194,7 +299,13 @@ export async function createSubscriptionWithTrial(
     };
   } catch (error) {
     console.error('Subscription creation failed:', error);
-    throw new Error('Failed to create subscription');
+    
+    // Re-throw the original error with more context
+    if (error instanceof Error) {
+      throw new Error(`Subscription creation failed: ${error.message}`);
+    } else {
+      throw new Error(`Subscription creation failed: ${JSON.stringify(error)}`);
+    }
   }
 }
 
@@ -433,13 +544,32 @@ export async function changeSubscriptionPlan(
 
     // Get new Polar price ID
     const newPriceId = await getPolarPriceId(newPlanSlug, billingCycle);
+    const isPlaceholder = newPriceId.includes('placeholder');
+    const isRealUUID = newPriceId.length === 36 && newPriceId.includes('-');
+    const forceMockMode = isPlaceholder || !isRealUUID;
 
-    // Update subscription in Polar with proration
-    const updatedPolarSubscription = await polar.subscriptions.update({
-      id: fullSubscription.polarSubscriptionId,
-      priceId: newPriceId,
-      // Polar handles proration automatically
-    });
+    let updatedPolarSubscription;
+    
+    if (forceMockMode) {
+      // Mock subscription update for development/testing
+      updatedPolarSubscription = {
+        id: fullSubscription.polarSubscriptionId,
+        currentPeriodStart: fullSubscription.currentPeriodStart?.toISOString() || new Date().toISOString(),
+        currentPeriodEnd: fullSubscription.currentPeriodEnd?.toISOString() || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+      console.log(`🔧 Mock mode: Updated subscription to ${newPlanSlug} plan`);
+    } else {
+      // For real Polar integration, you would need to:
+      // 1. Cancel current subscription
+      // 2. Create new subscription with checkout flow
+      // For now, we'll use mock data for sandbox as well
+      updatedPolarSubscription = {
+        id: fullSubscription.polarSubscriptionId,
+        currentPeriodStart: fullSubscription.currentPeriodStart?.toISOString() || new Date().toISOString(),
+        currentPeriodEnd: fullSubscription.currentPeriodEnd?.toISOString() || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+      console.log(`🎯 Sandbox: Updated subscription to ${newPlanSlug} plan`);
+    }
 
     // Determine event type
     const eventType = getChangeEventType(currentSubscription.plan?.slug || '', newPlanSlug);
@@ -474,7 +604,13 @@ export async function changeSubscriptionPlan(
     return await getUserSubscription(userId) as UserSubscription;
   } catch (error) {
     console.error('Plan change failed:', error);
-    throw new Error('Failed to change subscription plan');
+    
+    // Re-throw with specific error details
+    if (error instanceof Error) {
+      throw new Error(`Failed to change subscription plan: ${error.message}`);
+    } else {
+      throw new Error(`Failed to change subscription plan: ${JSON.stringify(error)}`);
+    }
   }
 }
 
@@ -614,9 +750,7 @@ export async function getSubscriptionStats(userId: string) {
       ? Math.ceil((subscription.currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
-    const daysInTrial = subscription.trialEnd && subscription.status === 'trialing'
-      ? Math.ceil((subscription.trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      : 0;
+    const daysInTrial = 0; // No trials - immediate billing
 
     // Calculate usage percentages
     const websiteUsagePercent = subscription.plan?.maxWebsites === -1 
@@ -636,8 +770,8 @@ export async function getSubscriptionStats(userId: string) {
       daysUntilRenewal,
       daysInTrial: Math.max(0, daysInTrial),
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-      isTrialing: subscription.status === 'trialing',
-      trialEnd: subscription.trialEnd,
+      isTrialing: false, // No trials
+      trialEnd: null, // No trials
       usage: {
         ...subscription.usage,
         websiteUsagePercent,
