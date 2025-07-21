@@ -46,7 +46,7 @@ export async function seedSubscriptionPlans() {
     await db.insert(planPrices).values([
       {
         planId: basicPlan.id,
-        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'price_sandbox_basic_monthly' : 'price_basic_monthly_placeholder',
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'cf92e066-a329-44d0-bd1a-1ebf63da9c9e' : 'price_basic_monthly_placeholder',
         billingInterval: 'monthly',
         amount: POLAR_CONFIG.plans.basic.priceMonthly,
         currency: 'USD',
@@ -54,7 +54,7 @@ export async function seedSubscriptionPlans() {
       },
       {
         planId: basicPlan.id,
-        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'price_sandbox_basic_annual' : 'price_basic_annual_placeholder',
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? '8cc86988-7517-4e25-9eb4-d563f97b7da0' : 'price_basic_annual_placeholder',
         billingInterval: 'annual',
         amount: POLAR_CONFIG.plans.basic.priceMonthly * 10,
         currency: 'USD',
@@ -67,7 +67,7 @@ export async function seedSubscriptionPlans() {
     await db.insert(planPrices).values([
       {
         planId: proPlan.id,
-        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'price_sandbox_pro_monthly' : 'price_pro_monthly_placeholder',
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? '4b1d68cb-d93e-43ae-85c7-9936b7b5b01c' : 'price_pro_monthly_placeholder',
         billingInterval: 'monthly',
         amount: POLAR_CONFIG.plans.pro.priceMonthly,
         currency: 'USD',
@@ -75,7 +75,7 @@ export async function seedSubscriptionPlans() {
       },
       {
         planId: proPlan.id,
-        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'price_sandbox_pro_annual' : 'price_pro_annual_placeholder',
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? '621355c8-a343-450b-bd81-fc5ed3e4a575' : 'price_pro_annual_placeholder',
         billingInterval: 'annual',
         amount: POLAR_CONFIG.plans.pro.priceMonthly * 10,
         currency: 'USD',

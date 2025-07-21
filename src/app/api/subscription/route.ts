@@ -7,7 +7,7 @@ import {
   createCheckoutSession,
   cancelSubscription,
   reactivateSubscription,
-  createSubscriptionWithTrial,
+  createSubscription,
   changeSubscriptionPlan,
   getSubscriptionEventHistory,
   getAvailablePlans,
@@ -78,7 +78,7 @@ const planSelectionSchema = z.object({
 
 // Removed unused schema
 
-const createTrialSchema = z.object({
+const createSubscriptionSchema = z.object({
   planSlug: z.enum(['basic', 'pro']),
   billingCycle: z.enum(['monthly', 'annual']).default('monthly'),
 });
@@ -114,8 +114,8 @@ export async function POST(request: NextRequest) {
       case 'create_checkout':
         return await handleCreateCheckout(session.user.id, body);
       
-      case 'create_trial':
-        return await handleCreateTrial(session.user.id, session.user.email, body);
+      case 'create_subscription':
+        return await handleCreateSubscription(session.user.id, session.user.email, body);
       
       case 'change_plan':
         return await handleChangePlan(session.user.id, body);
@@ -195,10 +195,10 @@ async function handleReactivateSubscription(userId: string) {
   });
 }
 
-async function handleCreateTrial(userId: string, userEmail: string, body: unknown) {
-  const validatedData = createTrialSchema.parse(body);
+async function handleCreateSubscription(userId: string, userEmail: string, body: unknown) {
+  const validatedData = createSubscriptionSchema.parse(body);
   
-  const subscription = await createSubscriptionWithTrial(
+  const subscription = await createSubscription(
     userId,
     userEmail,
     validatedData.planSlug,
@@ -208,7 +208,7 @@ async function handleCreateTrial(userId: string, userEmail: string, body: unknow
   return NextResponse.json({
     success: true,
     subscription,
-    message: 'Trial subscription created successfully',
+    message: 'Subscription created successfully',
   });
 }
 
@@ -238,19 +238,27 @@ async function handleCheckLimits(userId: string, body: unknown) {
 
 async function handlePlanSelection(userId: string, userEmail: string, body: unknown) {
   try {
+    console.log('🎯 Plan selection started for user:', userId, 'email:', userEmail);
+    console.log('📥 Request body:', body);
+    
     const validatedData = planSelectionSchema.parse(body);
+    console.log('✅ Validation passed:', validatedData);
     
     // Check if user already has a subscription
+    console.log('🔍 Checking for existing subscription...');
     const existingSubscription = await getUserSubscription(userId);
+    console.log('📋 Existing subscription:', existingSubscription ? 'Found' : 'None');
     
     if (existingSubscription) {
       // Existing user - change their plan
+      console.log('🔄 Changing plan for existing user...');
       const subscription = await changeSubscriptionPlan(
         userId, 
         validatedData.planType, 
         validatedData.billingCycle
       );
       
+      console.log('✅ Plan change successful');
       return NextResponse.json({
         success: true,
         subscription,
@@ -258,23 +266,37 @@ async function handlePlanSelection(userId: string, userEmail: string, body: unkn
         checkoutUrl: null,
       });
     } else {
-      // New user - create trial subscription
-      const subscription = await createSubscriptionWithTrial(
+      // New user - create subscription (requires payment)
+      console.log('🆕 Creating new subscription...');
+      const subscription = await createSubscription(
         userId,
         userEmail,
         validatedData.planType,
         validatedData.billingCycle
       );
       
+      console.log('✅ Subscription creation successful');
+      
+      // Check if we need to redirect to checkout
+      if ((subscription as any).requiresPayment && (subscription as any).checkoutUrl) {
+        return NextResponse.json({
+          success: true,
+          checkoutUrl: (subscription as any).checkoutUrl,
+          message: (subscription as any).message || 'Redirecting to payment...',
+          requiresPayment: true
+        });
+      }
+      
       return NextResponse.json({
         success: true,
         subscription,
-        message: 'Trial subscription created successfully',
+        message: 'Subscription created successfully',
         checkoutUrl: null,
       });
     }
   } catch (error) {
-    console.error('Error in plan selection:', error);
+    console.error('❌ Error in plan selection:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     const errorMessage = error instanceof Error ? error.message : 'Plan selection failed';
     return NextResponse.json(
       { error: errorMessage },

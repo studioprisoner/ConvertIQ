@@ -78,6 +78,8 @@ export default function PricingPage() {
 
     setLoading(planId);
     try {
+      console.log('🚀 Submitting plan selection:', { planType: planId, billingCycle });
+      
       const response = await fetch('/api/subscription', {
         method: 'POST',
         headers: {
@@ -89,18 +91,24 @@ export default function PricingPage() {
         }),
       });
 
+      console.log('📡 Response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ API Error Response:', errorData);
         throw new Error(errorData.error || `HTTP ${response.status}: Failed to create subscription`);
       }
 
       const result = await response.json();
+      console.log('✅ API Success Response:', result);
       
       if (result.checkoutUrl) {
         // Redirect to Polar checkout
+        console.log('🔗 Redirecting to checkout:', result.checkoutUrl);
         window.location.href = result.checkoutUrl;
       } else {
-        // Plan changed successfully
+        // Plan changed/created successfully
+        console.log('🎉 Subscription operation successful, redirecting to dashboard');
         router.push('/dashboard?success=plan-changed');
       }
     } catch (error) {
@@ -135,7 +143,7 @@ export default function PricingPage() {
             Choose Your Plan
           </Heading>
           <Text className="mt-6 text-lg leading-8">
-            Start optimizing your website&apos;s conversion rate today. Choose a plan that fits your business needs.
+            Start optimizing your website&apos;s conversion rate today. Choose a plan that fits your business needs and get instant access to powerful insights.
           </Text>
         </div>
 
@@ -247,7 +255,7 @@ export default function PricingPage() {
                     : 'bg-blue-600 text-white hover:bg-blue-500'
                 }`}
               >
-                {loading === plan.id ? 'Processing...' : 'Get started'}
+                {loading === plan.id ? 'Processing...' : 'Subscribe Now'}
               </Button>
 
               <ul className={`mt-8 space-y-3 text-sm leading-6 ${
@@ -309,10 +317,10 @@ export default function PricingPage() {
             
             <div>
               <dt className="text-base font-semibold leading-7 text-gray-900 dark:text-white">
-                Do you offer a free trial?
+                When will I be charged?
               </dt>
               <dd className="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                Yes! All plans come with a 14-day free trial. No credit card required to start.
+                You'll be charged immediately when you select a plan. Your subscription starts right away, giving you instant access to all features.
               </dd>
             </div>
             

@@ -42,7 +42,7 @@
     "robots-parser": "^3.0.1",
     "superjson": "^2.2.2",
     "uuid": "^11.1.0",
-    "zod": "^4.0.5"
+    "zod": "^3.25.17"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
