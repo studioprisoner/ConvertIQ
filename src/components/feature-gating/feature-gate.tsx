@@ -2,8 +2,8 @@
 
 import { useFeatureGate } from '@/hooks/use-feature-gate';
 import { UpgradePrompt, FeaturePreview } from './upgrade-prompt';
-import { FeatureKey } from '@/lib/feature-gate';
-import { Skeleton } from '@/components/ui/skeleton';
+import { FeatureKey } from '@/lib/feature-gate-client';
+import { Skeleton } from '@/components/skeleton';
 
 interface FeatureGateProps {
   featureKey: FeatureKey;
