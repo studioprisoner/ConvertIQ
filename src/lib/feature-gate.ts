@@ -51,7 +51,7 @@ const DEFAULT_PLAN_FEATURES: Record<string, PlanFeatureDefinition[]> = {
     { featureKey: 'advanced_reports', isEnabled: false, featureType: 'boolean' },
     { featureKey: 'custom_branding', isEnabled: false, featureType: 'boolean' },
     { featureKey: 'priority_support', isEnabled: false, featureType: 'boolean' },
-    { featureKey: 'unlimited_scans', isEnabled: false, usageLimit: 1, featureType: 'count' },
+    { featureKey: 'unlimited_scans', isEnabled: true, usageLimit: null, featureType: 'count' },
     { featureKey: 'api_access', isEnabled: false, featureType: 'boolean' },
     { featureKey: 'white_label', isEnabled: false, featureType: 'boolean' },
   ],

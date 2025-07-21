@@ -8,10 +8,15 @@ import { Select } from '@/components/select';
 import { Text } from '@/components/text';
 import { detectPageType, type UrlValidationInput } from '@/lib/url-validation';
 import { trpc } from '@/lib/trpc/client';
+import { useSession } from '@/lib/auth-client';
+import { useSubscriptionStatus } from '@/hooks/use-feature-gate';
+import { PrimaryDomainSetup } from '@/components/primary-domain-setup';
+import { extractDomain } from '@/lib/domain-validation';
+import { AlertCircle, CheckCircle, Globe } from 'lucide-react';
 
 interface UrlScannerProps {
   onScanStart?: (data: UrlValidationInput & { detectedPageType: string }) => void;
-  onValidationResult?: (result: { isValid: boolean; message?: string; error?: string }) => void;
+  onValidationResult?: (result: { isValid: boolean; message?: string; error?: string; requiresPrimaryDomain?: boolean }) => void;
 }
 
 export function UrlScanner({ onScanStart, onValidationResult }: UrlScannerProps) {
@@ -20,6 +25,13 @@ export function UrlScanner({ onScanStart, onValidationResult }: UrlScannerProps)
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [detectedPageType, setDetectedPageType] = useState<string | null>(null);
+  const [showPrimaryDomainSetup, setShowPrimaryDomainSetup] = useState(false);
+  const [suggestedDomain, setSuggestedDomain] = useState<string | null>(null);
+  
+  // Session and subscription data
+  const { data: session } = useSession();
+  const { currentPlan } = useSubscriptionStatus();
+  const trpcUtils = trpc.useUtils();
 
   const pingQuery = trpc.url.ping.useQuery();
   
@@ -37,17 +49,30 @@ export function UrlScanner({ onScanStart, onValidationResult }: UrlScannerProps)
     },
   });
 
-  const validateUrlMutation = trpc.url.validate.useMutation({
+  const validateUrlMutation = trpc.url.validateWithUser.useMutation({
     onSuccess: (result) => {
       if (result.isValid) {
         setValidationMessage(result.message || 'URL is valid and ready to scan');
         setDetectedPageType(result.pageType);
         setValidationError(null);
+        setShowPrimaryDomainSetup(false);
+        setSuggestedDomain(null);
         onValidationResult?.({ isValid: true, message: result.message });
       } else {
         setValidationError(result.error || 'URL validation failed');
         setValidationMessage(null);
-        onValidationResult?.({ isValid: false, error: result.error });
+        
+        // Handle domain validation errors
+        if (result.requiresPrimaryDomain && result.suggestedDomain) {
+          setSuggestedDomain(result.suggestedDomain);
+          setShowPrimaryDomainSetup(true);
+        }
+        
+        onValidationResult?.({ 
+          isValid: false, 
+          error: result.error,
+          requiresPrimaryDomain: result.requiresPrimaryDomain 
+        });
       }
     },
     onError: (error) => {
@@ -58,11 +83,37 @@ export function UrlScanner({ onScanStart, onValidationResult }: UrlScannerProps)
     },
   });
 
+  // Mutation for updating user's primary domain
+  const updatePrimaryDomainMutation = trpc.user.updatePrimaryDomain.useMutation({
+    onSuccess: (result) => {
+      console.log('Primary domain updated successfully:', result);
+      setShowPrimaryDomainSetup(false);
+      setSuggestedDomain(null);
+      
+      // Invalidate user profile cache to ensure fresh data
+      trpcUtils.user.getProfile.invalidate();
+      
+      // Add a small delay to ensure database transaction is committed
+      setTimeout(() => {
+        console.log('Re-validating URL after domain update...');
+        if (url) {
+          handleValidation();
+        }
+      }, 100);
+    },
+    onError: (error) => {
+      console.error('Failed to set primary domain:', error);
+      setValidationError(error.message || 'Failed to set primary domain');
+    },
+  });
+
 
   const handleUrlChange = (value: string) => {
     setUrl(value);
     setValidationMessage(null);
     setValidationError(null);
+    setShowPrimaryDomainSetup(false);
+    setSuggestedDomain(null);
     
     // Auto-detect page type when URL changes
     if (value && pageType === 'auto') {
@@ -73,6 +124,15 @@ export function UrlScanner({ onScanStart, onValidationResult }: UrlScannerProps)
         setDetectedPageType(null);
       }
     }
+  };
+
+  const handlePrimaryDomainSet = (domain: string) => {
+    updatePrimaryDomainMutation.mutate({ primaryDomain: domain });
+  };
+
+  const handlePrimaryDomainCancel = () => {
+    setShowPrimaryDomainSetup(false);
+    setSuggestedDomain(null);
   };
 
   const handleValidation = async () => {
@@ -118,9 +178,51 @@ export function UrlScanner({ onScanStart, onValidationResult }: UrlScannerProps)
   };
 
   const isValidUrl = validationMessage && !validationError;
+  const userPlan = currentPlan || 'basic';
+
+  // Show primary domain setup if needed
+  if (showPrimaryDomainSetup) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <Text className="text-lg font-medium">Set Your Primary Domain</Text>
+          <Text className="text-sm text-gray-600 mt-1">
+            Basic plan allows unlimited scans for one website domain
+          </Text>
+        </div>
+        
+        <div className="flex justify-center">
+          <PrimaryDomainSetup
+            suggestedDomain={suggestedDomain || undefined}
+            onDomainSet={handlePrimaryDomainSet}
+            onCancel={handlePrimaryDomainCancel}
+            isLoading={updatePrimaryDomainMutation.isPending}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Plan and Domain Status */}
+      {userPlan === 'basic' && session?.user && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <Globe className="h-5 w-5 text-blue-600" />
+            <div>
+              <Text className="font-medium text-blue-900">Basic Plan</Text>
+              <Text className="text-sm text-blue-700">
+                {session.user.primaryDomain 
+                  ? `Scanning allowed for: ${session.user.primaryDomain}` 
+                  : 'Unlimited scans for one domain - set your primary domain with your first scan'
+                }
+              </Text>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Fieldset>
         <FieldGroup>
           <Field>
@@ -160,13 +262,34 @@ export function UrlScanner({ onScanStart, onValidationResult }: UrlScannerProps)
 
       {validationError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-          <strong>Validation Error:</strong> {validationError}
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>Validation Error:</strong> {validationError}
+              {suggestedDomain && (
+                <div className="mt-2">
+                  <Button
+                    onClick={() => setShowPrimaryDomainSetup(true)}
+                    color="red"
+                    className="text-xs"
+                  >
+                    Set {suggestedDomain} as Primary Domain
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {validationMessage && (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
-          <strong>Success:</strong> {validationMessage}
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 flex-shrink-0" />
+            <div>
+              <strong>Success:</strong> {validationMessage}
+            </div>
+          </div>
         </div>
       )}
 

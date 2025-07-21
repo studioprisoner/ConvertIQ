@@ -7,7 +7,7 @@ import {
   FeatureGateResult, 
   checkFeatureAccess,
   getUserFeatureMap 
-} from '@/lib/feature-gate';
+} from '@/lib/feature-gate-client';
 
 /**
  * Hook for checking access to a specific feature
@@ -35,11 +35,7 @@ export function useFeatureGate(featureKey: FeatureKey) {
       }
 
       try {
-        const result = await checkFeatureAccess(
-          session.user.id, 
-          featureKey,
-          session.sessionId
-        );
+        const result = await checkFeatureAccess(featureKey);
         setFeatureAccess(result);
       } catch (error) {
         console.error('Error checking feature access:', error);
@@ -80,7 +76,7 @@ export function useFeatureMap() {
       }
 
       try {
-        const map = await getUserFeatureMap(session.user.id);
+        const map = await getUserFeatureMap();
         setFeatureMap(map);
       } catch (error) {
         console.error('Error loading feature map:', error);

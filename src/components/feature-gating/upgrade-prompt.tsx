@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/button';
 import { 
   Card, 
   CardContent, 
@@ -8,8 +8,8 @@ import {
   CardFooter, 
   CardHeader, 
   CardTitle 
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+} from '@/components/card';
+import { Badge } from '@/components/badge';
 import { 
   Zap, 
   Users, 
@@ -20,8 +20,7 @@ import {
   Star,
   Lock
 } from 'lucide-react';
-import { FeatureKey } from '@/lib/feature-gate';
-import Link from 'next/link';
+import { FeatureKey } from '@/lib/feature-gate-client';
 
 interface UpgradePromptProps {
   featureKey: FeatureKey;
@@ -143,10 +142,8 @@ export function UpgradePrompt({
             <Badge variant="secondary" className="bg-blue-100 text-blue-800">
               {feature.planRequired} Feature
             </Badge>
-            <Button asChild size="sm">
-              <Link href="/dashboard/billing">
+            <Button href="/dashboard/billing">
                 Upgrade <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
             </Button>
           </div>
         </div>
@@ -159,8 +156,8 @@ export function UpgradePrompt({
       <div className={`flex items-center gap-2 p-3 bg-gray-50 rounded-lg border ${className}`}>
         <Lock className="h-4 w-4 text-gray-400" />
         <span className="text-sm text-gray-600">{displayDescription}</span>
-        <Button asChild size="sm" variant="outline">
-          <Link href="/dashboard/billing">Upgrade</Link>
+        <Button href="/dashboard/billing" outline>
+          Upgrade
         </Button>
       </div>
     );
@@ -204,16 +201,12 @@ export function UpgradePrompt({
       )}
       
       <CardFooter className="flex flex-col gap-2">
-        <Button asChild className="w-full">
-          <Link href="/dashboard/billing">
+        <Button href="/dashboard/billing" className="w-full">
             Upgrade to {feature.planRequired}
             <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
         </Button>
-        <Button asChild variant="outline" size="sm" className="w-full">
-          <Link href="/dashboard/billing">
+        <Button href="/dashboard/billing" outline className="w-full">
             Compare Plans
-          </Link>
         </Button>
       </CardFooter>
     </Card>
@@ -256,9 +249,7 @@ export function FeaturePreview({
               <Lock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
               <h3 className="font-medium text-gray-900">{feature.title}</h3>
               <p className="text-sm text-gray-600 mb-3">{feature.description}</p>
-              <Button asChild>
-                <Link href="/dashboard/billing">Unlock Feature</Link>
-              </Button>
+              <Button href="/dashboard/billing">Unlock Feature</Button>
             </div>
           )
         )}

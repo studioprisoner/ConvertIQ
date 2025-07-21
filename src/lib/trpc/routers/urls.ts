@@ -1,8 +1,11 @@
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure } from '../server';
+import { createTRPCRouter, publicProcedure, protectedProcedure } from '../server';
 import { validateUrl } from '@/lib/url-validation';
 import { WebCrawler } from '@/lib/crawler/crawler';
 import { crawlerOptionsSchema } from '@/lib/crawler/types';
+import { db } from '@/db/connection';
+import { user } from '@/db/schema/auth';
+import { eq } from 'drizzle-orm';
 
 export const urlRouter = createTRPCRouter({
   // No-input test procedure
@@ -37,10 +40,48 @@ export const urlRouter = createTRPCRouter({
       // Convert pageType to the expected enum type
       const validPageType = pageType as 'homepage' | 'product' | 'service' | 'landing' | 'other' | undefined;
       
-      // Perform comprehensive URL validation
+      // Perform comprehensive URL validation (without user context for public access)
       const result = await validateUrl(url, validPageType);
       
       console.log('tRPC url.validate returning result:', JSON.stringify(result, null, 2));
+      return result;
+    }),
+
+  // Authenticated URL validation with domain restrictions
+  validateWithUser: protectedProcedure
+    .input(z.object({
+      url: z.string().url(),
+      pageType: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      console.log('tRPC url.validateWithUser received input:', JSON.stringify(input, null, 2));
+      console.log('User context:', { userId: ctx.user.id, plan: ctx.userPlan });
+      
+      const { url, pageType } = input;
+      
+      // Convert pageType to the expected enum type
+      const validPageType = pageType as 'homepage' | 'product' | 'service' | 'landing' | 'other' | undefined;
+      
+      // Get fresh user data from database to ensure we have the latest primary domain
+      const [freshUser] = await db
+        .select({ primaryDomain: user.primaryDomain })
+        .from(user)
+        .where(eq(user.id, ctx.user.id))
+        .limit(1);
+      
+      const userPrimaryDomain = freshUser?.primaryDomain || null;
+      
+      console.log('Fresh user primary domain:', userPrimaryDomain);
+      
+      // Perform URL validation with user context and domain restrictions
+      const result = await validateUrl(
+        url, 
+        validPageType, 
+        ctx.userPlan as 'basic' | 'pro' | 'enterprise',
+        userPrimaryDomain
+      );
+      
+      console.log('tRPC url.validateWithUser returning result:', JSON.stringify(result, null, 2));
       return result;
     }),
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateDomainAccess } from './domain-validation';
 
 // URL validation schema
 export const urlValidationSchema = z.object({
@@ -93,10 +94,17 @@ export interface ValidationResult {
   statusCode?: number;
   error?: string;
   message?: string;
+  suggestedDomain?: string;
+  requiresPrimaryDomain?: boolean;
 }
 
 // Main validation function
-export async function validateUrl(url: string, userPageType?: string): Promise<ValidationResult> {
+export async function validateUrl(
+  url: string, 
+  userPageType?: string,
+  userPlan?: 'basic' | 'pro' | 'enterprise',
+  userPrimaryDomain?: string | null
+): Promise<ValidationResult> {
   // First validate the URL format
   const urlValidation = urlValidationSchema.safeParse({ url, pageType: userPageType });
   
@@ -110,6 +118,21 @@ export async function validateUrl(url: string, userPageType?: string): Promise<V
 
   // Detect page type if not provided
   const detectedPageType = userPageType || detectPageType(url);
+
+  // Check domain access for basic plan users
+  if (userPlan === 'basic') {
+    const domainValidation = validateDomainAccess(url, userPrimaryDomain, userPlan);
+    
+    if (!domainValidation.allowed) {
+      return {
+        isValid: false,
+        pageType: detectedPageType,
+        error: domainValidation.reason,
+        suggestedDomain: domainValidation.suggestedDomain,
+        requiresPrimaryDomain: !userPrimaryDomain,
+      };
+    }
+  }
 
   // Check if URL is accessible
   const accessibilityCheck = await checkUrlAccessibility(url);

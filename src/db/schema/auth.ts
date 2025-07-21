@@ -10,6 +10,7 @@ export const user = pgTable("user", {
   emailVerified: boolean('email_verified').$defaultFn(() => false).notNull(),
   image: text('image'),
   avatarUrl: text('avatar_url'),
+  primaryDomain: text('primary_domain'), // For basic users - their allowed domain
   createdAt: timestamp('created_at').$defaultFn(() => new Date()).notNull(),
   updatedAt: timestamp('updated_at').$defaultFn(() => new Date()).notNull()
 });
