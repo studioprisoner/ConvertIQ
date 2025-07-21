@@ -186,25 +186,11 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 <SidebarLabel>Reports</SidebarLabel>
               </SidebarItem>
               <SidebarItem
-                href="/history"
-                current={pathname.startsWith("/history")}
+                href="/dashboard/history"
+                current={pathname.startsWith("/dashboard/history")}
               >
                 <ClockIcon />
                 <SidebarLabel>History</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem
-                href="/pricing"
-                current={pathname.startsWith("/pricing")}
-              >
-                <CreditCardIcon />
-                <SidebarLabel>Pricing & Billing</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem
-                href="/dashboard/settings"
-                current={pathname.startsWith("/dashboard/settings")}
-              >
-                <Cog6ToothIcon />
-                <SidebarLabel>Settings</SidebarLabel>
               </SidebarItem>
             </SidebarSection>
 

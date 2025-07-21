@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { useSearchParams } from 'next/navigation';
 import { Heading } from '@/components/heading';
 import { Text } from '@/components/text';
@@ -14,8 +15,8 @@ export default function ReportsPage() {
   const searchParams = useSearchParams();
   const websiteId = searchParams.get('websiteId');
   
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
   const [filterPriority, setFilterPriority] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['conversion', 'ux', 'seo', 'performance', 'content', 'technical', 'design']));
 
   // Fetch reports list if no websiteId, otherwise fetch specific dashboard
   const { data: reportsList, isLoading: isLoadingList, error: errorList } = trpc.reports.getReportsList.useQuery(
@@ -221,19 +222,42 @@ export default function ReportsPage() {
 
   // Filter recommendations based on selected filters
   const filteredRecommendations = mockScanResults.recommendations.filter(rec => {
-    const matchesStatus = filterStatus === 'all' || rec.status === filterStatus;
     const matchesPriority = filterPriority === 'all' || rec.priority === filterPriority;
-    return matchesStatus && matchesPriority;
+    return matchesPriority;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'zinc';
-      case 'in_progress': return 'blue';
-      case 'completed': return 'green';
-      default: return 'zinc';
+  // Group recommendations by category
+  const groupedRecommendations = filteredRecommendations.reduce((groups, rec) => {
+    const category = rec.category || 'other';
+    if (!groups[category]) {
+      groups[category] = [];
     }
+    groups[category].push(rec);
+    return groups;
+  }, {} as Record<string, typeof filteredRecommendations>);
+
+  // Category display names and icons
+  const categoryInfo = {
+    conversion: { name: 'Conversion Optimization', icon: '🎯', color: 'blue' },
+    ux: { name: 'User Experience', icon: '👥', color: 'green' },
+    seo: { name: 'SEO & Visibility', icon: '🔍', color: 'purple' },
+    performance: { name: 'Performance', icon: '⚡', color: 'yellow' },
+    content: { name: 'Content & Messaging', icon: '📝', color: 'indigo' },
+    technical: { name: 'Technical Implementation', icon: '⚙️', color: 'gray' },
+    design: { name: 'Design & Layout', icon: '🎨', color: 'pink' },
+    other: { name: 'Other Recommendations', icon: '📋', color: 'zinc' }
   };
+
+  const toggleCategory = (category: string) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category);
+    } else {
+      newExpanded.add(category);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -250,11 +274,6 @@ export default function ReportsPage() {
     return 'text-red-600 dark:text-red-400';
   };
 
-  const updateRecommendationStatus = (recId: string, newStatus: 'pending' | 'in_progress' | 'completed') => {
-    // In a real app, this would update via tRPC
-    console.log(`Updating recommendation ${recId} to status: ${newStatus}`);
-    // Mock implementation - would actually update the data
-  };
 
   return (
     <div className="space-y-8">
@@ -298,9 +317,65 @@ export default function ReportsPage() {
             <Text className="text-sm">Overall Score</Text>
           </div>
         </div>
-        <Text className="text-zinc-600 dark:text-zinc-400 mb-6">
-          {mockScanResults.summary}
-        </Text>
+        <div className="space-y-4 mb-6">
+          {mockScanResults.summary.split('. ').map((sentence, index, array) => {
+            // Skip empty sentences
+            if (!sentence.trim()) return null;
+            
+            // Add period back if it's not the last sentence and doesn't already end with punctuation
+            const formattedSentence = index === array.length - 1 ? sentence : 
+              sentence.endsWith('.') || sentence.endsWith('!') || sentence.endsWith('?') ? sentence : sentence + '.';
+            
+            // Check if this sentence contains priority recommendations
+            if (sentence.toLowerCase().includes('top') && sentence.toLowerCase().includes('priority')) {
+              return (
+                <div key={index} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center">
+                    🎯 Priority Recommendations
+                  </h4>
+                  <Text className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed">
+                    {formattedSentence}
+                  </Text>
+                </div>
+              );
+            }
+            
+            // Check if this sentence contains quick wins
+            if (sentence.toLowerCase().includes('quick wins') || sentence.toLowerCase().includes('implementation within')) {
+              return (
+                <div key={index} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center">
+                    ⚡ Quick Wins
+                  </h4>
+                  <Text className="text-green-800 dark:text-green-200 text-sm leading-relaxed">
+                    {formattedSentence}
+                  </Text>
+                </div>
+              );
+            }
+            
+            // Check if this sentence contains long-term optimization
+            if (sentence.toLowerCase().includes('long-term') || sentence.toLowerCase().includes('revenue growth potential')) {
+              return (
+                <div key={index} className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center">
+                    📈 Long-term Growth
+                  </h4>
+                  <Text className="text-purple-800 dark:text-purple-200 text-sm leading-relaxed">
+                    {formattedSentence}
+                  </Text>
+                </div>
+              );
+            }
+            
+            // Default case - regular paragraph
+            return (
+              <Text key={index} className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">
+                {formattedSentence}
+              </Text>
+            );
+          }).filter(Boolean)}
+        </div>
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -346,115 +421,100 @@ export default function ReportsPage() {
           </h3>
           
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:space-x-4">
-            <div className="flex items-center space-x-2">
-              <Text className="text-sm font-medium whitespace-nowrap">Status:</Text>
-              <select 
-                value={filterStatus} 
-                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'pending' | 'in_progress' | 'completed')}
-                className="text-sm border border-zinc-300 dark:border-zinc-600 rounded-md px-2 py-1 bg-white dark:bg-zinc-800 min-w-[120px]"
-              >
-                <option value="all">All</option>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Text className="text-sm font-medium whitespace-nowrap">Priority:</Text>
-              <select 
-                value={filterPriority} 
-                onChange={(e) => setFilterPriority(e.target.value as 'all' | 'high' | 'medium' | 'low')}
-                className="text-sm border border-zinc-300 dark:border-zinc-600 rounded-md px-2 py-1 bg-white dark:bg-zinc-800 min-w-[120px]"
-              >
-                <option value="all">All</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
+          <div className="flex items-center space-x-2">
+            <Text className="text-sm font-medium whitespace-nowrap">Priority:</Text>
+            <select 
+              value={filterPriority} 
+              onChange={(e) => setFilterPriority(e.target.value as 'all' | 'high' | 'medium' | 'low')}
+              className="text-sm border border-zinc-300 dark:border-zinc-600 rounded-md px-2 py-1 bg-white dark:bg-zinc-800 min-w-[120px]"
+            >
+              <option value="all">All</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
           </div>
         </div>
 
-        {/* Recommendations List */}
-        <div className="space-y-4">
-          {filteredRecommendations.map((rec) => (
-            <div key={rec.id} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
+        {/* Recommendations List - Grouped by Category */}
+        <div className="space-y-6">
+          {Object.entries(groupedRecommendations).map(([category, recommendations]) => {
+            const categoryData = categoryInfo[category as keyof typeof categoryInfo];
+            const isExpanded = expandedCategories.has(category);
+            
+            return (
+              <div key={category} className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => toggleCategory(category)}
+                  className="w-full flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className="text-lg">{categoryData.icon}</span>
                     <h4 className="font-semibold text-zinc-900 dark:text-white">
-                      {rec.title}
+                      {categoryData.name}
                     </h4>
-                    <Badge color={getPriorityColor(rec.priority)}>
-                      {rec.priority} priority
-                    </Badge>
-                    <Badge color={getStatusColor(rec.status)}>
-                      {rec.status.replace('_', ' ')}
+                    <Badge color={categoryData.color as any}>
+                      {recommendations.length} {recommendations.length === 1 ? 'recommendation' : 'recommendations'}
                     </Badge>
                   </div>
-                  <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
-                    {rec.description}
-                  </Text>
-                </div>
-              </div>
+                  <div className="flex items-center">
+                    {isExpanded ? (
+                      <ChevronDownIcon className="h-5 w-5 text-zinc-500" />
+                    ) : (
+                      <ChevronRightIcon className="h-5 w-5 text-zinc-500" />
+                    )}
+                  </div>
+                </button>
+                
+                {isExpanded && (
+                  <div className="border-t border-zinc-200 dark:border-zinc-700">
+                    <div className="p-4 space-y-4">
+                      {recommendations.map((rec) => (
+                        <div key={rec.id} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <h5 className="font-semibold text-zinc-900 dark:text-white">
+                                  {rec.title}
+                                </h5>
+                                <Badge color={getPriorityColor(rec.priority)}>
+                                  {rec.priority} priority
+                                </Badge>
+                              </div>
+                              <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
+                                {rec.description}
+                              </Text>
+                            </div>
+                          </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
-                <div>
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300">Impact:</span>
-                  <span className="ml-1 text-zinc-900 dark:text-white">
-                    {rec.impact.score}/10 ({rec.impact.category})
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300">Effort:</span>
-                  <span className="ml-1 text-zinc-900 dark:text-white">
-                    {rec.effort.score}/10 ({rec.effort.category})
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300">Timeline:</span>
-                  <span className="ml-1 text-zinc-900 dark:text-white">
-                    {rec.estimatedTimeToComplete}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300">Expected Impact:</span>
-                  <span className="ml-1 text-zinc-900 dark:text-white">
-                    {rec.expectedImpact}
-                  </span>
-                </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="font-medium text-zinc-700 dark:text-zinc-300">Impact:</span>
+                              <span className="ml-1 text-zinc-900 dark:text-white">
+                                {rec.impact.score}/10 ({rec.impact.category})
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-medium text-zinc-700 dark:text-zinc-300">Effort:</span>
+                              <span className="ml-1 text-zinc-900 dark:text-white">
+                                {rec.effort.score}/10 ({rec.effort.category})
+                              </span>
+                            </div>
+                            <div>
+                              <span className="font-medium text-zinc-700 dark:text-zinc-300">Expected Impact:</span>
+                              <span className="ml-1 text-zinc-900 dark:text-white">
+                                {rec.expectedImpact}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {/* Status Update Buttons */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:space-x-2 pt-3 border-t border-zinc-200 dark:border-zinc-700">
-                <Text className="text-sm font-medium">Update Status:</Text>
-                <div className="flex flex-wrap gap-2">
-                  <Button 
-                    size="sm"
-                    variant={rec.status === 'pending' ? 'solid' : 'outline'}
-                    onClick={() => updateRecommendationStatus(rec.id, 'pending')}
-                  >
-                    Pending
-                  </Button>
-                  <Button 
-                    size="sm"
-                    variant={rec.status === 'in_progress' ? 'solid' : 'outline'}
-                    onClick={() => updateRecommendationStatus(rec.id, 'in_progress')}
-                  >
-                    In Progress
-                  </Button>
-                  <Button 
-                    size="sm"
-                    variant={rec.status === 'completed' ? 'solid' : 'outline'}
-                    onClick={() => updateRecommendationStatus(rec.id, 'completed')}
-                  >
-                    Completed
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {filteredRecommendations.length === 0 && (
@@ -466,32 +526,6 @@ export default function ReportsPage() {
         )}
       </div>
 
-      {/* Progress Summary */}
-      <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
-          📊 Implementation Progress
-        </h3>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
-            <div className="text-2xl font-bold text-zinc-600 dark:text-zinc-400">
-              {mockScanResults.recommendations.filter(r => r.status === 'pending').length}
-            </div>
-            <Text className="text-sm mt-1">Pending</Text>
-          </div>
-          <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {mockScanResults.recommendations.filter(r => r.status === 'in_progress').length}
-            </div>
-            <Text className="text-sm mt-1">In Progress</Text>
-          </div>
-          <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {mockScanResults.recommendations.filter(r => r.status === 'completed').length}
-            </div>
-            <Text className="text-sm mt-1">Completed</Text>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
