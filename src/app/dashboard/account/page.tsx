@@ -374,7 +374,7 @@ export default function AccountPage() {
           <Heading level={2}>Subscription</Heading>
           <Button 
             color="blue"
-            onClick={() => router.push('/pricing')}
+            onClick={() => router.push('/dashboard/billing')}
           >
             <CreditCardIcon className="size-4" />
             Manage Plan
@@ -428,7 +428,7 @@ export default function AccountPage() {
               </p>
               <Button 
                 color="blue"
-                onClick={() => router.push('/pricing')}
+                onClick={() => router.push('/dashboard/billing')}
               >
                 View Plans
               </Button>
