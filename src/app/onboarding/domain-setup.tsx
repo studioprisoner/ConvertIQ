@@ -79,8 +79,9 @@ export default function DomainSetup({
     setError("");
 
     try {
-      // Clean the domain before saving
+      // Clean the domain and add https:// prefix for consistency
       let cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+      const domainWithProtocol = `https://${cleanDomain}`;
       
       const response = await fetch('/api/auth/update-user', {
         method: 'POST',
@@ -89,7 +90,7 @@ export default function DomainSetup({
         },
         credentials: 'include',
         body: JSON.stringify({
-          primaryDomain: cleanDomain,
+          primaryDomain: domainWithProtocol,
         }),
       });
 
@@ -99,7 +100,7 @@ export default function DomainSetup({
       }
 
       // Update onboarding data
-      updateData({ primaryDomain: cleanDomain });
+      updateData({ primaryDomain: domainWithProtocol });
 
       // Continue to next step (complete onboarding)
       nextStep();
@@ -145,18 +146,23 @@ export default function DomainSetup({
       <form onSubmit={handleSubmit} className="space-y-6">
         <Field>
           <Label htmlFor="domain">Primary website domain</Label>
-          <Input
-            id="domain"
-            name="domain"
-            type="text"
-            value={domain}
-            onChange={handleDomainChange}
-            placeholder="example.com"
-            className={
-              validationStatus === "valid" ? "border-green-500 focus:border-green-500" :
-              validationStatus === "invalid" ? "border-red-500 focus:border-red-500" : ""
-            }
-          />
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span className="text-gray-500 text-sm">https://</span>
+            </div>
+            <Input
+              id="domain"
+              name="domain"
+              type="text"
+              value={domain}
+              onChange={handleDomainChange}
+              placeholder="example.com"
+              className={`pl-[65px] ${
+                validationStatus === "valid" ? "border-green-500 focus:border-green-500" :
+                validationStatus === "invalid" ? "border-red-500 focus:border-red-500" : ""
+              }`}
+            />
+          </div>
           {validationMessage && (
             <Text className={`text-sm mt-1 ${
               validationStatus === "valid" ? "text-green-600 dark:text-green-400" :
@@ -166,7 +172,7 @@ export default function DomainSetup({
             </Text>
           )}
           <Text className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Enter just the domain name (e.g., "example.com" not "https://www.example.com")
+            Enter your website domain (https:// will be added automatically)
           </Text>
         </Field>
 
