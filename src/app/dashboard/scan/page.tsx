@@ -1,38 +1,66 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Heading } from '@/components/heading';
-import { Text } from '@/components/text';
-import { UrlScanner } from '@/components/url-scanner';
-import { trpc } from '@/lib/trpc/client';
-import { useFeatureGate, useSubscriptionStatus } from '@/hooks/use-feature-gate';
-import { FeatureGate, UsageMeter } from '@/components/feature-gating/feature-gate';
-import { UpgradePrompt } from '@/components/feature-gating/upgrade-prompt';
-import type { UrlValidationInput } from '@/lib/url-validation';
+import { useState, FormEvent, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { trpc } from "@/lib/trpc/client";
+import { useFeatureGate } from "@/hooks/use-feature-gate";
+import { FeatureGate } from "@/components/feature-gating/feature-gate";
+import { urlValidationSchema, detectPageType } from "@/lib/url-validation";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+import { CompanyIcon } from "@/components/company-logo";
+import { Input, InputGroup } from "@/components/input";
+import { AiChat } from "@/components/aichat";
 
-import type { CrawlResult } from '@/lib/crawler/types';
-import type { AIAnalysisResult } from '@/lib/ai/types';
+type ScanPhase =
+  | "website-creation"
+  | "webcrawler"
+  | "ai-analysis"
+  | "report-generation"
+  | "complete";
+
+interface ProcessingStep {
+  title: string;
+  description?: string;
+  completed: boolean;
+  inProgress: boolean;
+  details?: string[];
+}
 
 export default function ScanPage() {
   const router = useRouter();
+  const [url, setUrl] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingMessage, setProcessingMessage] = useState<string | null>(null);
-  const [crawlResult, setCrawlResult] = useState<CrawlResult | null>(null);
-  const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
+  const [currentPhase, setCurrentPhase] =
+    useState<ScanPhase>("website-creation");
   const [currentWebsiteId, setCurrentWebsiteId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [scanStartTime, setScanStartTime] = useState<Date | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<string>("0:00");
 
   // Feature gating hooks
-  const scanFeatureGate = useFeatureGate('unlimited_scans');
-  const { stats } = useSubscriptionStatus();
+  const scanFeatureGate = useFeatureGate("unlimited_scans");
+
+  // Update elapsed time every second during processing
+  useEffect(() => {
+    if (!isProcessing || !scanStartTime) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - scanStartTime.getTime()) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      setElapsedTime(`${minutes}:${seconds.toString().padStart(2, "0")}`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isProcessing, scanStartTime]);
 
   const websiteCreateMutation = trpc.websites.createOrGet.useMutation({
     onSuccess: (website) => {
-      console.log('📝 Website created/found:', website);
-      console.log('🔍 Setting websiteId:', website.id);
+      console.log("📝 Website created/found:", website);
+      console.log("🔍 Setting websiteId:", website.id);
       setCurrentWebsiteId(website.id);
-      setProcessingMessage('✅ Website registered! Starting content crawl...');
-      
+      setCurrentPhase("webcrawler");
+
       // Now start the crawling process
       crawlMutation.mutate({
         url: website.url,
@@ -45,45 +73,47 @@ export default function ScanPage() {
       });
     },
     onError: (error) => {
-      console.error('📝 Website creation failed:', error);
-      setProcessingMessage(`❌ Website registration failed: ${error.message}`);
+      console.error("📝 Website creation failed:", error);
+      setError(`Website registration failed: ${error.message}`);
       setIsProcessing(false);
     },
   });
 
   const aiAnalysisMutation = trpc.ai.analyze.useMutation({
     onSuccess: (result) => {
-      console.log('🤖 AI analysis completed successfully:', result);
-      setAiAnalysisResult(result);
-      setProcessingMessage('🎉 AI analysis complete! Redirecting to full dashboard...');
-      setIsProcessing(false);
-      
-      // Automatically redirect to reports dashboard after 2 seconds
+      console.log("🤖 AI analysis completed successfully:", result);
+      setCurrentPhase("report-generation");
+
+      // Simulate report generation time then complete
       setTimeout(() => {
-        if (currentWebsiteId) {
-          router.push(`/dashboard/reports?websiteId=${currentWebsiteId}`);
-        } else {
-          console.warn('No websiteId available for redirect');
-          router.push('/dashboard/reports');
-        }
-      }, 2000);
+        setCurrentPhase("complete");
+
+        // Automatically redirect to reports dashboard after showing completion
+        setTimeout(() => {
+          if (currentWebsiteId) {
+            router.push(`/dashboard/reports?websiteId=${currentWebsiteId}`);
+          } else {
+            console.warn("No websiteId available for redirect");
+            router.push("/dashboard/reports");
+          }
+        }, 2000);
+      }, 1500);
     },
     onError: (error) => {
-      console.error('🤖 AI analysis failed:', error);
-      setProcessingMessage(`❌ AI analysis failed: ${error.message}`);
+      console.error("🤖 AI analysis failed:", error);
+      setError(`AI analysis failed: ${error.message}`);
       setIsProcessing(false);
     },
   });
 
   const crawlMutation = trpc.url.crawl.useMutation({
     onSuccess: (result) => {
-      console.log('🕷️ Crawl completed successfully:', result);
-      setCrawlResult(result);
-      setProcessingMessage('✅ Website crawling completed! Starting AI analysis...');
-      
+      console.log("🕷️ Crawl completed successfully:", result);
+      setCurrentPhase("ai-analysis");
+
       // Use the actual website ID and enable database saving
       if (!currentWebsiteId) {
-        setProcessingMessage('❌ Error: Website ID not found. Please try again.');
+        setError("Website ID not found. Please try again.");
         setIsProcessing(false);
         return;
       }
@@ -91,345 +121,596 @@ export default function ScanPage() {
       aiAnalysisMutation.mutate({
         crawlData: result,
         websiteId: currentWebsiteId,
-        analysisType: 'comprehensive',
+        analysisType: "comprehensive",
         saveToDb: true, // Enable DB save with real website ID
       });
     },
     onError: (error) => {
-      console.error('🕷️ Crawl failed:', error);
-      setProcessingMessage(`❌ Crawling failed: ${error.message}`);
+      console.error("🕷️ Crawl failed:", error);
+      setError(`Crawling failed: ${error.message}`);
       setIsProcessing(false);
     },
   });
 
-  const handleScanStart = async (data: UrlValidationInput & { detectedPageType: string }) => {
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
     // Check feature access before starting scan
     if (!scanFeatureGate.hasAccess) {
-      console.warn('Scan blocked by feature gate:', scanFeatureGate.reason);
+      setError(scanFeatureGate.reason || "Scan access denied");
+      return;
+    }
+
+    // Validate URL
+    if (!url.trim()) {
+      setError("Please enter a website URL");
+      return;
+    }
+
+    const urlValidation = urlValidationSchema.safeParse({ url });
+    if (!urlValidation.success) {
+      setError(
+        urlValidation.error.errors[0]?.message ||
+          "Please enter a valid website URL",
+      );
       return;
     }
 
     setIsProcessing(true);
-    setProcessingMessage('📝 Registering website...');
-    setCrawlResult(null);
-    setAiAnalysisResult(null);
+    setScanStartTime(new Date());
+    setCurrentPhase("website-creation");
     setCurrentWebsiteId(null);
 
     try {
-      console.log('🚀 Starting scan for:', data);
-      
+      console.log("🚀 Starting scan for:", url);
+
+      // Detect page type based on URL
+      const detectedPageType = detectPageType(url);
+
       // First, create or get the website record
       websiteCreateMutation.mutate({
-        url: data.url,
-        pageType: data.detectedPageType,
+        url: url,
+        pageType: detectedPageType,
       });
-      
     } catch (error) {
-      console.error('Scan error:', error);
-      setProcessingMessage('❌ Error occurred during scan preparation. Please try again.');
+      console.error("Scan error:", error);
+      setError("Error occurred during scan preparation. Please try again.");
       setIsProcessing(false);
     }
   };
 
-  const handleValidationResult = (result: { isValid: boolean; message?: string; error?: string }) => {
-    // Handle validation feedback if needed
-    console.log('Validation result:', result);
+  const getProcessingSteps = (): ProcessingStep[] => {
+    return [
+      {
+        title: "WebCrawler",
+        description: "WebCrawler Analysed",
+        completed:
+          currentPhase !== "website-creation" && currentPhase !== "webcrawler",
+        inProgress: currentPhase === "webcrawler",
+        details: [
+          "Meta tags",
+          "HTML Structure",
+          "Call-to-Actions",
+          "CSS Analysis",
+          "Performance",
+          "Responsive Design",
+        ],
+      },
+      {
+        title: "AI-Powered Analysis",
+        completed:
+          currentPhase === "report-generation" || currentPhase === "complete",
+        inProgress: currentPhase === "ai-analysis",
+        details: [
+          "Conversion Psychology: Trust signals, psychological triggers",
+          "UX/UI Analysis: Mobile optimization, navigation performance",
+          "Technical SEO: Meta tags, structure, schema markup",
+          "Comprehensive: All aspects combined",
+        ],
+      },
+      {
+        title: "Report Generation",
+        completed: currentPhase === "complete",
+        inProgress: currentPhase === "report-generation",
+        details: [
+          "Marketing improvement Report: SEO, visibility, content optimisation",
+          "Conversion Rate Report: UX/UI, psychological, sales funnel",
+          "Action Plan Report: Speed, mobile, technical issues",
+        ],
+      },
+    ];
+  };
+
+  // Animation variants
+  const pageVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: [0.25, 0.25, 0, 1],
+      },
+    },
+  };
+
+  const formVariants: Variants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: {
+        duration: 0.5,
+        ease: [0.25, 0.25, 0, 1],
+      },
+    },
+    exit: {
+      opacity: 0,
+      scale: 0.95,
+      transition: { duration: 0.3 },
+    },
+  };
+
+  const streamingVariants: Variants = {
+    hidden: { opacity: 0, y: 30, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.6,
+        ease: [0.25, 0.25, 0, 1],
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const stepVariants: Variants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.4,
+        ease: [0.25, 0.25, 0, 1],
+      },
+    },
+  };
+
+  const detailVariants: Variants = {
+    hidden: { opacity: 0, x: -10 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.3 },
+    },
+  };
+
+  const pulseVariants: Variants = {
+    pulse: {
+      scale: [1, 1.2, 1],
+      opacity: [0.7, 1, 0.7],
+      transition: {
+        duration: 1.5,
+        repeat: Infinity,
+        ease: "easeInOut",
+      },
+    },
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <Heading>Website Scan</Heading>
-        <Text className="mt-4">
-          Enter a website URL to analyze for conversion optimization opportunities. 
-          Our system will examine the page structure, content, and user experience to provide actionable recommendations.
-        </Text>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-zinc-900 px-4">
+      <motion.div
+        className="w-full max-w-2xl"
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Header */}
+        <motion.div
+          className="flex items-center justify-center mb-12 space-x-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{
+              duration: 0.5,
+              delay: 0.3,
+              type: "spring",
+              stiffness: 260,
+              damping: 20,
+            }}
+          >
+            <CompanyIcon width={48} height={48} className="flex-shrink-0" />
+          </motion.div>
+          <motion.h1
+            className="text-3xl font-bold text-zinc-900 dark:text-white"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            Start a new website scan
+          </motion.h1>
+        </motion.div>
 
-      {/* Subscription Status & Usage */}
-      {stats && (
-        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
-              Scan Usage
-            </h3>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                Current Plan:
-              </span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-md">
-                {stats.planName}
-              </span>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Scans This Month
-                </span>
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                  {stats.usage?.scansThisMonth || 0} / {stats.limits?.scansPerMonth === -1 ? '∞' : stats.limits?.scansPerMonth}
-                </span>
-              </div>
-              <UsageMeter featureKey="unlimited_scans" />
-              
-              {scanFeatureGate.usagePercentage && scanFeatureGate.usagePercentage >= 80 && (
-                <div className="mt-3">
-                  <UpgradePrompt 
-                    featureKey="unlimited_scans"
-                    variant="banner"
-                    showFeatureList={false}
-                  />
-                </div>
-              )}
-            </div>
-            
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Websites Tracked
-                </span>
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                  {stats.usage?.websiteCount || 0} / {stats.limits?.websites === -1 ? '∞' : stats.limits?.websites}
-                </span>
-              </div>
-              <UsageMeter featureKey="multiple_websites" />
-            </div>
-          </div>
-          
-          {stats.isTrialing && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                🎉 You&apos;re on a free trial! {stats.daysInTrial} days remaining.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
-          URL Input & Validation
-        </h3>
-        
-        <FeatureGate 
+        {/* Form */}
+        <FeatureGate
           featureKey="unlimited_scans"
           variant="block"
           showUpgradePrompt={true}
         >
-          {!isProcessing ? (
-            <UrlScanner 
-              onScanStart={handleScanStart}
-              onValidationResult={handleValidationResult}
-            />
-          ) : (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
-              <strong>Status:</strong> {processingMessage}
-            </div>
-            
-            {(crawlMutation.isPending || aiAnalysisMutation.isPending) && (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-sm text-zinc-600 dark:text-zinc-400">
-                  {crawlMutation.isPending ? 'Crawling website...' : 'Running AI analysis...'}
-                </span>
-              </div>
-            )}
-            
-            {crawlResult && (
-              <div className="space-y-6 mt-6">
-                <div className="border border-green-200 bg-green-50 rounded-lg p-4 dark:border-green-800 dark:bg-green-950">
-                  <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2">
-                    🎉 Crawl Completed Successfully!
-                  </h4>
-                  <div className="text-sm text-green-800 dark:text-green-200">
-                    <p><strong>URL:</strong> {crawlResult.url}</p>
-                    <p><strong>Status:</strong> {crawlResult.statusCode}</p>
-                    <p><strong>Load Time:</strong> {crawlResult.performance.loadTime}ms</p>
-                    <p><strong>Page Size:</strong> {(crawlResult.performance.htmlSize / 1024).toFixed(1)}KB</p>
+          <AnimatePresence mode="wait">
+            {!isProcessing ? (
+              <motion.form
+                onSubmit={handleSubmit}
+                className="space-y-4"
+                variants={formVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                key="form"
+              >
+                <div>
+                  <div className="relative">
+                    <InputGroup>
+                      <AiChat className="text-zinc-400" />
+                      <Input
+                        type="url"
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                        placeholder="Enter a website URL to analyze for conversion optimization opportunities"
+                        className="text-lg py-4 pr-12"
+                        disabled={isProcessing}
+                      />
+                    </InputGroup>
+                    <button
+                      type="submit"
+                      disabled={isProcessing || !url.trim()}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-cyan-400 hover:bg-cyan-500 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white p-2 rounded-lg transition-colors z-20"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="size-6"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"
+                        />
+                      </svg>
+                    </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
-                    <h5 className="font-semibold text-zinc-900 dark:text-white mb-2">📄 Page Info</h5>
-                    <div className="text-sm space-y-1">
-                      <p><strong>Title:</strong> {crawlResult.htmlAnalysis.meta.title || 'No title'}</p>
-                      <p><strong>Headings:</strong> {crawlResult.htmlAnalysis.headings.length}</p>
-                      <p><strong>Word Count:</strong> {crawlResult.htmlAnalysis.structure.wordCount}</p>
-                    </div>
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      className="text-red-600 dark:text-red-400 text-sm text-center"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {error}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.form>
+            ) : (
+              <motion.div
+                className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-xl"
+                variants={streamingVariants}
+                initial="hidden"
+                animate="visible"
+                key="streaming"
+              >
+                {/* Header */}
+                <motion.div
+                  className="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <div className="flex items-center space-x-3">
+                    <motion.div
+                      className="w-8 h-8 bg-zinc-100 dark:bg-zinc-700 rounded-lg flex items-center justify-center"
+                      initial={{ rotate: -180, scale: 0 }}
+                      animate={{ rotate: 0, scale: 1 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                    >
+                      <svg
+                        className="w-4 h-4 text-zinc-600 dark:text-zinc-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
+                      </svg>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.4, delay: 0.3 }}
+                    >
+                      <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+                        Executing Scan...
+                      </h3>
+                    </motion.div>
                   </div>
+                  <motion.div
+                    className="text-sm text-zinc-500 dark:text-zinc-400 font-mono"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4, delay: 0.4 }}
+                  >
+                    {elapsedTime}
+                  </motion.div>
+                </motion.div>
 
-                  <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
-                    <h5 className="font-semibold text-zinc-900 dark:text-white mb-2">🖼️ Media</h5>
-                    <div className="text-sm space-y-1">
-                      <p><strong>Images:</strong> {crawlResult.htmlAnalysis.images.length}</p>
-                      <p><strong>Without Alt:</strong> {crawlResult.performance.imagesWithoutAlt}</p>
-                      <p><strong>Links:</strong> {crawlResult.htmlAnalysis.links.length}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
-                    <h5 className="font-semibold text-zinc-900 dark:text-white mb-2">📝 Structure</h5>
-                    <div className="text-sm space-y-1">
-                      <p><strong>Forms:</strong> {crawlResult.htmlAnalysis.forms.length}</p>
-                      <p><strong>CTAs:</strong> {crawlResult.htmlAnalysis.ctas.length}</p>
-                      <p><strong>Sections:</strong> {crawlResult.htmlAnalysis.structure.sectionsCount}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {crawlResult.htmlAnalysis.meta.description && (
-                  <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
-                    <h5 className="font-semibold text-zinc-900 dark:text-white mb-2">📋 Meta Description</h5>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                      {crawlResult.htmlAnalysis.meta.description}
-                    </p>
-                  </div>
-                )}
-
-                {aiAnalysisResult && (
-                  <div className="space-y-6">
-                    <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 dark:border-blue-800 dark:bg-blue-950">
-                      <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                        🤖 AI Analysis Results
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                            {aiAnalysisResult.overallScore}/10
-                          </div>
-                          <div className="text-sm text-blue-700 dark:text-blue-200">Overall Score</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                            {aiAnalysisResult.recommendations.length}
-                          </div>
-                          <div className="text-sm text-blue-700 dark:text-blue-200">Recommendations</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                            {aiAnalysisResult.keyInsights.length}
-                          </div>
-                          <div className="text-sm text-blue-700 dark:text-blue-200">Key Insights</div>
-                        </div>
-                      </div>
-                      <div className="text-sm text-blue-800 dark:text-blue-200">
-                        <p><strong>Summary:</strong> {aiAnalysisResult.summary}</p>
-                      </div>
-                    </div>
-
-                    {aiAnalysisResult.recommendations.length > 0 && (
-                      <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
-                        <h5 className="font-semibold text-zinc-900 dark:text-white mb-4">
-                          🎯 Top Recommendations
-                        </h5>
-                        <div className="space-y-4">
-                          {aiAnalysisResult.recommendations.slice(0, 3).map((rec) => (
-                            <div key={rec.id} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <h6 className="font-medium text-zinc-900 dark:text-white">{rec.title}</h6>
-                                <div className="flex items-center space-x-2">
-                                  <span className={`px-2 py-1 text-xs rounded-full ${
-                                    rec.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                    rec.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                  }`}>
-                                    {rec.priority} priority
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">{rec.description}</p>
-                              <div className="grid grid-cols-2 gap-4 text-xs">
-                                <div>
-                                  <span className="font-medium">Impact:</span> {rec.impact.score}/10 ({rec.impact.category})
-                                </div>
-                                <div>
-                                  <span className="font-medium">Effort:</span> {rec.effort.score}/10 ({rec.effort.category})
-                                </div>
-                              </div>
-                              <div className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
-                                <span className="font-medium">Why it matters:</span> {rec.whyItMatters}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {aiAnalysisResult.keyInsights.length > 0 && (
-                      <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
-                        <h5 className="font-semibold text-zinc-900 dark:text-white mb-4">
-                          💡 Key Insights
-                        </h5>
-                        <ul className="space-y-2">
-                          {aiAnalysisResult.keyInsights.map((insight, index) => (
-                            <li key={index} className="text-sm text-zinc-600 dark:text-zinc-400 flex items-start">
-                              <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                              {insight}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    <div className="bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800 p-4">
-                      <p className="text-sm text-green-800 dark:text-green-200 text-center mb-4">
-                        ✅ <strong>Analysis Complete!</strong> Your website has been analyzed by ConvertIQ AI. Implement the recommendations above to improve your conversion rates.
-                      </p>
-                      <div className="flex justify-center">
-                        <button
-                          onClick={() => {
-                            console.log('Manual redirect clicked, websiteId:', currentWebsiteId);
-                            if (currentWebsiteId) {
-                              router.push(`/dashboard/reports?websiteId=${currentWebsiteId}`);
-                            } else {
-                              console.warn('No websiteId available, redirecting to general reports');
-                              router.push('/dashboard/reports');
-                            }
+                {/* Progress Steps */}
+                <motion.div
+                  className="p-6 space-y-6"
+                  variants={streamingVariants}
+                >
+                  {getProcessingSteps().map((step, index) => (
+                    <motion.div
+                      key={step.title}
+                      className="relative"
+                      variants={stepVariants}
+                      initial="hidden"
+                      animate="visible"
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <div className="flex items-start space-x-3">
+                        {/* Status Icon */}
+                        <motion.div
+                          className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-500 ${
+                            step.completed
+                              ? "bg-green-100 dark:bg-green-900"
+                              : step.inProgress
+                                ? "bg-blue-100 dark:bg-blue-900"
+                                : "bg-zinc-100 dark:bg-zinc-700"
+                          }`}
+                          animate={
+                            step.inProgress
+                              ? { scale: [1, 1.1, 1] }
+                              : { scale: 1 }
+                          }
+                          transition={{
+                            duration: 1.5,
+                            repeat: step.inProgress ? Infinity : 0,
                           }}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                         >
-                          View Full Dashboard
-                          {currentWebsiteId && (
-                            <span className="ml-2 text-xs opacity-75">
-                              ({currentWebsiteId.slice(0, 8)}...)
-                            </span>
-                          )}
-                        </button>
+                          <AnimatePresence mode="wait">
+                            {step.completed ? (
+                              <motion.svg
+                                className="w-4 h-4 text-green-600 dark:text-green-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                key="completed"
+                                initial={{ scale: 0, rotate: -180 }}
+                                animate={{ scale: 1, rotate: 0 }}
+                                transition={{
+                                  duration: 0.5,
+                                  type: "spring",
+                                  stiffness: 300,
+                                }}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </motion.svg>
+                            ) : step.inProgress ? (
+                              <motion.div
+                                className="w-3 h-3 bg-blue-600 dark:bg-blue-400 rounded-full"
+                                key="inprogress"
+                                variants={pulseVariants}
+                                animate="pulse"
+                              />
+                            ) : (
+                              <motion.div
+                                className="w-3 h-3 bg-zinc-300 dark:bg-zinc-600 rounded-full"
+                                key="pending"
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ duration: 0.3 }}
+                              />
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+
+                        <div className="flex-1 min-w-0">
+                          <motion.div
+                            className="flex items-center space-x-2 mb-2"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{
+                              delay: index * 0.1 + 0.2,
+                              duration: 0.4,
+                            }}
+                          >
+                            <motion.h4
+                              className={`text-sm font-medium transition-colors duration-500 ${
+                                step.completed
+                                  ? "text-green-900 dark:text-green-100"
+                                  : step.inProgress
+                                    ? "text-blue-900 dark:text-blue-100"
+                                    : "text-zinc-500 dark:text-zinc-400"
+                              }`}
+                              animate={
+                                step.inProgress
+                                  ? { opacity: [0.7, 1, 0.7] }
+                                  : { opacity: 1 }
+                              }
+                              transition={{
+                                duration: 2,
+                                repeat: step.inProgress ? Infinity : 0,
+                              }}
+                            >
+                              {step.title}
+                            </motion.h4>
+                            {step.description && (
+                              <motion.span
+                                className="text-xs text-zinc-500 dark:text-zinc-400"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{
+                                  delay: index * 0.1 + 0.3,
+                                  duration: 0.4,
+                                }}
+                              >
+                                {step.description}
+                              </motion.span>
+                            )}
+                          </motion.div>
+
+                          {/* Details */}
+                          <motion.div
+                            className="space-y-1"
+                            initial="hidden"
+                            animate="visible"
+                            variants={{
+                              visible: {
+                                transition: {
+                                  staggerChildren: 0.05,
+                                  delayChildren: index * 0.1 + 0.4,
+                                },
+                              },
+                            }}
+                          >
+                            {step.details?.map((detail, detailIndex) => (
+                              <motion.div
+                                key={detailIndex}
+                                className={`text-xs flex items-center space-x-2 transition-colors duration-500 ${
+                                  step.completed
+                                    ? "text-zinc-600 dark:text-zinc-300"
+                                    : step.inProgress
+                                      ? "text-zinc-700 dark:text-zinc-200"
+                                      : "text-zinc-400 dark:text-zinc-500"
+                                }`}
+                                variants={detailVariants}
+                              >
+                                <motion.div
+                                  className="w-1 h-1 bg-current rounded-full opacity-50"
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: 0.1 }}
+                                />
+                                <motion.span
+                                  animate={
+                                    step.inProgress &&
+                                    detailIndex ===
+                                      Math.floor(Date.now() / 2000) %
+                                        step.details!.length
+                                      ? { opacity: [1, 0.5, 1] }
+                                      : { opacity: 1 }
+                                  }
+                                  transition={{
+                                    duration: 1.5,
+                                    repeat: step.inProgress ? Infinity : 0,
+                                  }}
+                                >
+                                  {detail}
+                                </motion.span>
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                )}
 
-                {!aiAnalysisResult && crawlResult && (
-                  <div className="bg-zinc-50 dark:bg-zinc-950 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400 text-center">
-                      🚀 <strong>Next:</strong> AI analysis is running to generate actionable recommendations for conversion optimization.
-                    </p>
-                  </div>
-                )}
-              </div>
+                      {/* Connector Line */}
+                      {index < getProcessingSteps().length - 1 && (
+                        <motion.div
+                          className={`absolute left-3 top-8 w-px h-6 transition-colors duration-500 ${
+                            step.completed
+                              ? "bg-green-200 dark:bg-green-800"
+                              : "bg-zinc-200 dark:bg-zinc-700"
+                          }`}
+                          initial={{ scaleY: 0, originY: 0 }}
+                          animate={{ scaleY: 1 }}
+                          transition={{
+                            delay: index * 0.1 + 0.5,
+                            duration: 0.4,
+                          }}
+                        />
+                      )}
+                    </motion.div>
+                  ))}
+                </motion.div>
+
+                {/* Error Display */}
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      className="px-6 pb-6"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      <motion.div
+                        className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4"
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <motion.svg
+                            className="w-5 h-5 text-red-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            initial={{ rotate: -10, scale: 0 }}
+                            animate={{ rotate: 0, scale: 1 }}
+                            transition={{
+                              delay: 0.1,
+                              type: "spring",
+                              stiffness: 300,
+                            }}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </motion.svg>
+                          <motion.p
+                            className="text-sm text-red-700 dark:text-red-300"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.2, duration: 0.3 }}
+                          >
+                            {error}
+                          </motion.p>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             )}
-          </div>
-        )}
+          </AnimatePresence>
         </FeatureGate>
-      </div>
-
-      <div className="bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800 p-6">
-        <h4 className="text-md font-semibold text-blue-900 dark:text-blue-100 mb-2">
-          What happens next?
-        </h4>
-        <div className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
-          <p>1. <strong>URL Validation:</strong> We check if your URL is accessible and determine the page type</p>
-          <p>2. <strong>Content Analysis:</strong> Our system scans the page structure, content, and design elements</p>
-          <p>3. <strong>AI-Powered Insights:</strong> Advanced AI analyzes conversion psychology and UX opportunities</p>
-          <p>4. <strong>Actionable Reports:</strong> You&apos;ll receive detailed recommendations with implementation guidance</p>
-        </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

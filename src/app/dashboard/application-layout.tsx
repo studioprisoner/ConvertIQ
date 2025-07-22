@@ -241,8 +241,8 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
           <SidebarBody>
             <SidebarSection>
               <SidebarItem
-                href="/dashboard"
-                current={pathname === "/dashboard"}
+                href="/dashboard/scan"
+                current={pathname === "/dashboard/scan" || pathname === "/dashboard"}
               >
                 <HomeIcon />
                 <SidebarLabel>Dashboard</SidebarLabel>
