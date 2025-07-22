@@ -228,11 +228,11 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
           <SidebarHeader>
             <div className="flex items-center gap-3 px-4 py-3">
               <CompanyIcon
-                width={28}
-                height={28}
+                width={36}
+                height={36}
                 className="flex-shrink-0"
               />
-              <SidebarLabel className="text-lg font-semibold dark:text-white text-black">
+              <SidebarLabel className="text-xl font-bold font-mono dark:text-white text-black">
                 ConvertIQ
               </SidebarLabel>
             </div>

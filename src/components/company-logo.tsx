@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 interface CompanyLogoProps {
   width?: number | string;
@@ -14,40 +15,20 @@ export function CompanyLogo({
   showText = true 
 }: CompanyLogoProps) {
   return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      viewBox="0 0 500 500" 
-      width={width} 
-      height={height}
-      className={className}
-    >
-      <defs>
-        <linearGradient id="convertiq-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#1e3a8a"/>
-          <stop offset="100%" stopColor="#10b981"/>
-        </linearGradient>
-      </defs>
-      <g fill="url(#convertiq-grad)">
-        {/* Brain silhouette (side profile) */}
-        <path d="M200,50c-60,0-100,60-90,120-20,10-30,40-10,60-20,30,0,60,30,60,0,20,10,40,30,50,10,30,50,40,80,30s50-30,60-60c40-10,60-50,50-90 10-30-10-60-40-70 0-30-20-60-50-70-10-10-30-10-40-10z"/>
-        {/* Funnel inside brain */}
-        <path d="M235,135c0,15,5,25,20,40v20c-10,10-15,20-15,30 0,5 2,10 5,15h20c3-5 5-10 5-15 0-10-5-20-15-30v-20c15-15 20-25 20-40 0-15-10-25-20-25s-20,10-20,25z"/>
-      </g>
-      {/* Text label */}
+    <div className={`flex items-center gap-3 ${className}`}>
+      <Image
+        src="/brain-logo.svg"
+        alt="ConvertIQ Logo"
+        width={typeof width === 'number' ? width : parseInt(width as string)}
+        height={typeof height === 'number' ? height : parseInt(height as string)}
+        className="flex-shrink-0"
+      />
       {showText && (
-        <text 
-          x="250" 
-          y="470" 
-          textAnchor="middle" 
-          fontFamily="Helvetica, Arial, sans-serif" 
-          fontSize="50" 
-          fill="currentColor"
-          className="fill-zinc-900 dark:fill-white"
-        >
+        <span className="text-lg font-semibold text-zinc-900 dark:text-white">
           ConvertIQ
-        </text>
+        </span>
       )}
-    </svg>
+    </div>
   );
 }
 
