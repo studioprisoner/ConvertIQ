@@ -3,7 +3,7 @@ import { relations } from "drizzle-orm";
 
 export const user = pgTable("user", {
   id: text('id').primaryKey(),
-  name: text('name').notNull(),
+  name: text('name'), // Nullable during initial registration, required to be set later
   firstName: text('first_name'),
   lastName: text('last_name'),
   email: text('email').notNull().unique(),
@@ -11,6 +11,11 @@ export const user = pgTable("user", {
   image: text('image'),
   avatarUrl: text('avatar_url'),
   primaryDomain: text('primary_domain'), // For basic users - their allowed domain
+  onboardingCompleted: boolean('onboarding_completed').$defaultFn(() => false).notNull(),
+  // Plan selection tracking during registration - COMMENTED OUT UNTIL MIGRATED
+  // selectedPlanDuringSignup: text('selected_plan_during_signup'), // 'basic' | 'pro'
+  // planSelectionDate: timestamp('plan_selection_date'),
+  // signupConversionSource: text('signup_conversion_source'), // Track referral source
   createdAt: timestamp('created_at').$defaultFn(() => new Date()).notNull(),
   updatedAt: timestamp('updated_at').$defaultFn(() => new Date()).notNull()
 });

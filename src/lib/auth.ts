@@ -32,11 +32,21 @@ export const auth = betterAuth({
         type: "string",
         required: false,
       },
+      onboardingCompleted: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+      },
+      primaryDomain: {
+        type: "string",
+        required: false,
+      },
     },
   },
   plugins: [
     emailOTP({
       disableSignUp: false, // Allow signup through Email OTP
+      autoSignIn: true, // Automatically sign in after OTP verification
       async sendVerificationOTP({ email, otp, type }) {
         const subject = 
           type === "sign-in" ? "Sign in to ConvertIQ" :
@@ -76,4 +86,17 @@ export const auth = betterAuth({
     process.env.NEXT_PUBLIC_URL || "http://localhost:3000",
     "http://localhost:3000"
   ],
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // 1 day
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 5, // 5 minutes
+    },
+  },
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: false, // Keep false for localhost
+    },
+  },
 });

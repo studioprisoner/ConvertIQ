@@ -35,10 +35,10 @@ export default function RegisterPage() {
     setError("");
 
     try {
-      // First, send OTP for email verification
+      // First, send OTP for sign-in/registration
       await authClient.emailOtp.sendVerificationOtp({
         email: formData.email,
-        type: "email-verification",
+        type: "sign-in",
       });
       setStep("otp");
     } catch (err) {
@@ -63,10 +63,27 @@ export default function RegisterPage() {
         otp: otp,
       });
       
+      // Update user with name field (required for our schema)
+      const updateResponse = await fetch('/api/auth/update-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: formData.name,
+        }),
+      });
+      
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update user profile");
+      }
+      
       // Clear the temporary storage
       localStorage.removeItem('registration_name');
       
-      router.push("/dashboard");
+      router.push("/onboarding");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
     } finally {
@@ -81,7 +98,7 @@ export default function RegisterPage() {
     try {
       await authClient.emailOtp.sendVerificationOtp({
         email: formData.email,
-        type: "email-verification",
+        type: "sign-in",
       });
       setError("");
     } catch (err) {

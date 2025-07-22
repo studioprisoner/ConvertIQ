@@ -1,6 +1,7 @@
 "use client";
 
 import { Avatar } from "@/components/avatar";
+import { CompanyIcon } from "@/components/company-logo";
 
 // Extended user type to include our custom fields
 type ExtendedUser = {
@@ -14,6 +15,7 @@ type ExtendedUser = {
   firstName?: string;
   lastName?: string;
   avatarUrl?: string;
+  onboardingCompleted?: boolean;
 };
 import {
   Dropdown,
@@ -58,7 +60,7 @@ import {
   SparklesIcon,
 } from "@heroicons/react/20/solid";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function AccountDropdownMenu({
   anchor,
@@ -95,11 +97,72 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, isPending } = useSession();
+  const redirectTimeoutRef = useRef<NodeJS.Timeout>();
+  const [onboardingCheck, setOnboardingCheck] = useState<{
+    completed?: boolean;
+    checked: boolean;
+  }>({ checked: false });
+
+  // Check onboarding status directly from database
+  useEffect(() => {
+    if (!isPending && session && !onboardingCheck.checked) {
+      const checkOnboardingStatus = async () => {
+        try {
+          console.log('🔍 Checking onboarding status from database...');
+          const response = await fetch('/api/auth/check-onboarding', {
+            credentials: 'include',
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log('📋 Database onboarding check result:', result);
+            
+            setOnboardingCheck({
+              completed: result.onboardingCompleted,
+              checked: true,
+            });
+
+            // Redirect if needed
+            if (!result.onboardingCompleted && pathname !== '/onboarding') {
+              console.log('🎯 Redirecting to onboarding - not completed');
+              router.push("/onboarding");
+            } else if (result.onboardingCompleted) {
+              console.log('✅ Onboarding is completed, staying on dashboard');
+            }
+          } else {
+            console.error('❌ Failed to check onboarding status');
+            setOnboardingCheck({ checked: true });
+          }
+        } catch (error) {
+          console.error('❌ Error checking onboarding status:', error);
+          setOnboardingCheck({ checked: true });
+        }
+      };
+
+      checkOnboardingStatus();
+    }
+  }, [session, isPending, pathname, router, onboardingCheck.checked]);
 
   useEffect(() => {
-    if (!isPending && !session) {
-      router.push("/login");
+    // Clear any existing timeout
+    if (redirectTimeoutRef.current) {
+      clearTimeout(redirectTimeoutRef.current);
     }
+
+    if (!isPending && !session) {
+      // Add a small delay to allow for session establishment during registration flow
+      redirectTimeoutRef.current = setTimeout(() => {
+        console.log('🚪 Redirecting to login - no session found after delay');
+        router.push("/login");
+      }, 1000); // 1 second delay
+    }
+
+    // Cleanup timeout on unmount or session change
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
   }, [session, isPending, router]);
 
   const handleSignOut = async () => {
@@ -111,10 +174,15 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (isPending) {
+  if (isPending || (!session && redirectTimeoutRef.current)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 dark:border-white"></div>
+        <div className="space-y-4 text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 dark:border-white mx-auto"></div>
+          <p className="text-gray-600 dark:text-gray-400">
+            {isPending ? "Loading..." : "Establishing session..."}
+          </p>
+        </div>
       </div>
     );
   }
@@ -159,9 +227,10 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-3 px-4 py-3">
-              <Avatar
-                initials="CQ"
-                className="bg-blue-600 text-white w-6 h-6"
+              <CompanyIcon
+                width={28}
+                height={28}
+                className="flex-shrink-0"
               />
               <SidebarLabel className="text-lg font-semibold dark:text-white text-black">
                 ConvertIQ
