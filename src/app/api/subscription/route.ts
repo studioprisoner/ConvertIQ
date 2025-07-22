@@ -11,7 +11,9 @@ import {
   changeSubscriptionPlan,
   getSubscriptionEventHistory,
   getAvailablePlans,
-  getSubscriptionAnalytics
+  getSubscriptionAnalytics,
+  trackPlanSelection,
+  type UserSubscription
 } from '@/lib/subscription-service';
 import { z } from 'zod';
 
@@ -95,13 +97,25 @@ const checkLimitsSchema = z.object({
 // POST /api/subscription - Handle subscription actions
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔍 Subscription API called, checking session...');
     const session = await auth.api.getSession({
       headers: request.headers,
     });
 
+    console.log('📝 Session result:', {
+      hasSession: !!session,
+      userId: session?.user?.id,
+      userEmail: session?.user?.email,
+      headers: {
+        cookie: request.headers.get('cookie') ? '[present]' : '[missing]',
+        userAgent: request.headers.get('user-agent')?.substring(0, 50)
+      }
+    });
+
     if (!session) {
+      console.log('❌ No session found, returning 401');
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - Session not found' },
         { status: 401 }
       );
     }
@@ -249,6 +263,9 @@ async function handlePlanSelection(userId: string, userEmail: string, body: unkn
     const existingSubscription = await getUserSubscription(userId);
     console.log('📋 Existing subscription:', existingSubscription ? 'Found' : 'None');
     
+    // Track plan selection for analytics (before processing)
+    await trackPlanSelection(userId, validatedData.planType, 'registration_flow');
+
     if (existingSubscription) {
       // Existing user - change their plan
       console.log('🔄 Changing plan for existing user...');
@@ -278,11 +295,17 @@ async function handlePlanSelection(userId: string, userEmail: string, body: unkn
       console.log('✅ Subscription creation successful');
       
       // Check if we need to redirect to checkout
-      if ((subscription as any).requiresPayment && (subscription as any).checkoutUrl) {
+      const subscriptionWithPayment = subscription as UserSubscription & {
+        requiresPayment?: boolean;
+        checkoutUrl?: string;
+        message?: string;
+      };
+      
+      if (subscriptionWithPayment.requiresPayment && subscriptionWithPayment.checkoutUrl) {
         return NextResponse.json({
           success: true,
-          checkoutUrl: (subscription as any).checkoutUrl,
-          message: (subscription as any).message || 'Redirecting to payment...',
+          checkoutUrl: subscriptionWithPayment.checkoutUrl,
+          message: subscriptionWithPayment.message || 'Redirecting to payment...',
           requiresPayment: true
         });
       }

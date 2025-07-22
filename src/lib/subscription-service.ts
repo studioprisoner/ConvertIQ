@@ -7,6 +7,7 @@ import {
   planPrices,
   subscriptionEvents
 } from '@/db/schema/subscriptions';
+import { user } from '@/db/schema/auth';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 export type PlanType = 'basic' | 'pro';
@@ -227,7 +228,7 @@ export async function createSubscription(
           source: 'convertiq',
           billingCycle: billingCycle
         },
-        successUrl: `${process.env.NEXT_PUBLIC_URL}/dashboard?subscription=success`,
+        successUrl: `${process.env.NEXT_PUBLIC_URL}/onboarding?payment=success`,
         allowDiscountCodes: true,
         requireBillingAddress: false,
         isBusinessCustomer: false
@@ -925,5 +926,31 @@ export async function getSubscriptionAnalytics(userId: string) {
   } catch (error) {
     console.error('Error getting subscription analytics:', error);
     return null;
+  }
+}
+
+/**
+ * Track plan selection during user registration/signup
+ */
+export async function trackPlanSelection(
+  userId: string, 
+  selectedPlan: PlanType,
+  conversionSource?: string
+): Promise<void> {
+  try {
+    await db
+      .update(user)
+      .set({
+        selectedPlanDuringSignup: selectedPlan,
+        planSelectionDate: new Date(),
+        signupConversionSource: conversionSource || 'direct',
+        updatedAt: new Date(),
+      })
+      .where(eq(user.id, userId));
+
+    console.log(`✅ Plan selection tracked: ${userId} selected ${selectedPlan}`);
+  } catch (error) {
+    console.error('❌ Error tracking plan selection:', error);
+    // Don't throw error - this is analytics tracking, shouldn't break the flow
   }
 }
