@@ -13,9 +13,9 @@ type ExtendedUser = {
   createdAt: Date;
   updatedAt: Date;
   image?: string | null;
-  firstName?: string;
-  lastName?: string;
   avatarUrl?: string;
+  primaryDomain?: string;
+  onboardingCompleted?: boolean;
 };
 import { Button } from "@/components/button";
 import { Input } from "@/components/input";
@@ -48,10 +48,17 @@ export default function AccountPage() {
   const router = useRouter();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [firstName, setFirstName] = useState(user?.firstName || "");
-  const [lastName, setLastName] = useState(user?.lastName || "");
+  const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
+  const [primaryDomain, setPrimaryDomain] = useState(user?.primaryDomain || "");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Update state when user data changes
+  useEffect(() => {
+    setName(user?.name || "");
+    setEmail(user?.email || "");
+    setPrimaryDomain(user?.primaryDomain || "");
+  }, [user]);
   
   // Subscription state
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
@@ -63,10 +70,16 @@ export default function AccountPage() {
       if (!session?.user) return;
       
       try {
-        const response = await fetch('/api/subscription');
+        const response = await fetch('/api/subscription', {
+          credentials: 'include',
+        });
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('Account page received subscription data:', data);
           setSubscription(data.subscription);
+        } else {
+          console.error('Subscription fetch failed:', response.status);
         }
       } catch (error) {
         console.error('Failed to fetch subscription:', error);
@@ -87,9 +100,9 @@ export default function AccountPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          firstName,
-          lastName,
+          name,
           email,
+          primaryDomain,
         }),
       });
 
@@ -113,9 +126,9 @@ export default function AccountPage() {
   };
 
   const handleCancel = () => {
-    setFirstName(user?.firstName || "");
-    setLastName(user?.lastName || "");
+    setName(user?.name || "");
     setEmail(user?.email || "");
+    setPrimaryDomain(user?.primaryDomain || "");
     setIsEditing(false);
   };
 
@@ -255,37 +268,16 @@ export default function AccountPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Field>
-            <Label>First Name</Label>
-            <Input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              disabled={!isEditing}
-              placeholder="Enter your first name"
-            />
-          </Field>
-
-          <Field>
-            <Label>Last Name</Label>
-            <Input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              disabled={!isEditing}
-              placeholder="Enter your last name"
-            />
-          </Field>
-        </div>
-
         <Field>
-          <Label>Display Name</Label>
+          <Label>Name</Label>
           <Input
-            value={user?.name || ""}
-            disabled
-            placeholder="This is generated from your first and last name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={!isEditing}
+            placeholder="Enter your full name"
           />
           <Description>
-            Your display name is automatically generated from your first and last name.
+            This is your display name shown throughout the application.
           </Description>
         </Field>
 
@@ -302,6 +294,34 @@ export default function AccountPage() {
             {isEditing 
               ? "Changing your email will require verification of the new email address."
               : "This is the email address you use to sign in to your account."
+            }
+          </Description>
+        </Field>
+
+        <Field>
+          <Label>Primary Domain</Label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span className="text-gray-500 text-sm">https://</span>
+            </div>
+            <Input
+              type="text"
+              value={primaryDomain?.replace(/^https?:\/\//, '') || ''}
+              onChange={(e) => {
+                const cleanDomain = e.target.value.replace(/^https?:\/\//, '');
+                setPrimaryDomain(cleanDomain ? `https://${cleanDomain}` : '');
+              }}
+              disabled={!isEditing}
+              placeholder="example.com"
+              className="pl-[65px]"
+            />
+          </div>
+          <Description>
+            {isEditing 
+              ? "Enter your website domain (https:// will be added automatically)."
+              : primaryDomain 
+                ? "This is your primary website domain for analysis and reporting."
+                : "No primary domain has been set yet."
             }
           </Description>
         </Field>

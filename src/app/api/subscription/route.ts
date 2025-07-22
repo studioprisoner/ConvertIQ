@@ -50,8 +50,11 @@ export async function GET(request: NextRequest) {
 
       default:
         // Default behavior - get subscription and stats
+        console.log('🔍 Getting subscription for user:', session.user.id);
         const subscription = await getUserSubscription(session.user.id);
         const stats = await getSubscriptionStats(session.user.id);
+        console.log('📊 Subscription result:', subscription ? 'Found' : 'None');
+        console.log('📈 Stats result:', stats ? 'Found' : 'None');
         return NextResponse.json({
           subscription,
           stats,

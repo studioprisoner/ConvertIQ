@@ -182,10 +182,22 @@ export async function createSubscription(
     const priceId = await getPolarPriceId(planSlug, billingCycle);
     const isPlaceholder = priceId.includes('placeholder');
     const isUsingSandbox = process.env.POLAR_ENVIRONMENT === 'sandbox';
+    const isDevelopment = process.env.NODE_ENV === 'development';
     
     // Check if we're using real UUIDs (36 characters) vs placeholder strings
     const isRealUUID = priceId.length === 36 && priceId.includes('-');
-    const forceMockMode = isPlaceholder || !isRealUUID;
+    
+    // Force mock mode for development or when using placeholders
+    const forceMockMode = isPlaceholder || !isRealUUID || isDevelopment;
+    
+    console.log(`🔧 Subscription creation mode check:`, {
+      priceId,
+      isPlaceholder,
+      isUsingSandbox,
+      isDevelopment,
+      isRealUUID,
+      forceMockMode
+    });
     
     let polarSubscription: any;
     let customer: any;
@@ -205,6 +217,13 @@ export async function createSubscription(
         }
       };
       console.log(`🔧 Mock mode: Created mock subscription for ${planSlug} (sandbox without real products: ${priceId})`);
+      console.log(`🔧 Mock subscription details:`, {
+        subscriptionId: polarSubscription.id,
+        customerId: customer.id,
+        productId: polarSubscription.productId,
+        currentPeriodStart: polarSubscription.currentPeriodStart,
+        currentPeriodEnd: polarSubscription.currentPeriodEnd
+      });
     } else {
       // Use real Polar API (sandbox or production based on environment)
       customer = await getOrCreatePolarCustomer(userId, userEmail);
@@ -250,6 +269,15 @@ export async function createSubscription(
     }
     
     // Store subscription locally (active subscription, no trial)
+    console.log(`💾 Inserting subscription into database:`, {
+      userId,
+      planId: plan.id,
+      planSlug: plan.slug,
+      status: 'active',
+      billingCycle,
+      polarSubscriptionId: polarSubscription.id
+    });
+
     const [subscription] = await db.insert(subscriptions).values({
       userId: userId,
       planId: plan.id,
@@ -265,6 +293,13 @@ export async function createSubscription(
         polarMetadata: polarSubscription.metadata
       },
     }).returning();
+
+    console.log(`✅ Subscription inserted successfully:`, {
+      subscriptionId: subscription.id,
+      userId: subscription.userId,
+      planId: subscription.planId,
+      status: subscription.status
+    });
     
     // Log subscription creation event
     await db.insert(subscriptionEvents).values({
@@ -333,6 +368,19 @@ async function initializeUsageTracking(userId: string, subscriptionId: string): 
  */
 export async function getUserSubscription(userId: string): Promise<UserSubscription | null> {
   try {
+    console.log('🔎 getUserSubscription called for userId:', userId);
+    
+    // First, let's see what subscriptions exist for this user (any status)
+    const allUserSubs = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId));
+    
+    console.log('📋 All subscriptions for user:', allUserSubs.length);
+    allUserSubs.forEach(sub => {
+      console.log(`  - Subscription ${sub.id}: status=${sub.status}, planId=${sub.planId}`);
+    });
+    
     const result = await db
       .select({
         subscription: subscriptions,
@@ -351,6 +399,7 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
       .orderBy(desc(subscriptions.createdAt))
       .limit(1);
 
+    console.log('✅ Active subscriptions found:', result.length);
     if (!result.length) return null;
 
     const { subscription, plan, usage } = result[0];

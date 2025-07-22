@@ -55,7 +55,11 @@ export async function POST(request: NextRequest) {
       validatedData.billingCycle
     );
 
-    console.log('✅ Subscription created successfully');
+    console.log('✅ Subscription created successfully:', {
+      subscriptionId: subscription?.id || 'N/A',
+      planSlug: validatedData.planType,
+      status: subscription?.status || 'N/A'
+    });
 
     // Check if we need to redirect to checkout
     const subscriptionWithPayment = subscription as UserSubscription & {

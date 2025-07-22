@@ -6,9 +6,9 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 const updateProfileSchema = z.object({
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
+  name: z.string().min(1, "Name is required").optional(),
   email: z.string().email().optional(),
+  primaryDomain: z.string().optional(),
 });
 
 export async function PUT(request: NextRequest) {
@@ -30,27 +30,16 @@ export async function PUT(request: NextRequest) {
 
     // Update user profile
     const updateData: {
-      firstName?: string;
-      lastName?: string;
       name?: string;
       email?: string;
       emailVerified?: boolean;
+      primaryDomain?: string;
       updatedAt?: Date;
     } = {};
     
-    if (validatedData.firstName !== undefined) {
-      updateData.firstName = validatedData.firstName;
-    }
-    
-    if (validatedData.lastName !== undefined) {
-      updateData.lastName = validatedData.lastName;
-    }
-
-    // Generate display name if first/last name provided
-    if (validatedData.firstName || validatedData.lastName) {
-      const firstName = validatedData.firstName || session.user.firstName || "";
-      const lastName = validatedData.lastName || session.user.lastName || "";
-      updateData.name = `${firstName} ${lastName}`.trim() || session.user.name;
+    // Handle name update
+    if (validatedData.name !== undefined) {
+      updateData.name = validatedData.name.trim();
     }
 
     // Handle email change separately (requires verification)
@@ -59,6 +48,17 @@ export async function PUT(request: NextRequest) {
       // TODO: Implement email verification workflow
       updateData.email = validatedData.email;
       updateData.emailVerified = false; // Reset verification status
+    }
+
+    // Handle primary domain update
+    if (validatedData.primaryDomain !== undefined) {
+      const domain = validatedData.primaryDomain.trim();
+      if (domain) {
+        // Ensure https:// prefix if domain is provided
+        updateData.primaryDomain = domain.startsWith('http') ? domain : `https://${domain}`;
+      } else {
+        updateData.primaryDomain = null;
+      }
     }
 
     // Add updatedAt timestamp
@@ -76,12 +76,12 @@ export async function PUT(request: NextRequest) {
       user: {
         id: updatedUser.id,
         name: updatedUser.name,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
         email: updatedUser.email,
         emailVerified: updatedUser.emailVerified,
         image: updatedUser.image,
         avatarUrl: updatedUser.avatarUrl,
+        primaryDomain: updatedUser.primaryDomain,
+        onboardingCompleted: updatedUser.onboardingCompleted,
       },
     });
   } catch (error) {
