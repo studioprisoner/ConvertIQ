@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     console.log('🔑 Resend API key starts with:', process.env.RESEND_API_KEY?.substring(0, 10));
     
     const result = await resend.emails.send({
-      from: "ConvertIQ <onboarding@resend.dev>",
+      from: "ConvertIQ <noreply@convertiq.cloud>",
       to: email,
       subject: "Test Email from ConvertIQ",
       html: "<h1>Test Email</h1><p>This is a test email to verify Resend is working.</p>",
