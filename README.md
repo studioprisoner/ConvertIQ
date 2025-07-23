@@ -19,6 +19,7 @@ ConvertIQ analyzes existing ecommerce platforms or specific product/service page
 - **Performance Benchmarking** - Compare against industry standards and track improvements
 - **Integration Support** - Connect with Google Analytics, Shopify, WooCommerce, and more
 - **Actionable Reports** - Step-by-step guidance for implementing improvements
+- **Integrated Support System** - In-app support dialog with Linear ticket creation
 
 ## Tech Stack
 
@@ -27,6 +28,7 @@ ConvertIQ analyzes existing ecommerce platforms or specific product/service page
 - **Styling**: Tailwind CSS v4 (alpha)
 - **Package Manager**: Bun
 - **AI Integration**: Vercel AI SDK v5 with Anthropic Claude and OpenAI support
+- **Support System**: Linear SDK for integrated support ticket management
 - **Planned**: tRPC, PostgreSQL, Redis, BetterAuth, Vercel hosting
 
 ## Getting Started
@@ -163,6 +165,111 @@ bun run db:push --force
 # Open database studio
 bun run db:studio
 ```
+
+## Linear Support Integration
+
+ConvertIQ includes an integrated support system that creates Linear issues automatically when users submit support requests through the in-app dialog.
+
+### Setup Requirements
+
+#### 1. Install Linear SDK
+The Linear integration is already included in the project dependencies:
+```bash
+bun add @linear/sdk  # Already installed
+```
+
+#### 2. Environment Variables
+Add these variables to your `.env.local` file:
+
+```bash
+# Linear (for support tickets)
+LINEAR_API_KEY="your-linear-api-key-here"
+LINEAR_TEAM_ID="your-linear-team-id-here"
+```
+
+#### 3. Getting Linear API Key
+1. Go to [Linear Settings → API](https://linear.app/settings/api)
+2. Create a new API key with the following permissions:
+   - `read` - to read team information
+   - `write` - to create issues
+
+#### 4. Getting Team UUID
+⚠️ **Important**: You need the full team UUID (not the team key/identifier like "CON").
+
+**Option 1: Using Linear MCP Tools** (if available):
+```bash
+# List teams to find the full UUID
+mcp__linear-server__list_teams
+```
+
+**Option 2: Using Linear GraphQL API**:
+```graphql
+query {
+  teams {
+    nodes {
+      id
+      name
+      key
+    }
+  }
+}
+```
+
+**Example team UUID format**: `50742f72-d16f-4731-8138-bea9cf3e51fd`
+
+### How It Works
+
+#### User Experience
+- Users click "Support" in the sidebar to open the support dialog
+- Simple form with only **Subject** and **Description** fields
+- User name and email are automatically included from their session
+- Success confirmation shows the created Linear issue ID
+
+#### Technical Implementation
+```typescript
+import { LinearClient } from '@linear/sdk'
+
+const linearClient = new LinearClient({
+  apiKey: process.env.LINEAR_API_KEY
+})
+
+const issuePayload = await linearClient.createIssue({
+  title: `Support: ${subject}`,
+  description: `**From:** ${userName} (${userEmail})\n\n${description}`,
+  teamId: process.env.LINEAR_TEAM_ID,
+  labelIds: ['99d221e1-6d69-46c9-8a71-fcf64153bd59'], // Bug label
+  priority: 2, // High priority
+})
+```
+
+#### Issue Configuration
+Support tickets automatically:
+- Create issues in the specified Linear team
+- Apply "Bug" label with high priority (priority: 2)
+- Include user contact information in the description
+- Format with clear sections for easy triage
+- Provide error handling and user feedback
+
+### Benefits of Linear SDK Integration
+
+- **Type-safe operations** - Full TypeScript support
+- **Automatic error handling** - Built-in error management
+- **GraphQL optimizations** - SDK handles query optimizations
+- **Consistent API** - Standardized interface for Linear operations
+- **Better maintenance** - Official SDK stays up-to-date with Linear API changes
+
+### Troubleshooting
+
+**Common Issues:**
+- **"teamId must be a UUID" error**: Ensure you're using the full UUID (36 characters with dashes), not the team key
+- **API permission errors**: Verify your Linear API key has both `read` and `write` permissions
+- **Environment variables**: Make sure `LINEAR_API_KEY` and `LINEAR_TEAM_ID` are properly set in `.env.local`
+
+**Testing the Integration:**
+1. Start the development server: `bun run dev`
+2. Navigate to the dashboard and click "Support" in the sidebar
+3. Fill out the support form and submit
+4. Check your Linear team for the created issue
 
 ### Testing Scenarios
 
