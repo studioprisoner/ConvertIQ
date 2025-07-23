@@ -628,10 +628,9 @@ export const reportsRouter = createTRPCRouter({
       try {
         console.log('🗑️ Delete request received for report:', input.reportId);
         
-        // For this simplified router, we're working with analyses instead of reports
-        // The reportId here is actually the analysis ID from the reports list
+        // The reportId can be either an analysis ID or a website ID (for reports without analysis)
         
-        // First check if the analysis exists and get the website info for ownership verification
+        // First try to find it as an analysis ID
         const analysis = await db
           .select({
             id: analyses.id,
@@ -646,23 +645,55 @@ export const reportsRouter = createTRPCRouter({
           .where(eq(analyses.id, input.reportId))
           .limit(1);
 
-        if (analysis.length === 0) {
+        if (analysis.length > 0) {
+          // Found as analysis ID - mark as archived instead of deleting
+          await db
+            .update(analyses)
+            .set({
+              status: 'failed', // Using 'failed' status temporarily until migration
+              errorMessage: `ARCHIVED_BY_USER - Report archived on ${new Date().toISOString()}`,
+              updatedAt: new Date()
+            })
+            .where(eq(analyses.id, input.reportId));
+
+          console.log('🗑️ Successfully archived analysis:', input.reportId);
+          
+          return { 
+            message: 'Report archived successfully',
+            deletedId: input.reportId
+          };
+        }
+
+        // If not found as analysis, try as website ID
+        const website = await db
+          .select({
+            id: websites.id,
+            userId: websites.userId,
+          })
+          .from(websites)
+          .where(eq(websites.id, input.reportId))
+          .limit(1);
+
+        if (website.length === 0) {
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'Report not found'
           });
         }
 
-        // Note: In a production environment, we should verify user ownership
-        // For now, we'll proceed with the deletion
-        // TODO: Add user authentication check when session management is available
-        
-        // Permanently delete the analysis record from the database
-        await db
-          .delete(analyses)
-          .where(eq(analyses.id, input.reportId));
+        // Found as website ID but no analysis - create an archived analysis record
+        const [archivedAnalysis] = await db
+          .insert(analyses)
+          .values({
+            websiteId: input.reportId,
+            status: 'failed', // Using 'failed' status temporarily until migration
+            errorMessage: `ARCHIVED_BY_USER - Website archived on ${new Date().toISOString()} (no analysis existed)`,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          })
+          .returning();
 
-        console.log('🗑️ Successfully deleted analysis/report from database:', input.reportId);
+        console.log('🗑️ Successfully archived website by creating archived analysis:', archivedAnalysis.id);
         
         return { 
           message: 'Report deleted successfully',
@@ -731,6 +762,77 @@ export const reportsRouter = createTRPCRouter({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to initiate rescan'
+        });
+      }
+    }),
+
+  /**
+   * Retrigger a pending or failed analysis
+   */
+  retriggerAnalysis: publicProcedure
+    .input(z.object({
+      analysisId: z.string().uuid(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        console.log('🔄 Retrigger request received for analysis:', input.analysisId);
+        
+        // Get the analysis and verify it exists
+        const [analysis] = await db
+          .select({
+            id: analyses.id,
+            websiteId: analyses.websiteId,
+            status: analyses.status,
+            errorMessage: analyses.errorMessage,
+          })
+          .from(analyses)
+          .where(eq(analyses.id, input.analysisId))
+          .limit(1);
+
+        if (!analysis) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Analysis not found'
+          });
+        }
+
+        // Check if analysis can be retriggered (pending, failed, or processing for too long)
+        const canRetrigger = ['pending', 'failed'].includes(analysis.status);
+        if (!canRetrigger) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Cannot retrigger analysis with status: ${analysis.status}. Only pending or failed analyses can be retriggered.`
+          });
+        }
+
+        // Reset the analysis to pending state and clear error message
+        const [updatedAnalysis] = await db
+          .update(analyses)
+          .set({
+            status: 'pending',
+            actions: 'retry',
+            errorMessage: null,
+            updatedAt: new Date()
+          })
+          .where(eq(analyses.id, input.analysisId))
+          .returning();
+
+        console.log('✅ Analysis retriggered successfully:', updatedAnalysis.id);
+        
+        return { 
+          message: 'Analysis retriggered successfully',
+          analysisId: updatedAnalysis.id,
+          websiteId: analysis.websiteId,
+          status: updatedAnalysis.status
+        };
+
+      } catch (error) {
+        console.error('❌ Error retriggering analysis:', error);
+        if (error instanceof TRPCError) throw error;
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to retrigger analysis'
         });
       }
     }),

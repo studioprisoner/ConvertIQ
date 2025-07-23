@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDownIcon, ChevronRightIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronRightIcon, ArchiveBoxIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useSearchParams } from 'next/navigation';
 import { Heading } from '@/components/heading';
 import { Text } from '@/components/text';
@@ -18,6 +18,8 @@ export default function ReportsPage() {
   const [filterPriority, setFilterPriority] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['conversion', 'ux', 'seo', 'performance', 'content', 'technical', 'design']));
   const [archiveConfirm, setArchiveConfirm] = useState<{reportId: string, reportName: string} | null>(null);
+  const [retriggerConfirm, setRetriggerConfirm] = useState<{analysisId: string, reportName: string} | null>(null);
+  const [retriggeringAnalysis, setRetriggeringAnalysis] = useState<string | null>(null);
 
   // Fetch reports list if no websiteId, otherwise fetch specific dashboard
   const { data: reportsList, isLoading: isLoadingList, error: errorList } = trpc.reports.getReportsList.useQuery(
@@ -55,12 +57,32 @@ export default function ReportsPage() {
     }
   });
 
+  // Retrigger mutation
+  const retriggerAnalysisMutation = trpc.reports.retriggerAnalysis.useMutation({
+    onSuccess: (data) => {
+      console.log('✅ Retrigger successful:', data);
+      setRetriggerConfirm(null);
+      setRetriggeringAnalysis(null);
+      // Refresh the reports list to show updated status
+      window.location.reload();
+    },
+    onError: (error) => {
+      console.error('❌ Failed to retrigger analysis:', error);
+      setRetriggeringAnalysis(null);
+      alert(`Failed to retrigger analysis: ${error.message}`);
+    }
+  });
+
   const isLoading = websiteId ? isLoadingDashboard : isLoadingList;
   const error = websiteId ? errorDashboard : errorList;
 
   // Archive handlers
   const handleArchiveClick = (reportId: string, reportName: string) => {
-    setArchiveConfirm({ reportId, reportName });
+    console.log('🗃️ Archive button clicked:', { reportId, reportName });
+    const confirmData = { reportId, reportName };
+    console.log('🗃️ Setting archiveConfirm to:', confirmData);
+    setArchiveConfirm(confirmData);
+    console.log('🗃️ archiveConfirm state should now be set');
   };
 
   const handleConfirmArchive = () => {
@@ -72,6 +94,23 @@ export default function ReportsPage() {
 
   const handleCancelArchive = () => {
     setArchiveConfirm(null);
+  };
+
+  // Retrigger handlers
+  const handleRetriggerClick = (analysisId: string, reportName: string) => {
+    setRetriggerConfirm({ analysisId, reportName });
+  };
+
+  const handleConfirmRetrigger = () => {
+    if (retriggerConfirm) {
+      console.log('🔄 Attempting to retrigger analysis:', retriggerConfirm.analysisId);
+      setRetriggeringAnalysis(retriggerConfirm.analysisId);
+      retriggerAnalysisMutation.mutate({ analysisId: retriggerConfirm.analysisId });
+    }
+  };
+
+  const handleCancelRetrigger = () => {
+    setRetriggerConfirm(null);
   };
 
   // Show loading state
@@ -206,18 +245,39 @@ export default function ReportsPage() {
                       {new Date(report.scanDate).toLocaleDateString()}
                     </Text>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleArchiveClick(report.id, report.websiteName);
-                    }}
-                    className="text-orange-600 hover:text-orange-700 hover:border-orange-300 p-2"
-                    title="Archive report"
-                  >
-                    <ArchiveBoxIcon className="h-4 w-4" />
-                  </Button>
+                  <div className="flex space-x-2">
+                    {/* Retrigger button - only show for pending or failed analyses */}
+                    {(report.status === 'pending' || report.status === 'failed') && report.hasAnalysis && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRetriggerClick(report.id, report.websiteName);
+                        }}
+                        className="text-blue-600 hover:text-blue-700 hover:border-blue-300 p-2"
+                        title="Retrigger analysis"
+                        disabled={retriggeringAnalysis === report.id}
+                      >
+                        <ArrowPathIcon className={`h-4 w-4 ${retriggeringAnalysis === report.id ? 'animate-spin' : ''}`} />
+                      </Button>
+                    )}
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        console.log('🖱️ Archive button onClick fired for:', report.id);
+                        console.log('🖱️ Report data:', { id: report.id, websiteName: report.websiteName, websiteUrl: report.websiteUrl });
+                        e.stopPropagation();
+                        handleArchiveClick(report.id, report.websiteName);
+                      }}
+                      className="text-orange-600 hover:text-orange-700 hover:border-orange-300 p-2 relative z-10"
+                      title="Archive report"
+                    >
+                      <ArchiveBoxIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -253,6 +313,70 @@ export default function ReportsPage() {
             }}>
               Load More Reports
             </Button>
+          </div>
+        )}
+
+        {/* Archive Confirmation Dialog */}
+        {archiveConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={(e) => console.log('🗃️ Dialog backdrop clicked')}>
+            <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 max-w-md w-full mx-4 border border-zinc-200 dark:border-zinc-800">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+                  Archive Report
+                </h3>
+                <Text className="text-zinc-600 dark:text-zinc-400">
+                  Are you sure you want to archive the report for &quot;{archiveConfirm.reportName}&quot;? You can view archived reports in your history and rescan them later.
+                </Text>
+              </div>
+              <div className="flex space-x-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleCancelArchive}
+                  disabled={archiveReportMutation.isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirmArchive}
+                  disabled={archiveReportMutation.isLoading}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {archiveReportMutation.isLoading ? 'Archiving...' : 'Archive Report'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Retrigger Confirmation Dialog */}
+        {retriggerConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 max-w-md w-full mx-4 border border-zinc-200 dark:border-zinc-800">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+                  Retrigger Analysis
+                </h3>
+                <Text className="text-zinc-600 dark:text-zinc-400">
+                  Are you sure you want to retrigger the analysis for &quot;{retriggerConfirm.reportName}&quot;? This will reset the analysis status to pending and attempt to process it again.
+                </Text>
+              </div>
+              <div className="flex space-x-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleCancelRetrigger}
+                  disabled={retriggerAnalysisMutation.isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirmRetrigger}
+                  disabled={retriggerAnalysisMutation.isLoading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {retriggerAnalysisMutation.isLoading ? 'Retriggering...' : 'Retrigger Analysis'}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -342,6 +466,8 @@ export default function ReportsPage() {
     return 'text-red-600 dark:text-red-400';
   };
 
+
+  console.log('🗃️ Current archiveConfirm state:', archiveConfirm);
 
   return (
     <div className="space-y-8">
@@ -607,7 +733,7 @@ export default function ReportsPage() {
 
       {/* Archive Confirmation Dialog */}
       {archiveConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={(e) => console.log('🗃️ Dialog backdrop clicked')}>
           <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 max-w-md w-full mx-4 border border-zinc-200 dark:border-zinc-800">
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
@@ -631,6 +757,38 @@ export default function ReportsPage() {
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 {archiveReportMutation.isLoading ? 'Archiving...' : 'Archive Report'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Retrigger Confirmation Dialog */}
+      {retriggerConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 max-w-md w-full mx-4 border border-zinc-200 dark:border-zinc-800">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+                Retrigger Analysis
+              </h3>
+              <Text className="text-zinc-600 dark:text-zinc-400">
+                Are you sure you want to retrigger the analysis for &quot;{retriggerConfirm.reportName}&quot;? This will reset the analysis status to pending and attempt to process it again.
+              </Text>
+            </div>
+            <div className="flex space-x-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={handleCancelRetrigger}
+                disabled={retriggerAnalysisMutation.isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmRetrigger}
+                disabled={retriggerAnalysisMutation.isLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {retriggerAnalysisMutation.isLoading ? 'Retriggering...' : 'Retrigger Analysis'}
               </Button>
             </div>
           </div>
