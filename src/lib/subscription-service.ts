@@ -187,8 +187,9 @@ export async function createSubscription(
     // Check if we're using real UUIDs (36 characters) vs placeholder strings
     const isRealUUID = priceId.length === 36 && priceId.includes('-');
     
-    // Force mock mode for development or when using placeholders
-    const forceMockMode = isPlaceholder || !isRealUUID || isDevelopment;
+    // Force mock mode only when using placeholders or missing real UUIDs
+    // Allow real Polar API usage in development when using sandbox with real price IDs
+    const forceMockMode = isPlaceholder || !isRealUUID;
     
     console.log(`🔧 Subscription creation mode check:`, {
       priceId,

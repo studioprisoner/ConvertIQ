@@ -56,7 +56,7 @@ const DEFAULT_PLAN_FEATURES: Record<string, PlanFeatureDefinition[]> = {
     { featureKey: 'white_label', isEnabled: false, featureType: 'boolean' },
   ],
   pro: [
-    { featureKey: 'multiple_websites', isEnabled: true, usageLimit: null, featureType: 'count' },
+    { featureKey: 'multiple_websites', isEnabled: true, usageLimit: 10, featureType: 'count' },
     { featureKey: 'task_management', isEnabled: true, featureType: 'boolean' },
     { featureKey: 'team_collaboration', isEnabled: true, featureType: 'boolean' },
     { featureKey: 'integrations', isEnabled: true, featureType: 'boolean' },

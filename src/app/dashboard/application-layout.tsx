@@ -53,6 +53,7 @@ import {
 import {
   ChartBarIcon,
   ClockIcon,
+  GlobeAltIcon,
   HomeIcon,
   QuestionMarkCircleIcon,
   SparklesIcon,
@@ -60,6 +61,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { SupportDialog } from "@/components/support-dialog";
+import { useFeatureGate } from "@/hooks/use-feature-gate";
 
 function AccountDropdownMenu({
   anchor,
@@ -102,6 +104,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     checked: boolean;
   }>({ checked: false });
   const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
+  const multipleWebsitesGate = useFeatureGate('multiple_websites');
 
   // Check onboarding status directly from database
   useEffect(() => {
@@ -261,6 +264,15 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 <ClockIcon />
                 <SidebarLabel>History</SidebarLabel>
               </SidebarItem>
+              {multipleWebsitesGate.hasAccess && (
+                <SidebarItem
+                  href="/dashboard/domains"
+                  current={pathname.startsWith("/dashboard/domains")}
+                >
+                  <GlobeAltIcon />
+                  <SidebarLabel>Domains</SidebarLabel>
+                </SidebarItem>
+              )}
             </SidebarSection>
 
             <SidebarSpacer />

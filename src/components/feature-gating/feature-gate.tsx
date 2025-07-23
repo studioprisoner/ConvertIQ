@@ -171,7 +171,7 @@ function FeatureStatus({ featureKey, showUsage = true }: FeatureStatusProps) {
   }
 
   const featureNames: Record<FeatureKey, string> = {
-    multiple_websites: 'Multiple Websites',
+    multiple_websites: 'Multiple Domains (up to 10)',
     task_management: 'Task Management',
     team_collaboration: 'Team Collaboration',
     integrations: 'Integrations',
