@@ -333,7 +333,7 @@ export default function ScanPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            Start a new website scan
+            Start a new page scan
           </motion.h1>
         </motion.div>
 

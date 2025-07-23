@@ -69,7 +69,7 @@ export const auth = betterAuth({
         `;
 
         await resend.emails.send({
-          from: "ConvertIQ <onboarding@resend.dev>", // Replace with your verified domain
+          from: "ConvertIQ <noreply@convertiq.cloud>", // Using your verified domain
           to: email,
           subject,
           html: htmlContent,
