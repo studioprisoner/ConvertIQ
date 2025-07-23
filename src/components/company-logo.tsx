@@ -8,11 +8,11 @@ interface CompanyLogoProps {
   showText?: boolean;
 }
 
-export function CompanyLogo({ 
-  width = 100, 
-  height = 100, 
+export function CompanyLogo({
+  width = 100,
+  height = 100,
   className = "",
-  showText = true 
+  showText = true,
 }: CompanyLogoProps) {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
@@ -33,17 +33,17 @@ export function CompanyLogo({
 }
 
 // Alternative version without text for use in headers/navbars
-export function CompanyIcon({ 
-  width = 40, 
-  height = 40, 
-  className = "" 
-}: Omit<CompanyLogoProps, 'showText'>) {
+export function CompanyIcon({
+  width = 40,
+  height = 40,
+  className = "",
+}: Omit<CompanyLogoProps, "showText">) {
   return (
-    <CompanyLogo 
-      width={width} 
-      height={height} 
-      className={className} 
-      showText={false} 
+    <CompanyLogo
+      width={width}
+      height={height}
+      className={className}
+      showText={false}
     />
   );
 }

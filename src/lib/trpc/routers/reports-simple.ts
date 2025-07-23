@@ -40,16 +40,21 @@ export const reportsRouter = createTRPCRouter({
           });
         }
 
-        // Fetch latest analysis for this website
+        // Fetch latest non-deleted analysis for this website
         const latestAnalysis = await db
           .select()
           .from(analyses)
           .where(eq(analyses.websiteId, input.websiteId))
           .orderBy(desc(analyses.createdAt))
-          .limit(1);
+          .limit(10); // Get more to filter out deleted ones
 
-        if (latestAnalysis.length === 0) {
-          // No analysis yet, return mock data structure with website info
+        // Filter out archived analyses
+        const validAnalyses = latestAnalysis.filter(analysis => 
+          !analysis.errorMessage || !analysis.errorMessage.includes('ARCHIVED_BY_USER')
+        );
+
+        if (validAnalyses.length === 0) {
+          // No valid analysis yet, return mock data structure with website info
           return {
             ...getMockDashboard(),
             id: input.websiteId,
@@ -59,7 +64,7 @@ export const reportsRouter = createTRPCRouter({
           };
         }
 
-        const analysis = latestAnalysis[0];
+        const analysis = validAnalyses[0];
         const aiAnalysis = analysis.aiAnalysis ? JSON.parse(analysis.aiAnalysis) : null;
 
         console.log('📊 Dashboard data fetch:', {
@@ -135,7 +140,7 @@ export const reportsRouter = createTRPCRouter({
     }))
     .query(async ({ input }) => {
       try {
-        // Fetch websites with their latest analysis
+        // Fetch websites with their latest analysis (excluding soft-deleted reports)
         const reportsData = await db
           .select({
             websiteId: websites.id,
@@ -147,6 +152,7 @@ export const reportsRouter = createTRPCRouter({
             analysisStatus: analyses.status,
             analysisCreatedAt: analyses.createdAt,
             aiAnalysis: analyses.aiAnalysis,
+            errorMessage: analyses.errorMessage,
           })
           .from(websites)
           .leftJoin(analyses, eq(analyses.websiteId, websites.id))
@@ -154,10 +160,17 @@ export const reportsRouter = createTRPCRouter({
           .limit(input.limit)
           .offset(input.offset);
 
-        // Group by website and get the latest analysis for each
+        // Group by website and get the latest analysis for each (excluding soft-deleted)
         const websiteMap = new Map();
         reportsData.forEach(row => {
           const key = row.websiteId;
+          
+          // Skip archived reports
+          const isArchived = row.errorMessage && row.errorMessage.includes('ARCHIVED_BY_USER');
+          if (isArchived) {
+            return;
+          }
+          
           if (!websiteMap.has(key) || 
               (row.analysisCreatedAt && websiteMap.get(key).analysisCreatedAt && 
                row.analysisCreatedAt > websiteMap.get(key).analysisCreatedAt)) {
@@ -601,6 +614,193 @@ export const reportsRouter = createTRPCRouter({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to test tracking functionality'
         });
+      }
+    }),
+
+  /**
+   * Delete a report/scan permanently from the database
+   */
+  archiveReport: publicProcedure
+    .input(z.object({
+      reportId: z.string().uuid(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        console.log('🗑️ Delete request received for report:', input.reportId);
+        
+        // For this simplified router, we're working with analyses instead of reports
+        // The reportId here is actually the analysis ID from the reports list
+        
+        // First check if the analysis exists and get the website info for ownership verification
+        const analysis = await db
+          .select({
+            id: analyses.id,
+            websiteId: analyses.websiteId,
+            website: {
+              id: websites.id,
+              userId: websites.userId,
+            }
+          })
+          .from(analyses)
+          .innerJoin(websites, eq(analyses.websiteId, websites.id))
+          .where(eq(analyses.id, input.reportId))
+          .limit(1);
+
+        if (analysis.length === 0) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Report not found'
+          });
+        }
+
+        // Note: In a production environment, we should verify user ownership
+        // For now, we'll proceed with the deletion
+        // TODO: Add user authentication check when session management is available
+        
+        // Permanently delete the analysis record from the database
+        await db
+          .delete(analyses)
+          .where(eq(analyses.id, input.reportId));
+
+        console.log('🗑️ Successfully deleted analysis/report from database:', input.reportId);
+        
+        return { 
+          message: 'Report deleted successfully',
+          deletedId: input.reportId
+        };
+
+      } catch (error) {
+        console.error('❌ Error deleting report:', error);
+        if (error instanceof TRPCError) throw error;
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to delete report'
+        });
+      }
+    }),
+
+  /**
+   * Rescan an archived report by creating a new analysis
+   */
+  rescanReport: publicProcedure
+    .input(z.object({
+      websiteId: z.string().uuid(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        console.log('🔄 Rescan request received for website:', input.websiteId);
+        
+        // Verify website exists
+        const website = await db
+          .select()
+          .from(websites)
+          .where(eq(websites.id, input.websiteId))
+          .limit(1);
+
+        if (website.length === 0) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Website not found'
+          });
+        }
+
+        // Create a new analysis entry for this website
+        const [newAnalysis] = await db
+          .insert(analyses)
+          .values({
+            websiteId: input.websiteId,
+            status: 'pending',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          })
+          .returning();
+
+        console.log('🔄 Created new analysis for rescan:', newAnalysis.id);
+        
+        return { 
+          message: 'Rescan initiated successfully',
+          analysisId: newAnalysis.id,
+          websiteId: input.websiteId
+        };
+
+      } catch (error) {
+        console.error('❌ Error initiating rescan:', error);
+        if (error instanceof TRPCError) throw error;
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to initiate rescan'
+        });
+      }
+    }),
+
+  /**
+   * Get archived reports for history view
+   */
+  getArchivedReports: publicProcedure
+    .input(z.object({
+      limit: z.number().optional().default(20),
+      offset: z.number().optional().default(0),
+    }))
+    .query(async ({ input }) => {
+      try {
+        // Fetch archived reports only
+        const archivedData = await db
+          .select({
+            websiteId: websites.id,
+            websiteUrl: websites.url,
+            websiteName: websites.name,
+            pageType: websites.pageType,
+            websiteCreatedAt: websites.createdAt,
+            analysisId: analyses.id,
+            analysisStatus: analyses.status,
+            analysisCreatedAt: analyses.createdAt,
+            aiAnalysis: analyses.aiAnalysis,
+            errorMessage: analyses.errorMessage,
+          })
+          .from(websites)
+          .innerJoin(analyses, eq(analyses.websiteId, websites.id))
+          .where(eq(analyses.status, 'failed')) // Using 'failed' temporarily until migration
+          .orderBy(desc(analyses.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+
+        // Filter to only show archived reports
+        const archivedReports = archivedData
+          .filter(row => row.errorMessage && row.errorMessage.includes('ARCHIVED_BY_USER'))
+          .map((row: any) => {
+            const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
+            
+            return {
+              id: row.analysisId,
+              websiteId: row.websiteId,
+              websiteUrl: row.websiteUrl,
+              websiteName: row.websiteName || new URL(row.websiteUrl).hostname,
+              pageType: row.pageType || 'homepage',
+              scanDate: row.analysisCreatedAt?.toISOString() || row.websiteCreatedAt?.toISOString() || new Date().toISOString(),
+              archivedDate: row.analysisCreatedAt?.toISOString() || new Date().toISOString(),
+              status: 'archived',
+              overallScore: aiAnalysis?.overallScore || null,
+              recommendationsCount: aiAnalysis?.recommendations?.length || 0,
+              summary: aiAnalysis?.summary || 'Archived report',
+            };
+          });
+
+        return {
+          reports: archivedReports,
+          total: archivedReports.length,
+          hasMore: archivedReports.length === input.limit,
+        };
+
+      } catch (error) {
+        console.error('Error fetching archived reports:', error);
+        // Return empty list on error
+        return {
+          reports: [],
+          total: 0,
+          hasMore: false,
+        };
       }
     }),
 

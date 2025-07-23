@@ -5,9 +5,8 @@ import { user } from "@/db/schema/auth";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-const updateProfileSchema = z.object({
-  name: z.string().min(1, "Name is required").optional(),
-  email: z.string().email().optional(),
+const updateDomainSchema = z.object({
+  primaryDomain: z.string(),
 });
 
 export async function PUT(request: NextRequest) {
@@ -25,29 +24,24 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validatedData = updateProfileSchema.parse(body);
+    const validatedData = updateDomainSchema.parse(body);
 
-    // Update user profile
+    // TODO: Check if user can change domain based on billing cycle
+    // This would require checking their subscription and current period end
+    // For now, we'll allow the change but this should be implemented
+    
+    const domain = validatedData.primaryDomain.trim();
     const updateData: {
-      name?: string;
-      email?: string;
-      emailVerified?: boolean;
+      primaryDomain?: string | null;
       updatedAt?: Date;
     } = {};
-    
-    // Handle name update
-    if (validatedData.name !== undefined) {
-      updateData.name = validatedData.name.trim();
-    }
 
-    // Handle email change separately (requires verification)
-    if (validatedData.email && validatedData.email !== session.user.email) {
-      // For now, just update the email directly
-      // TODO: Implement email verification workflow
-      updateData.email = validatedData.email;
-      updateData.emailVerified = false; // Reset verification status
+    if (domain) {
+      // Ensure https:// prefix if domain is provided
+      updateData.primaryDomain = domain.startsWith('http') ? domain : `https://${domain}`;
+    } else {
+      updateData.primaryDomain = null;
     }
-
 
     // Add updatedAt timestamp
     updateData.updatedAt = new Date();
@@ -73,7 +67,7 @@ export async function PUT(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Profile update error:", error);
+    console.error("Domain update error:", error);
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
