@@ -53,14 +53,13 @@ import {
 import {
   ChartBarIcon,
   ClockIcon,
-  Cog6ToothIcon,
-  CreditCardIcon,
   HomeIcon,
   QuestionMarkCircleIcon,
   SparklesIcon,
 } from "@heroicons/react/20/solid";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { SupportDialog } from "@/components/support-dialog";
 
 function AccountDropdownMenu({
   anchor,
@@ -102,6 +101,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     completed?: boolean;
     checked: boolean;
   }>({ checked: false });
+  const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
 
   // Check onboarding status directly from database
   useEffect(() => {
@@ -266,7 +266,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
             <SidebarSpacer />
 
             <SidebarSection>
-              <SidebarItem href="#">
+              <SidebarItem onClick={() => setIsSupportDialogOpen(true)}>
                 <QuestionMarkCircleIcon />
                 <SidebarLabel>Support</SidebarLabel>
               </SidebarItem>
@@ -317,6 +317,10 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
       }
     >
       {children}
+      <SupportDialog 
+        isOpen={isSupportDialogOpen} 
+        onClose={() => setIsSupportDialogOpen(false)} 
+      />
     </SidebarLayout>
   );
 }
