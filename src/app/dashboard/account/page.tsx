@@ -43,21 +43,25 @@ interface UserSubscription {
 }
 
 export default function AccountPage() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const user = session?.user as ExtendedUser | undefined;
   const router = useRouter();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(user?.name || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [primaryDomain, setPrimaryDomain] = useState(user?.primaryDomain || "");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [primaryDomain, setPrimaryDomain] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDomainEditing, setIsDomainEditing] = useState(false);
+  const [isDomainLoading, setIsDomainLoading] = useState(false);
 
   // Update state when user data changes
   useEffect(() => {
-    setName(user?.name || "");
-    setEmail(user?.email || "");
-    setPrimaryDomain(user?.primaryDomain || "");
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setPrimaryDomain(user.primaryDomain || "");
+    }
   }, [user]);
   
   // Subscription state
@@ -91,6 +95,19 @@ export default function AccountPage() {
     fetchSubscription();
   }, [session]);
 
+  // Check if domain can be changed (only after next billing cycle)
+  const canChangeDomain = () => {
+    if (!subscription?.currentPeriodEnd) return true; // No subscription, allow change
+    const nextBillingDate = new Date(subscription.currentPeriodEnd);
+    const now = new Date();
+    return now >= nextBillingDate;
+  };
+
+  const getNextDomainChangeDate = () => {
+    if (!subscription?.currentPeriodEnd) return null;
+    return new Date(subscription.currentPeriodEnd);
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
     try {
@@ -102,7 +119,6 @@ export default function AccountPage() {
         body: JSON.stringify({
           name,
           email,
-          primaryDomain,
         }),
       });
 
@@ -126,10 +142,50 @@ export default function AccountPage() {
   };
 
   const handleCancel = () => {
-    setName(user?.name || "");
-    setEmail(user?.email || "");
-    setPrimaryDomain(user?.primaryDomain || "");
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+    }
     setIsEditing(false);
+  };
+
+  const handleDomainCancel = () => {
+    if (user) {
+      setPrimaryDomain(user.primaryDomain || "");
+    }
+    setIsDomainEditing(false);
+  };
+
+  const handleDomainSave = async () => {
+    setIsDomainLoading(true);
+    try {
+      const response = await fetch("/api/profile/domain", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          primaryDomain,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update domain");
+      }
+
+      const data = await response.json();
+      console.log("Domain updated:", data);
+      
+      // Refresh the session to get updated user data
+      window.location.reload();
+      setIsDomainEditing(false);
+    } catch (error) {
+      console.error("Failed to update domain:", error);
+      alert("Failed to update domain. Please try again.");
+    } finally {
+      setIsDomainLoading(false);
+    }
   };
 
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,8 +329,8 @@ export default function AccountPage() {
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            disabled={!isEditing}
-            placeholder="Enter your full name"
+            disabled={!isEditing || isPending}
+            placeholder={isPending ? "Loading..." : "Enter your full name"}
           />
           <Description>
             This is your display name shown throughout the application.
@@ -287,8 +343,8 @@ export default function AccountPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={!isEditing}
-            placeholder="Enter your email address"
+            disabled={!isEditing || isPending}
+            placeholder={isPending ? "Loading..." : "Enter your email address"}
           />
           <Description>
             {isEditing 
@@ -298,33 +354,6 @@ export default function AccountPage() {
           </Description>
         </Field>
 
-        <Field>
-          <Label>Primary Domain</Label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-gray-500 text-sm">https://</span>
-            </div>
-            <Input
-              type="text"
-              value={primaryDomain?.replace(/^https?:\/\//, '') || ''}
-              onChange={(e) => {
-                const cleanDomain = e.target.value.replace(/^https?:\/\//, '');
-                setPrimaryDomain(cleanDomain ? `https://${cleanDomain}` : '');
-              }}
-              disabled={!isEditing}
-              placeholder="example.com"
-              className="pl-[65px]"
-            />
-          </div>
-          <Description>
-            {isEditing 
-              ? "Enter your website domain (https:// will be added automatically)."
-              : primaryDomain 
-                ? "This is your primary website domain for analysis and reporting."
-                : "No primary domain has been set yet."
-            }
-          </Description>
-        </Field>
 
         {isEditing && (
           <div className="flex gap-3 pt-4">
@@ -351,6 +380,80 @@ export default function AccountPage() {
       {/* Account Settings Section */}
       <div className="space-y-4">
         <Heading level={2}>Account Settings</Heading>
+        
+        {/* Primary Domain Settings */}
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                Primary Domain
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {primaryDomain 
+                  ? `Your website: ${primaryDomain}`
+                  : "No primary domain set"
+                }
+              </p>
+            </div>
+            {!isDomainEditing && (
+              <Button 
+                outline 
+                onClick={() => setIsDomainEditing(true)}
+                disabled={!canChangeDomain() || subscriptionLoading}
+              >
+                {canChangeDomain() ? "Change Domain" : "Locked"}
+              </Button>
+            )}
+          </div>
+
+          {isDomainEditing && (
+            <div className="space-y-4">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 text-sm">https://</span>
+                </div>
+                <Input
+                  type="text"
+                  value={primaryDomain?.replace(/^https?:\/\//, '') || ''}
+                  onChange={(e) => {
+                    const cleanDomain = e.target.value.replace(/^https?:\/\//, '');
+                    setPrimaryDomain(cleanDomain ? `https://${cleanDomain}` : '');
+                  }}
+                  placeholder="example.com"
+                  className="pl-[65px]"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button 
+                  color="blue" 
+                  onClick={handleDomainSave}
+                  disabled={isDomainLoading}
+                >
+                  {isDomainLoading ? "Saving..." : "Save Domain"}
+                </Button>
+                <Button 
+                  color="white" 
+                  onClick={handleDomainCancel}
+                  disabled={isDomainLoading}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!canChangeDomain() && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 mt-3">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                Domain changes are restricted to prevent plan abuse. You can change your domain again on{' '}
+                <span className="font-medium">
+                  {getNextDomainChangeDate()?.toLocaleDateString()}
+                </span> (next billing cycle).
+              </p>
+            </div>
+          )}
+        </div>
+
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
