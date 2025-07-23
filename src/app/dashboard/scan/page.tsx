@@ -300,7 +300,7 @@ export default function ScanPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-zinc-900 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4">
       <motion.div
         className="w-full max-w-2xl"
         variants={pageVariants}
@@ -357,20 +357,20 @@ export default function ScanPage() {
                 <div>
                   <div className="relative">
                     <InputGroup>
-                      <AiChat className="text-zinc-400" />
+                      <AiChat className="text-slate-400" />
                       <Input
                         type="url"
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         placeholder="Enter a website URL to analyze for conversion optimization opportunities"
-                        className="text-lg py-4 pr-12"
+                        className="text-lg text-slate-100 pr-12"
                         disabled={isProcessing}
                       />
                     </InputGroup>
                     <button
                       type="submit"
                       disabled={isProcessing || !url.trim()}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-cyan-400 hover:bg-cyan-500 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white p-2 rounded-lg transition-colors z-20"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-cyan-400 hover:bg-cyan-500 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white p-1 rounded-lg transition-colors"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"

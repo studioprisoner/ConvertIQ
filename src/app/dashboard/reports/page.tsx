@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronRightIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
 import { useSearchParams } from 'next/navigation';
 import { Heading } from '@/components/heading';
 import { Text } from '@/components/text';
@@ -17,6 +17,7 @@ export default function ReportsPage() {
   
   const [filterPriority, setFilterPriority] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['conversion', 'ux', 'seo', 'performance', 'content', 'technical', 'design']));
+  const [archiveConfirm, setArchiveConfirm] = useState<{reportId: string, reportName: string} | null>(null);
 
   // Fetch reports list if no websiteId, otherwise fetch specific dashboard
   const { data: reportsList, isLoading: isLoadingList, error: errorList } = trpc.reports.getReportsList.useQuery(
@@ -29,8 +30,49 @@ export default function ReportsPage() {
     { enabled: !!websiteId } // Only fetch dashboard when websiteId is provided
   );
 
+  // Archive mutation
+  const archiveReportMutation = trpc.reports.archiveReport.useMutation({
+    onSuccess: (data) => {
+      console.log('✅ Archive successful:', data);
+      setArchiveConfirm(null);
+      if (websiteId) {
+        // If we're viewing an individual report, redirect back to the list
+        router.push('/dashboard/reports');
+      } else {
+        // We're in the reports list view, refetch the list
+        window.location.reload(); // Simple refresh for now
+      }
+    },
+    onError: (error) => {
+      console.error('❌ Failed to archive report:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.data?.code,
+        httpStatus: error.data?.httpStatus,
+        zodError: error.data?.zodError
+      });
+      alert(`Failed to archive report: ${error.message}`);
+    }
+  });
+
   const isLoading = websiteId ? isLoadingDashboard : isLoadingList;
   const error = websiteId ? errorDashboard : errorList;
+
+  // Archive handlers
+  const handleArchiveClick = (reportId: string, reportName: string) => {
+    setArchiveConfirm({ reportId, reportName });
+  };
+
+  const handleConfirmArchive = () => {
+    if (archiveConfirm) {
+      console.log('📦 Attempting to archive report:', archiveConfirm.reportId);
+      archiveReportMutation.mutate({ reportId: archiveConfirm.reportId });
+    }
+  };
+
+  const handleCancelArchive = () => {
+    setArchiveConfirm(null);
+  };
 
   // Show loading state
   if (isLoading) {
@@ -107,20 +149,32 @@ export default function ReportsPage() {
               Your conversion analysis reports ({reportsList.reports.length} total)
             </Text>
           </div>
-          <Button onClick={() => router.push('/dashboard/scan')}>
-            New Scan
-          </Button>
+          <div className="flex space-x-3">
+            <Button 
+              variant="outline"
+              onClick={() => router.push('/dashboard/reports/archived')}
+              className="text-orange-600 hover:text-orange-700"
+            >
+              <ArchiveBoxIcon className="h-4 w-4 mr-1" />
+              View Archived
+            </Button>
+            <Button onClick={() => router.push('/dashboard/scan')}>
+              New Scan
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-4">
           {reportsList.reports.map((report) => (
             <div 
               key={report.id} 
-              className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors cursor-pointer"
-              onClick={() => router.push(`/dashboard/reports?websiteId=${report.websiteId}`)}
+              className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors"
             >
               <div className="flex items-start justify-between">
-                <div className="flex-1">
+                <div 
+                  className="flex-1 cursor-pointer"
+                  onClick={() => router.push(`/dashboard/reports?websiteId=${report.websiteId}`)}
+                >
                   <div className="flex items-center space-x-3 mb-2">
                     <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
                       {report.websiteName}
@@ -141,15 +195,29 @@ export default function ReportsPage() {
                     {report.summary}
                   </Text>
                 </div>
-                <div className="text-right ml-4">
-                  {report.overallScore && (
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">
-                      {report.overallScore}/10
-                    </div>
-                  )}
-                  <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {new Date(report.scanDate).toLocaleDateString()}
-                  </Text>
+                <div className="flex items-start space-x-3 ml-4">
+                  <div className="text-right">
+                    {report.overallScore && (
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+                        {report.overallScore}/10
+                      </div>
+                    )}
+                    <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {new Date(report.scanDate).toLocaleDateString()}
+                    </Text>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleArchiveClick(report.id, report.websiteName);
+                    }}
+                    className="text-orange-600 hover:text-orange-700 hover:border-orange-300 p-2"
+                    title="Archive report"
+                  >
+                    <ArchiveBoxIcon className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
 
@@ -299,9 +367,20 @@ export default function ReportsPage() {
             )}
           </Text>
         </div>
-        <Button onClick={() => router.push('/dashboard/scan')} className="self-start sm:self-auto">
-          New Scan
-        </Button>
+        <div className="flex space-x-3 self-start sm:self-auto">
+          <Button onClick={() => router.push('/dashboard/scan')}>
+            New Scan
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => handleArchiveClick(mockScanResults.id, mockScanResults.websiteUrl)}
+            className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
+            title="Archive this report"
+          >
+            <ArchiveBoxIcon className="h-4 w-4 mr-1" />
+            Archive
+          </Button>
+        </div>
       </div>
 
       {/* Overall Score & Summary */}
@@ -453,7 +532,7 @@ export default function ReportsPage() {
                     <h4 className="font-semibold text-zinc-900 dark:text-white">
                       {categoryData.name}
                     </h4>
-                    <Badge color={categoryData.color as any}>
+                    <Badge color={categoryData.color as 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'pink' | 'indigo' | 'gray' | 'zinc'}>
                       {recommendations.length} {recommendations.length === 1 ? 'recommendation' : 'recommendations'}
                     </Badge>
                   </div>
@@ -525,6 +604,38 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+
+      {/* Archive Confirmation Dialog */}
+      {archiveConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 max-w-md w-full mx-4 border border-zinc-200 dark:border-zinc-800">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+                Archive Report
+              </h3>
+              <Text className="text-zinc-600 dark:text-zinc-400">
+                Are you sure you want to archive the report for &quot;{archiveConfirm.reportName}&quot;? You can view archived reports in your history and rescan them later.
+              </Text>
+            </div>
+            <div className="flex space-x-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={handleCancelArchive}
+                disabled={archiveReportMutation.isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmArchive}
+                disabled={archiveReportMutation.isLoading}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {archiveReportMutation.isLoading ? 'Archiving...' : 'Archive Report'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

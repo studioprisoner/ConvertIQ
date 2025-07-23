@@ -8,7 +8,7 @@ interface AiChatProps {
 
 export function AiChat({
   width = 15,
-  height = 16,
+  height = 15,
   className = "",
 }: AiChatProps) {
   return (
