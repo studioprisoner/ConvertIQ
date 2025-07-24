@@ -23,12 +23,22 @@ import { Avatar } from "@/components/avatar";
 import { Heading } from "@/components/heading";
 import { Divider } from "@/components/divider";
 import { Field, Label, Description } from "@/components/fieldset";
-import { UserIcon, CameraIcon, CreditCardIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import {
+  UserIcon,
+  CameraIcon,
+  CreditCardIcon,
+  ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
 import { Badge } from "@/components/badge";
 
 // Subscription types
-type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
-type BillingCycle = 'monthly' | 'annual';
+type SubscriptionStatus =
+  | "active"
+  | "trialing"
+  | "past_due"
+  | "canceled"
+  | "incomplete";
+type BillingCycle = "monthly" | "annual";
 
 interface UserSubscription {
   id: string;
@@ -65,30 +75,32 @@ export default function AccountPage() {
       setPrimaryDomain(user.primaryDomain || "");
     }
   }, [user]);
-  
+
   // Subscription state
-  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(
+    null,
+  );
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
   // Fetch subscription data
   useEffect(() => {
     const fetchSubscription = async () => {
       if (!session?.user) return;
-      
+
       try {
-        const response = await fetch('/api/subscription', {
-          credentials: 'include',
+        const response = await fetch("/api/subscription", {
+          credentials: "include",
         });
-        
+
         if (response.ok) {
           const data = await response.json();
-          console.log('Account page received subscription data:', data);
+          console.log("Account page received subscription data:", data);
           setSubscription(data.subscription);
         } else {
-          console.error('Subscription fetch failed:', response.status);
+          console.error("Subscription fetch failed:", response.status);
         }
       } catch (error) {
-        console.error('Failed to fetch subscription:', error);
+        console.error("Failed to fetch subscription:", error);
       } finally {
         setSubscriptionLoading(false);
       }
@@ -114,10 +126,13 @@ export default function AccountPage() {
     setIsLoading(true);
     setError(null);
     setSuccess(null);
-    
+
     try {
-      console.log('🔄 Submitting profile update:', { name: name.trim(), email: email.trim() });
-      
+      console.log("🔄 Submitting profile update:", {
+        name: name.trim(),
+        email: email.trim(),
+      });
+
       const response = await fetch("/api/profile", {
         method: "PUT",
         headers: {
@@ -131,25 +146,29 @@ export default function AccountPage() {
       });
 
       const data = await response.json();
-      console.log('📥 Profile update response:', data);
+      console.log("📥 Profile update response:", data);
 
       if (!response.ok) {
-        throw new Error(data.error || `HTTP ${response.status}: Failed to update profile`);
+        throw new Error(
+          data.error || `HTTP ${response.status}: Failed to update profile`,
+        );
       }
 
-      console.log('✅ Profile updated successfully:', data.user);
-      setSuccess(`Profile updated successfully! Name changed to "${data.user.name}"`);
+      console.log("✅ Profile updated successfully:", data.user);
+      setSuccess(
+        `Profile updated successfully! Name changed to "${data.user.name}"`,
+      );
       setIsEditing(false);
-      
+
       // Force session refresh after showing success message
       setTimeout(() => {
-        console.log('🔄 Refreshing page to update session...');
+        console.log("🔄 Refreshing page to update session...");
         window.location.reload();
       }, 1500);
-      
     } catch (error) {
       console.error("❌ Profile update failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to update profile";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update profile";
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -193,7 +212,7 @@ export default function AccountPage() {
 
       const data = await response.json();
       console.log("Domain updated:", data);
-      
+
       // Refresh the session to get updated user data
       window.location.reload();
       setIsDomainEditing(false);
@@ -205,7 +224,9 @@ export default function AccountPage() {
     }
   };
 
-  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -226,7 +247,7 @@ export default function AccountPage() {
 
       const data = await response.json();
       console.log("Avatar uploaded:", data);
-      
+
       // Refresh the session to get updated user data
       window.location.reload();
     } catch (error) {
@@ -255,7 +276,7 @@ export default function AccountPage() {
 
       const data = await response.json();
       console.log("Avatar removed:", data);
-      
+
       // Refresh the session to get updated user data
       window.location.reload();
     } catch (error) {
@@ -296,10 +317,12 @@ export default function AccountPage() {
           />
           <div className="space-y-2">
             <div className="flex gap-2">
-              <Button 
-                color="white" 
+              <Button
+                color="white"
                 className="cursor-pointer"
-                onClick={() => document.getElementById('avatar-upload')?.click()}
+                onClick={() =>
+                  document.getElementById("avatar-upload")?.click()
+                }
                 disabled={isLoading}
               >
                 <CameraIcon className="size-4" />
@@ -312,11 +335,7 @@ export default function AccountPage() {
                 className="hidden"
                 onChange={handleAvatarChange}
               />
-              <Button 
-                outline
-                onClick={handleRemoveAvatar}
-                disabled={isLoading}
-              >
+              <Button outline onClick={handleRemoveAvatar} disabled={isLoading}>
                 Remove
               </Button>
             </div>
@@ -382,28 +401,22 @@ export default function AccountPage() {
             placeholder={isPending ? "Loading..." : "Enter your email address"}
           />
           <Description>
-            {isEditing 
+            {isEditing
               ? "Changing your email will require verification of the new email address."
-              : "This is the email address you use to sign in to your account."
-            }
+              : "This is the email address you use to sign in to your account."}
           </Description>
         </Field>
 
-
         {isEditing && (
           <div className="flex gap-3 pt-4">
-            <Button 
-              color="blue" 
+            <Button
+              color="blue"
               onClick={handleSave}
               disabled={isLoading || !name.trim()}
             >
               {isLoading ? "Saving..." : "Save Changes"}
             </Button>
-            <Button 
-              color="white" 
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
+            <Button color="white" onClick={handleCancel} disabled={isLoading}>
               Cancel
             </Button>
           </div>
@@ -415,79 +428,87 @@ export default function AccountPage() {
       {/* Account Settings Section */}
       <div className="space-y-4">
         <Heading level={2}>Account Settings</Heading>
-        
-        {/* Primary Domain Settings */}
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                Primary Domain
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {primaryDomain 
-                  ? `Your website: ${primaryDomain}`
-                  : "No primary domain set"
-                }
-              </p>
+
+        {/* Primary Domain Settings - Hidden for Pro users */}
+        {subscription?.plan?.slug !== "pro" && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                  Primary Domain
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {primaryDomain
+                    ? `Your website: ${primaryDomain}`
+                    : "No primary domain set"}
+                </p>
+              </div>
+              {!isDomainEditing && (
+                <Button
+                  outline
+                  onClick={() => setIsDomainEditing(true)}
+                  disabled={!canChangeDomain() || subscriptionLoading}
+                >
+                  {canChangeDomain() ? "Change Domain" : "Locked"}
+                </Button>
+              )}
             </div>
-            {!isDomainEditing && (
-              <Button 
-                outline 
-                onClick={() => setIsDomainEditing(true)}
-                disabled={!canChangeDomain() || subscriptionLoading}
-              >
-                {canChangeDomain() ? "Change Domain" : "Locked"}
-              </Button>
+
+            {isDomainEditing && (
+              <div className="space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500 text-sm">https://</span>
+                  </div>
+                  <Input
+                    type="text"
+                    value={primaryDomain?.replace(/^https?:\/\//, "") || ""}
+                    onChange={(e) => {
+                      const cleanDomain = e.target.value.replace(
+                        /^https?:\/\//,
+                        "",
+                      );
+                      setPrimaryDomain(
+                        cleanDomain ? `https://${cleanDomain}` : "",
+                      );
+                    }}
+                    placeholder="example.com"
+                    className="pl-[65px]"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    color="blue"
+                    onClick={handleDomainSave}
+                    disabled={isDomainLoading}
+                  >
+                    {isDomainLoading ? "Saving..." : "Save Domain"}
+                  </Button>
+                  <Button
+                    color="white"
+                    onClick={handleDomainCancel}
+                    disabled={isDomainLoading}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!canChangeDomain() && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 mt-3">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  Domain changes are restricted to prevent plan abuse. You can
+                  change your domain again on{" "}
+                  <span className="font-medium">
+                    {getNextDomainChangeDate()?.toLocaleDateString()}
+                  </span>{" "}
+                  (next billing cycle).
+                </p>
+              </div>
             )}
           </div>
-
-          {isDomainEditing && (
-            <div className="space-y-4">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 text-sm">https://</span>
-                </div>
-                <Input
-                  type="text"
-                  value={primaryDomain?.replace(/^https?:\/\//, '') || ''}
-                  onChange={(e) => {
-                    const cleanDomain = e.target.value.replace(/^https?:\/\//, '');
-                    setPrimaryDomain(cleanDomain ? `https://${cleanDomain}` : '');
-                  }}
-                  placeholder="example.com"
-                  className="pl-[65px]"
-                />
-              </div>
-              <div className="flex gap-3">
-                <Button 
-                  color="blue" 
-                  onClick={handleDomainSave}
-                  disabled={isDomainLoading}
-                >
-                  {isDomainLoading ? "Saving..." : "Save Domain"}
-                </Button>
-                <Button 
-                  color="white" 
-                  onClick={handleDomainCancel}
-                  disabled={isDomainLoading}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {!canChangeDomain() && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 mt-3">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                Domain changes are restricted to prevent plan abuse. You can change your domain again on{' '}
-                <span className="font-medium">
-                  {getNextDomainChangeDate()?.toLocaleDateString()}
-                </span> (next billing cycle).
-              </p>
-            </div>
-          )}
-        </div>
+        )}
 
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <div className="flex items-center justify-between">
@@ -496,14 +517,11 @@ export default function AccountPage() {
                 Email Verification
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Your email is {user?.emailVerified ? "verified" : "not verified"}
+                Your email is{" "}
+                {user?.emailVerified ? "verified" : "not verified"}
               </p>
             </div>
-            {!user?.emailVerified && (
-              <Button outline>
-                Verify Email
-              </Button>
-            )}
+            {!user?.emailVerified && <Button outline>Verify Email</Button>}
           </div>
         </div>
 
@@ -514,10 +532,9 @@ export default function AccountPage() {
                 Account Created
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {user?.createdAt 
+                {user?.createdAt
                   ? new Date(user.createdAt).toLocaleDateString()
-                  : "Unknown"
-                }
+                  : "Unknown"}
               </p>
             </div>
           </div>
@@ -530,9 +547,9 @@ export default function AccountPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <Heading level={2}>Subscription</Heading>
-          <Button 
+          <Button
             color="blue"
-            onClick={() => router.push('/dashboard/billing')}
+            onClick={() => router.push("/dashboard/billing")}
           >
             <CreditCardIcon className="size-4" />
             Manage Plan
@@ -551,25 +568,39 @@ export default function AccountPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  {subscription.plan?.name || 'Unknown Plan'}
-                  <Badge color={subscription.status === 'active' ? 'green' : 'yellow'}>
-                    {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                  {subscription.plan?.name || "Unknown Plan"}
+                  <Badge
+                    color={
+                      subscription.status === "active" ? "green" : "yellow"
+                    }
+                  >
+                    {subscription.status.charAt(0).toUpperCase() +
+                      subscription.status.slice(1)}
                   </Badge>
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {subscription.billingCycle === 'monthly' ? 'Monthly billing' : 'Annual billing'}
+                  {subscription.billingCycle === "monthly"
+                    ? "Monthly billing"
+                    : "Annual billing"}
                   {subscription.currentPeriodEnd && (
-                    <> • Next billing: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}</>
+                    <>
+                      {" "}
+                      • Next billing:{" "}
+                      {new Date(
+                        subscription.currentPeriodEnd,
+                      ).toLocaleDateString()}
+                    </>
                   )}
                 </p>
               </div>
               <ArrowTopRightOnSquareIcon className="size-5 text-gray-400" />
             </div>
-            
+
             {subscription.cancelAtPeriodEnd && (
               <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  Your subscription will be canceled at the end of the current billing period.
+                  Your subscription will be canceled at the end of the current
+                  billing period.
                 </p>
               </div>
             )}
@@ -582,11 +613,12 @@ export default function AccountPage() {
                 No Active Subscription
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Choose a plan to start optimizing your website's conversion rate.
+                Choose a plan to start optimizing your website's conversion
+                rate.
               </p>
-              <Button 
+              <Button
                 color="blue"
-                onClick={() => router.push('/dashboard/billing')}
+                onClick={() => router.push("/dashboard/billing")}
               >
                 View Plans
               </Button>
