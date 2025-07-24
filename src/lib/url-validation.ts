@@ -66,6 +66,12 @@ export async function checkUrlAccessibility(url: string): Promise<{
   error?: string;
 }> {
   try {
+    console.log('🌐 Checking URL accessibility:', url);
+    
+    // Create an AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     const response = await fetch(url, {
       method: 'HEAD',
       headers: {
@@ -73,13 +79,27 @@ export async function checkUrlAccessibility(url: string): Promise<{
       },
       // Don't follow redirects for now - we want to know about them
       redirect: 'manual',
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
+    console.log('✅ URL accessibility check completed:', response.status);
 
     return {
       isAccessible: response.status < 400,
       statusCode: response.status,
     };
   } catch (error) {
+    console.log('❌ URL accessibility check failed:', error);
+    
+    // Handle timeout specifically
+    if (error instanceof Error && error.name === 'AbortError') {
+      return {
+        isAccessible: false,
+        error: 'Request timed out after 10 seconds',
+      };
+    }
+    
     return {
       isAccessible: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -103,7 +123,8 @@ export async function validateUrl(
   url: string, 
   userPageType?: string,
   userPlan?: 'basic' | 'pro' | 'enterprise',
-  userPrimaryDomain?: string | null
+  userPrimaryDomain?: string | null,
+  skipAccessibilityCheck?: boolean
 ): Promise<ValidationResult> {
   // First validate the URL format
   const urlValidation = urlValidationSchema.safeParse({ url, pageType: userPageType });
@@ -134,23 +155,28 @@ export async function validateUrl(
     }
   }
 
-  // Check if URL is accessible
-  const accessibilityCheck = await checkUrlAccessibility(url);
-  
-  if (!accessibilityCheck.isAccessible) {
-    return {
-      isValid: false,
-      pageType: detectedPageType,
-      statusCode: accessibilityCheck.statusCode,
-      error: accessibilityCheck.error || 'URL is not accessible',
-      message: `Failed to access URL: ${accessibilityCheck.error || 'HTTP ' + accessibilityCheck.statusCode}`,
-    };
+  // Check if URL is accessible (skip if requested)
+  let accessibilityCheck = null;
+  if (!skipAccessibilityCheck) {
+    accessibilityCheck = await checkUrlAccessibility(url);
+    
+    if (!accessibilityCheck.isAccessible) {
+      return {
+        isValid: false,
+        pageType: detectedPageType,
+        statusCode: accessibilityCheck.statusCode,
+        error: accessibilityCheck.error || 'URL is not accessible',
+        message: `Failed to access URL: ${accessibilityCheck.error || 'HTTP ' + accessibilityCheck.statusCode}`,
+      };
+    }
+  } else {
+    console.log('⏭️ Skipping URL accessibility check as requested');
   }
 
   return {
     isValid: true,
     pageType: detectedPageType,
-    statusCode: accessibilityCheck.statusCode,
-    message: 'URL is valid and accessible',
+    statusCode: accessibilityCheck?.statusCode,
+    message: skipAccessibilityCheck ? 'URL is valid (accessibility check skipped)' : 'URL is valid and accessible',
   };
 }

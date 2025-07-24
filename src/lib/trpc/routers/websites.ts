@@ -112,23 +112,27 @@ export const websitesRouter = createTRPCRouter({
         throw new Error('Multiple domains feature requires Pro subscription');
       }
 
-      // Validate the URL
-      const validation = await validateUrl(input.url);
+      // Validate the URL (skip accessibility check to avoid timeouts)
+      const validation = await validateUrl(input.url, undefined, undefined, undefined, true);
       if (!validation.isValid) {
         throw new Error(validation.error || 'Invalid URL');
       }
 
-      // Check if domain with this URL already exists for this user
-      const existing = await db
+      // Check current domain count and enforce limits
+      const userWebsites = await db
         .select()
         .from(websites)
-        .where(and(
-          eq(websites.url, input.url),
-          eq(websites.userId, userId)
-        ))
-        .limit(1);
+        .where(eq(websites.userId, userId));
 
-      if (existing.length > 0) {
+      // Pro plan limit: 10 domains
+      const DOMAIN_LIMIT = 10;
+      if (userWebsites.length >= DOMAIN_LIMIT) {
+        throw new Error(`Pro plan allows up to ${DOMAIN_LIMIT} domains. You currently have ${userWebsites.length} domains. Please remove some domains or upgrade your plan.`);
+      }
+
+      // Check if domain with this URL already exists for this user
+      const existing = userWebsites.find(website => website.url === input.url);
+      if (existing) {
         throw new Error('Domain with this URL already exists');
       }
 
@@ -272,27 +276,96 @@ export const websitesRouter = createTRPCRouter({
     }),
 
   /**
-   * Create or get existing website record
+   * Create or get existing website record (with Pro plan domain validation)
    */
-  createOrGet: publicProcedure
+  createOrGet: protectedProcedure
     .input(z.object({
       url: z.string().url(),
       pageType: z.string().optional(),
-      userId: z.string().optional().default('test-user-123'), // For now, until auth is fully implemented
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }): Promise<{
+      id: string;
+      userId: string;
+      url: string;
+      name: string | null;
+      description: string | null;
+      pageType: string | null;
+      isValidated: boolean | null;
+      validationStatus: string | null;
+      validationMessage: string | null;
+      lastValidatedAt: Date | null;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+      scanUrl: string;
+    }> => {
       try {
-        // Validate the URL first
-        const validation = await validateUrl(input.url, input.pageType);
+        console.log('🚀 createOrGet mutation started for URL:', input.url);
+        const userId = ctx.session.user.id;
+        console.log('👤 User ID:', userId);
+        
+        // Extract domain from URL for validation (do this first)
+        const urlObj = new URL(input.url);
+        const scanDomain = urlObj.hostname.toLowerCase();
+        console.log('🌐 Extracted scan domain:', scanDomain);
+
+        // Check if user has access to multiple domains feature
+        console.log('🔐 Checking feature access for multiple_websites...');
+        const featureAccess = await checkFeatureAccess(userId, 'multiple_websites');
+        console.log('🔐 Feature access result:', featureAccess);
+        if (!featureAccess.hasAccess) {
+          console.log('❌ Feature access denied');
+          throw new Error('DOMAIN_VALIDATION_REQUIRED');
+        }
+
+        // Get user's existing domains
+        console.log('📊 Querying user domains...');
+        const userDomains = await db
+          .select()
+          .from(websites)
+          .where(eq(websites.userId, userId));
+        console.log('📊 Found user domains:', userDomains.length);
+
+        // Check if the domain is already in user's allowed domains (BEFORE URL validation)
+        const isDomainAllowed = userDomains.some(domain => {
+          const domainHost = new URL(domain.url).hostname.toLowerCase();
+          return domainHost === scanDomain;
+        });
+
+        if (!isDomainAllowed) {
+          console.log('❌ Domain not allowed, throwing DOMAIN_NOT_ALLOWED error');
+          // Domain not in allowed list
+          const DOMAIN_LIMIT = 10;
+          
+          if (userDomains.length >= DOMAIN_LIMIT) {
+            throw new Error(`DOMAIN_LIMIT_REACHED:This domain is not in your allowed domains list. Pro plan allows up to ${DOMAIN_LIMIT} domains. Please add this domain to your domains list first or scan a URL from your existing domains.`);
+          } else {
+            // User has space - offer to add domain
+            throw new Error(`DOMAIN_NOT_ALLOWED:This domain is not in your allowed domains list. Would you like to add "${scanDomain}" to your domains? You are using ${userDomains.length} of ${DOMAIN_LIMIT} domains.`);
+          }
+        }
+
+        // Only validate URL if domain is allowed (to avoid timeout blocking domain validation)
+        console.log('✅ Domain allowed, starting URL validation...');
+        // Skip accessibility check to avoid timeouts during testing/development
+        const validation = await validateUrl(input.url, input.pageType, undefined, undefined, true);
+        console.log('✅ URL validation result:', validation);
         if (!validation.isValid) {
+          console.log('❌ URL validation failed:', validation.error);
           throw new Error(validation.error || 'Invalid URL');
         }
 
-        // Check if website already exists for this URL
+        // For domain management, we want to check/create based on parent domain
+        // but for scanning, we still want to use the specific URL
+        const parentDomainUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+        
+        // Check if website already exists for the parent domain
         const existing = await db
           .select()
           .from(websites)
-          .where(eq(websites.url, input.url))
+          .where(and(
+            eq(websites.url, parentDomainUrl),
+            eq(websites.userId, userId)
+          ))
           .limit(1);
 
         if (existing.length > 0) {
@@ -310,16 +383,20 @@ export const websitesRouter = createTRPCRouter({
             .where(eq(websites.id, existing[0].id))
             .returning();
 
-          return updated[0];
+          // Return the existing record but with the original scan URL for crawling
+          return {
+            ...updated[0],
+            scanUrl: input.url // Add the original URL for crawling purposes
+          };
         }
 
-        // Create new website record (using a fallback userId for now)
+        // Create new website record for the parent domain
         const newWebsite = await db
           .insert(websites)
           .values({
-            userId: 'anonymous', // Simplified for testing - will need proper auth later
-            url: input.url,
-            name: new URL(input.url).hostname,
+            userId,
+            url: parentDomainUrl, // Store parent domain for domain management
+            name: urlObj.hostname,
             pageType: input.pageType || 'homepage',
             isValidated: true,
             validationStatus: 'valid',
@@ -328,8 +405,22 @@ export const websitesRouter = createTRPCRouter({
           })
           .returning();
 
-        return newWebsite[0];
+        // Return the new record but with the original scan URL for crawling
+        return {
+          ...newWebsite[0],
+          scanUrl: input.url // Add the original URL for crawling purposes
+        };
       } catch (error) {
+        // Don't log domain validation errors as they are expected user flow
+        if (error instanceof Error && (
+          error.message.startsWith('DOMAIN_NOT_ALLOWED:') || 
+          error.message.startsWith('DOMAIN_LIMIT_REACHED:')
+        )) {
+          // These are expected validation errors, not system failures
+          throw error;
+        }
+        
+        // Only log unexpected errors
         console.error('Website creation failed:', error);
         throw new Error(`Failed to create website: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
