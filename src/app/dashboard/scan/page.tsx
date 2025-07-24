@@ -10,6 +10,8 @@ import { motion, AnimatePresence, Variants } from "framer-motion";
 import { CompanyIcon } from "@/components/company-logo";
 import { Input, InputGroup } from "@/components/input";
 import { AiChat } from "@/components/aichat";
+import { Dialog, DialogActions, DialogBody, DialogDescription, DialogTitle } from "@/components/dialog";
+import { Button } from "@/components/button";
 
 type ScanPhase =
   | "website-creation"
@@ -36,9 +38,33 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [scanStartTime, setScanStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState<string>("0:00");
+  const [domainDialog, setDomainDialog] = useState<{
+    domain: string;
+    currentCount: number;
+    limit: number;
+  } | null>(null);
 
   // Feature gating hooks
   const scanFeatureGate = useFeatureGate("unlimited_scans");
+
+  // Domain creation mutation for adding new domains during scan
+  const createDomainMutation = trpc.websites.create.useMutation({
+    onSuccess: (domain) => {
+      console.log('✅ Domain added successfully:', domain);
+      setDomainDialog(null);
+      setError(null); // Clear any previous errors
+      // Small delay to ensure domain is fully created before retry
+      setTimeout(() => {
+        retryWebsiteCreation();
+      }, 500);
+    },
+    onError: (error) => {
+      console.error('❌ Failed to add domain:', error);
+      setError(`Failed to add domain: ${error.message}`);
+      setDomainDialog(null);
+      setIsProcessing(false);
+    }
+  });
 
   // Update elapsed time every second during processing
   useEffect(() => {
@@ -55,15 +81,21 @@ export default function ScanPage() {
   }, [isProcessing, scanStartTime]);
 
   const websiteCreateMutation = trpc.websites.createOrGet.useMutation({
+    onMutate: (variables) => {
+      console.log("🚀 websiteCreateMutation.onMutate called with:", variables);
+    },
     onSuccess: (website) => {
       console.log("📝 Website created/found:", website);
       console.log("🔍 Setting websiteId:", website.id);
       setCurrentWebsiteId(website.id);
       setCurrentPhase("webcrawler");
 
-      // Now start the crawling process
+      // Now start the crawling process - use scanUrl if available, otherwise use website.url
+      const urlToCrawl = 'scanUrl' in website ? website.scanUrl : website.url;
+      console.log("🕷️ Crawling URL:", urlToCrawl);
+      
       crawlMutation.mutate({
-        url: website.url,
+        url: urlToCrawl,
         options: {
           timeout: 30000,
           followRedirects: true,
@@ -72,12 +104,122 @@ export default function ScanPage() {
         },
       });
     },
+    onSettled: (data, error) => {
+      console.log("📝 websiteCreateMutation.onSettled - data:", data, "error:", error);
+    },
     onError: (error) => {
       console.error("📝 Website creation failed:", error);
-      setError(`Website registration failed: ${error.message}`);
+      console.log("📝 Full error object:", error);
+      console.log("📝 Error message:", error.message);
+      console.log("📝 Error type:", typeof error.message);
+      
+      // Handle domain validation errors
+      const errorMessage = error.message;
+      
+      // If we're showing a domain dialog, don't show this error as it's expected
+      if (domainDialog) {
+        console.log('🔄 Domain validation error during retry - dialog already shown, ignoring');
+        return;
+      }
+      
+      console.log("📝 Checking if error starts with DOMAIN_NOT_ALLOWED:", errorMessage.startsWith('DOMAIN_NOT_ALLOWED:'));
+      
+      if (errorMessage.startsWith('DOMAIN_NOT_ALLOWED:')) {
+        console.log('🎯 Processing DOMAIN_NOT_ALLOWED error');
+        
+        // Parse the error message to extract domain info
+        const parts = errorMessage.split(':')[1];
+        console.log('🔍 Parsing domain error:', parts);
+        
+        const domainMatch = parts?.match(/like to add "([^"]+)" to your domains/);
+        const countMatch = parts?.match(/using (\d+) of (\d+) domains/);
+        
+        console.log('🔍 Domain match:', domainMatch);
+        console.log('🔍 Count match:', countMatch);
+        
+        if (domainMatch && countMatch) {
+          console.log('✅ Successfully parsed domain info');
+          const dialogData = {
+            domain: domainMatch[1],
+            currentCount: parseInt(countMatch[1]),
+            limit: parseInt(countMatch[2])
+          };
+          console.log('🎯 Setting domain dialog:', dialogData);
+          setDomainDialog(dialogData);
+          return;
+        } else {
+          console.log('❌ Failed to parse domain error message - using improved fallback');
+          
+          // Improved fallback - extract info from error message using different approach
+          try {
+            const urlDomain = new URL(url).hostname;
+            
+            // Try to extract count info from the error message
+            let currentCount = 8; // default
+            let limit = 10; // default
+            
+            const countMatch2 = errorMessage.match(/using (\d+) of (\d+) domains/);
+            if (countMatch2) {
+              currentCount = parseInt(countMatch2[1]);
+              limit = parseInt(countMatch2[2]);
+              console.log('✅ Extracted count info from error:', { currentCount, limit });
+            }
+            
+            const fallbackData = {
+              domain: urlDomain,
+              currentCount,
+              limit
+            };
+            console.log('🎯 Setting improved fallback domain dialog:', fallbackData);
+            setDomainDialog(fallbackData);
+            return;
+          } catch (e) {
+            console.error('Failed to extract domain from URL:', e);
+            
+            // Ultimate fallback - show dialog with minimal info
+            console.log('🎯 Using ultimate fallback - showing basic dialog');
+            setDomainDialog({
+              domain: 'unknown-domain',
+              currentCount: 8,
+              limit: 10
+            });
+            return;
+          }
+        }
+      } else if (errorMessage.startsWith('DOMAIN_LIMIT_REACHED:')) {
+        console.log('🎯 Processing DOMAIN_LIMIT_REACHED error');
+        setError(errorMessage.split(':')[1]);
+        setIsProcessing(false);
+        return;
+      }
+      
+      console.log('⚠️ Unhandled error - showing generic error');
+      // Only show generic error if it's not a domain validation issue
+      if (!errorMessage.includes('DOMAIN_NOT_ALLOWED') && !errorMessage.includes('DOMAIN_LIMIT_REACHED')) {
+        setError(`Website registration failed: ${errorMessage}`);
+      }
       setIsProcessing(false);
     },
   });
+
+  // Function to retry website creation after domain is added
+  const retryWebsiteCreation = () => {
+    if (!url) return;
+    
+    console.log('🔄 Retrying website creation after domain addition');
+    setError(null); // Clear any existing errors before retry
+    
+    // Reset the mutation state to clear any previous errors
+    if (websiteCreateMutation.error) {
+      websiteCreateMutation.reset();
+    }
+    
+    const detectedPageType = detectPageType(url);
+    websiteCreateMutation.mutate({
+      url: url,
+      pageType: detectedPageType,
+    });
+  };
 
   const aiAnalysisMutation = trpc.ai.analyze.useMutation({
     onSuccess: (result) => {
@@ -134,22 +276,28 @@ export default function ScanPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    console.log("🎯 Form submitted with URL:", url);
     setError(null);
 
     // Check feature access before starting scan
+    console.log("🔐 Checking feature access:", scanFeatureGate);
     if (!scanFeatureGate.hasAccess) {
+      console.log("❌ Scan access denied:", scanFeatureGate.reason);
       setError(scanFeatureGate.reason || "Scan access denied");
       return;
     }
 
     // Validate URL
     if (!url.trim()) {
+      console.log("❌ No URL provided");
       setError("Please enter a website URL");
       return;
     }
 
+    console.log("✅ Validating URL:", url);
     const urlValidation = urlValidationSchema.safeParse({ url });
     if (!urlValidation.success) {
+      console.log("❌ URL validation failed:", urlValidation.error);
       setError(
         urlValidation.error.errors[0]?.message ||
           "Please enter a valid website URL",
@@ -157,6 +305,7 @@ export default function ScanPage() {
       return;
     }
 
+    console.log("✅ URL validation passed, starting scan process");
     setIsProcessing(true);
     setScanStartTime(new Date());
     setCurrentPhase("website-creation");
@@ -167,8 +316,10 @@ export default function ScanPage() {
 
       // Detect page type based on URL
       const detectedPageType = detectPageType(url);
+      console.log("📄 Detected page type:", detectedPageType);
 
       // First, create or get the website record
+      console.log("📝 Calling websiteCreateMutation.mutate");
       websiteCreateMutation.mutate({
         url: url,
         pageType: detectedPageType,
@@ -178,6 +329,23 @@ export default function ScanPage() {
       setError("Error occurred during scan preparation. Please try again.");
       setIsProcessing(false);
     }
+  };
+
+  // Domain dialog handlers
+  const handleAddDomain = () => {
+    if (!domainDialog) return;
+    
+    createDomainMutation.mutate({
+      name: domainDialog.domain,
+      url: `https://${domainDialog.domain}`,
+      description: `Added during scan process for ${url}`,
+    });
+  };
+
+  const handleCancelDomain = () => {
+    setDomainDialog(null);
+    setIsProcessing(false);
+    setError('Scan cancelled - domain not added to allowed list');
   };
 
   const getProcessingSteps = (): ProcessingStep[] => {
@@ -711,6 +879,53 @@ export default function ScanPage() {
           </AnimatePresence>
         </FeatureGate>
       </motion.div>
+
+      {/* Domain Addition Dialog */}
+      {domainDialog && (
+        <Dialog open={true} onClose={() => setDomainDialog(null)}>
+          <DialogTitle>Add Domain to Continue Scan</DialogTitle>
+          <DialogDescription>
+            The domain &quot;{domainDialog.domain}&quot; is not in your allowed domains list. 
+            Would you like to add it to continue with the scan?
+          </DialogDescription>
+          <DialogBody>
+            <div className="space-y-3">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100">Domain Usage</h4>
+                </div>
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  You are currently using {domainDialog.currentCount} of {domainDialog.limit} domains.
+                  Adding this domain will use {domainDialog.currentCount + 1} of {domainDialog.limit} domains.
+                </p>
+              </div>
+              <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                <p><strong>Domain:</strong> {domainDialog.domain}</p>
+                <p><strong>Scan URL:</strong> {url}</p>
+              </div>
+            </div>
+          </DialogBody>
+          <DialogActions>
+            <Button 
+              variant="outline" 
+              onClick={handleCancelDomain}
+              disabled={createDomainMutation.isPending}
+            >
+              Cancel Scan
+            </Button>
+            <Button 
+              onClick={handleAddDomain}
+              disabled={createDomainMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {createDomainMutation.isPending ? 'Adding Domain...' : 'Add Domain & Continue'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </div>
   );
 }

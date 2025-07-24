@@ -54,6 +54,8 @@ export default function AccountPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDomainEditing, setIsDomainEditing] = useState(false);
   const [isDomainLoading, setIsDomainLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Update state when user data changes
   useEffect(() => {
@@ -110,32 +112,45 @@ export default function AccountPage() {
 
   const handleSave = async () => {
     setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    
     try {
+      console.log('🔄 Submitting profile update:', { name: name.trim(), email: email.trim() });
+      
       const response = await fetch("/api/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
-          name,
-          email,
+          name: name.trim(),
+          email: email.trim(),
         }),
       });
 
+      const data = await response.json();
+      console.log('📥 Profile update response:', data);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to update profile");
+        throw new Error(data.error || `HTTP ${response.status}: Failed to update profile`);
       }
 
-      const data = await response.json();
-      console.log("Profile updated:", data);
-      
-      // Refresh the session to get updated user data
-      window.location.reload();
+      console.log('✅ Profile updated successfully:', data.user);
+      setSuccess(`Profile updated successfully! Name changed to "${data.user.name}"`);
       setIsEditing(false);
+      
+      // Force session refresh after showing success message
+      setTimeout(() => {
+        console.log('🔄 Refreshing page to update session...');
+        window.location.reload();
+      }, 1500);
+      
     } catch (error) {
-      console.error("Failed to update profile:", error);
-      alert("Failed to update profile. Please try again.");
+      console.error("❌ Profile update failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to update profile";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -147,6 +162,8 @@ export default function AccountPage() {
       setEmail(user.email || "");
     }
     setIsEditing(false);
+    setError(null);
+    setSuccess(null);
   };
 
   const handleDomainCancel = () => {
@@ -324,6 +341,24 @@ export default function AccountPage() {
           )}
         </div>
 
+        {/* Success Message */}
+        {success && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4">
+            <p className="text-sm text-green-800 dark:text-green-200">
+              {success}
+            </p>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+            <p className="text-sm text-red-800 dark:text-red-200">
+              <strong>Error:</strong> {error}
+            </p>
+          </div>
+        )}
+
         <Field>
           <Label>Name</Label>
           <Input
@@ -360,7 +395,7 @@ export default function AccountPage() {
             <Button 
               color="blue" 
               onClick={handleSave}
-              disabled={isLoading}
+              disabled={isLoading || !name.trim()}
             >
               {isLoading ? "Saving..." : "Save Changes"}
             </Button>
