@@ -141,6 +141,7 @@ export const reportsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       try {
         // Fetch websites with their latest analysis (excluding soft-deleted reports)
+        // Only show websites that have actually been scanned (have analyses)
         const reportsData = await db
           .select({
             websiteId: websites.id,
@@ -155,8 +156,8 @@ export const reportsRouter = createTRPCRouter({
             errorMessage: analyses.errorMessage,
           })
           .from(websites)
-          .leftJoin(analyses, eq(analyses.websiteId, websites.id))
-          .orderBy(desc(websites.createdAt))
+          .innerJoin(analyses, eq(analyses.websiteId, websites.id))
+          .orderBy(desc(analyses.createdAt))
           .limit(input.limit)
           .offset(input.offset);
 
@@ -189,11 +190,11 @@ export const reportsRouter = createTRPCRouter({
             websiteName: row.websiteName || new URL(row.websiteUrl).hostname,
             pageType: row.pageType || 'homepage',
             scanDate: row.analysisCreatedAt?.toISOString() || row.websiteCreatedAt?.toISOString() || new Date().toISOString(),
-            status: row.analysisStatus || (row.analysisId ? 'completed' : 'pending'),
+            status: row.analysisStatus,
             overallScore: aiAnalysis?.overallScore || null,
             recommendationsCount: aiAnalysis?.recommendations?.length || 0,
-            hasAnalysis: !!row.analysisId,
-            summary: aiAnalysis?.summary || (row.analysisStatus === 'pending' ? 'Analysis in progress...' : 'Ready to analyze'),
+            hasAnalysis: true, // Always true since we use innerJoin
+            summary: aiAnalysis?.summary || (row.analysisStatus === 'pending' ? 'Analysis in progress...' : 'Analysis completed'),
           };
         });
 

@@ -64,6 +64,10 @@ export default function DomainsPage() {
       domainsQuery.refetch();
     } catch (error) {
       console.error('Failed to add domain:', error);
+      
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add domain';
+      alert(errorMessage);
     }
   };
 
@@ -155,9 +159,24 @@ export default function DomainsPage() {
         <div className="flex items-center justify-between">
           <div>
             <Heading>Domains</Heading>
-            <Text>Manage your domains for analysis and monitoring. Pro plans can manage up to 10 domains.</Text>
+            <Text>
+              Manage your domains for analysis and monitoring. Pro plans can manage up to 10 domains.
+              {domains.length > 0 && (
+                <span className="block mt-1">
+                  Currently using {domains.length} of 10 domains.
+                  {domains.length >= 10 && (
+                    <span className="text-amber-600 dark:text-amber-400 font-medium"> (Limit reached)</span>
+                  )}
+                </span>
+              )}
+            </Text>
           </div>
-          <Button type="button" onClick={() => setIsAddDialogOpen(true)}>
+          <Button 
+            type="button" 
+            onClick={() => setIsAddDialogOpen(true)}
+            disabled={domains.length >= 10}
+            title={domains.length >= 10 ? "Domain limit reached (10/10). Remove domains to add new ones." : "Add a new domain"}
+          >
             <PlusIcon />
             Add Domain
           </Button>
