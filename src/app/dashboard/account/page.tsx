@@ -126,13 +126,11 @@ export default function AccountPage() {
     setIsLoading(true);
     setError(null);
     setSuccess(null);
-
     try {
       console.log("🔄 Submitting profile update:", {
         name: name.trim(),
         email: email.trim(),
       });
-
       const response = await fetch("/api/profile", {
         method: "PUT",
         headers: {
