@@ -182,26 +182,15 @@ export const reportsRouter = createTRPCRouter({
           .limit(input.limit)
           .offset(input.offset);
 
-        // Group by website and get the latest analysis for each (excluding soft-deleted)
-        const websiteMap = new Map();
-        reportsData.forEach(row => {
-          const key = row.websiteId;
-          
+        // Filter out archived reports but show ALL analyses (not just latest per website)
+        const filteredReportsData = reportsData.filter(row => {
           // Skip archived reports
           const isArchived = row.errorMessage && row.errorMessage.includes('ARCHIVED_BY_USER');
-          if (isArchived) {
-            return;
-          }
-          
-          if (!websiteMap.has(key) || 
-              (row.analysisCreatedAt && websiteMap.get(key).analysisCreatedAt && 
-               row.analysisCreatedAt > websiteMap.get(key).analysisCreatedAt)) {
-            websiteMap.set(key, row);
-          }
+          return !isArchived;
         });
 
-        // Convert to reports list format
-        const reports = Array.from(websiteMap.values()).map((row: typeof reportsData[0]) => {
+        // Convert to reports list format - show each analysis as a separate report
+        const reports = filteredReportsData.map((row: typeof reportsData[0]) => {
           const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
           
           // Extract the actual scanned URL from rawData if available
