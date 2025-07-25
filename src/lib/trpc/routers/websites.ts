@@ -65,8 +65,8 @@ export const websitesRouter = createTRPCRouter({
         
         try {
           const rawDataObj = JSON.parse(analysis.rawData);
-          const scannedUrl = rawDataObj.url;
-          if (!scannedUrl) continue;
+          const scannedUrl = rawDataObj.url || rawDataObj.finalUrl || rawDataObj.redirectUrl;
+          if (!scannedUrl || scannedUrl.trim() === '') continue;
           
           const scannedDomain = extractDomain(scannedUrl);
           
