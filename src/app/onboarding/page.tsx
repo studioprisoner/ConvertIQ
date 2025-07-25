@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PlanSelection from "./plan-selection";
 import DomainSetup from "./domain-setup";
@@ -14,7 +14,7 @@ export interface OnboardingData {
   primaryDomain?: string;
 }
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const [step, setStep] = useState<OnboardingStep>("plan-selection");
   const [data, setData] = useState<OnboardingData>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -261,5 +261,28 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading component for Suspense fallback
+function OnboardingLoading() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <h2 className="text-2xl font-bold mt-4">Loading...</h2>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main export with Suspense wrapper
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<OnboardingLoading />}>
+      <OnboardingContent />
+    </Suspense>
   );
 }

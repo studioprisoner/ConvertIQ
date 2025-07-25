@@ -53,6 +53,21 @@ export interface VectorSearchService {
     embedding: number[],
     filters: SearchFilters
   ): Promise<SearchResult[]>;
+
+  keywordSearch(
+    query: string,
+    userId: string,
+    limit: number
+  ): Promise<SimilarReport[]>;
+
+  getStatsWithoutEmbeddings(
+    userId: string
+  ): Promise<{
+    totalReports: number;
+    averageScore: number;
+    topPatterns: string[];
+    commonIssues: string[];
+  }>;
 }
 
 export class PostgresVectorSearchService implements VectorSearchService {
@@ -105,6 +120,7 @@ export class PostgresVectorSearchService implements VectorSearchService {
         similarity: Math.round(result.similarity * 100) / 100,
         relevantSnippets: this.extractRelevantSnippets(result.aiAnalysis, query),
         createdAt: result.createdAt?.toISOString() || new Date().toISOString(),
+        overallScore: this.extractOverallScore(result.aiAnalysis),
       }));
     } catch (error) {
       console.error('Vector search failed:', error);
@@ -288,6 +304,20 @@ export class PostgresVectorSearchService implements VectorSearchService {
   }
 
   /**
+   * Extract overall score from AI analysis
+   */
+  private extractOverallScore(aiAnalysis: string | null): number | undefined {
+    if (!aiAnalysis) return undefined;
+    
+    try {
+      const analysis = JSON.parse(aiAnalysis);
+      return analysis.overallScore || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * Extract common topics from AI analysis
    */
   private extractCommonTopics(aiAnalysis: string | null): string[] {
@@ -349,6 +379,248 @@ export class PostgresVectorSearchService implements VectorSearchService {
         return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
       default:
         return new Date(0); // Beginning of time
+    }
+  }
+
+  /**
+   * Keyword-based search fallback when embeddings are unavailable
+   */
+  async keywordSearch(
+    query: string,
+    userId: string,
+    limit: number = 10
+  ): Promise<SimilarReport[]> {
+    try {
+      console.log('🔤 Starting keyword search for:', query);
+      
+      // Extract keywords from the query
+      const keywords = this.extractKeywords(query);
+      
+      // Search in AI analysis JSON for keyword matches
+      const results = await db
+        .select({
+          analysisId: analyses.id,
+          websiteUrl: websites.url,
+          aiAnalysis: analyses.aiAnalysis,
+          createdAt: analyses.createdAt,
+        })
+        .from(analyses)
+        .innerJoin(websites, eq(analyses.websiteId, websites.id))
+        .where(
+          and(
+            eq(websites.userId, userId),
+            eq(analyses.status, 'completed'),
+            // Use ILIKE for case-insensitive keyword matching
+            sql`${analyses.aiAnalysis} ILIKE ANY(${keywords.map(k => `%${k}%`)})`
+          )
+        )
+        .orderBy(desc(analyses.createdAt))
+        .limit(limit);
+
+      // Calculate simple relevance score based on keyword matches
+      const scoredResults = results.map(result => {
+        const analysisText = result.aiAnalysis?.toLowerCase() || '';
+        const matchCount = keywords.reduce((count, keyword) => {
+          const keywordMatches = (analysisText.match(new RegExp(keyword.toLowerCase(), 'g')) || []).length;
+          return count + keywordMatches;
+        }, 0);
+        
+        // Simple relevance score based on match frequency
+        const relevanceScore = Math.min(matchCount / keywords.length, 1);
+        
+        return {
+          analysisId: result.analysisId,
+          websiteUrl: result.websiteUrl,
+          title: this.extractTitle(result.aiAnalysis),
+          similarity: relevanceScore,
+          relevantSnippets: this.extractKeywordSnippets(result.aiAnalysis, keywords),
+          createdAt: result.createdAt?.toISOString() || new Date().toISOString(),
+        };
+      });
+
+      // Sort by relevance score
+      scoredResults.sort((a, b) => b.similarity - a.similarity);
+      
+      console.log(`🔤 Keyword search found ${scoredResults.length} results`);
+      return scoredResults;
+    } catch (error) {
+      console.error('Keyword search failed:', error);
+      throw new Error(`Failed to perform keyword search: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Extract keywords from search query
+   */
+  private extractKeywords(query: string): string[] {
+    // Remove common stop words and extract meaningful terms
+    const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'can', 'may', 'might', 'must']);
+    
+    return query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !stopWords.has(word))
+      .slice(0, 5); // Limit to 5 keywords
+  }
+
+  /**
+   * Extract relevant snippets based on keyword matches
+   */
+  private extractKeywordSnippets(aiAnalysis: string | null, keywords: string[]): string[] {
+    if (!aiAnalysis) return [];
+    
+    try {
+      const analysis = JSON.parse(aiAnalysis);
+      const snippets: string[] = [];
+      
+      // Check summary for keyword matches
+      if (analysis.summary) {
+        const summaryLower = analysis.summary.toLowerCase();
+        const hasKeywordMatch = keywords.some(keyword => 
+          summaryLower.includes(keyword.toLowerCase())
+        );
+        
+        if (hasKeywordMatch) {
+          snippets.push(analysis.summary.substring(0, 150) + '...');
+        }
+      }
+      
+      // Check recommendations for keyword matches
+      if (analysis.recommendations && Array.isArray(analysis.recommendations)) {
+        analysis.recommendations
+          .filter((rec: any) => {
+            const recText = (rec.title + ' ' + rec.description).toLowerCase();
+            return keywords.some(keyword => recText.includes(keyword.toLowerCase()));
+          })
+          .slice(0, 2)
+          .forEach((rec: any) => {
+            snippets.push(rec.title || rec.description?.substring(0, 100) + '...');
+          });
+      }
+      
+      return snippets.slice(0, 3);
+    } catch {
+      // If parsing fails, do simple text search
+      const analysisLower = aiAnalysis.toLowerCase();
+      const matchingKeywords = keywords.filter(keyword => 
+        analysisLower.includes(keyword.toLowerCase())
+      );
+      
+      return matchingKeywords.length > 0 
+        ? [`Contains: ${matchingKeywords.join(', ')}`]
+        : [];
+    }
+  }
+
+  /**
+   * Get statistics without requiring embeddings
+   */
+  async getStatsWithoutEmbeddings(userId: string): Promise<{
+    totalReports: number;
+    averageScore: number;
+    topPatterns: string[];
+    commonIssues: string[];
+  }> {
+    try {
+      console.log('📊 Getting stats without embeddings for user:', userId);
+      
+      // Get all completed analyses for the user
+      const results = await db
+        .select({
+          aiAnalysis: analyses.aiAnalysis,
+        })
+        .from(analyses)
+        .innerJoin(websites, eq(analyses.websiteId, websites.id))
+        .where(
+          and(
+            eq(websites.userId, userId),
+            eq(analyses.status, 'completed')
+          )
+        );
+
+      const patterns = new Set<string>();
+      const issues = new Set<string>();
+      const scores: number[] = [];
+
+      results.forEach(result => {
+        if (!result.aiAnalysis) return;
+
+        try {
+          const analysis = JSON.parse(result.aiAnalysis);
+          
+          // Extract score
+          if (analysis.overallScore && typeof analysis.overallScore === 'number') {
+            scores.push(analysis.overallScore);
+          }
+
+          // Extract patterns and issues from the analysis text
+          const analysisText = JSON.stringify(analysis).toLowerCase();
+          
+          // Common patterns
+          if (analysisText.includes('mobile') && analysisText.includes('responsive')) {
+            patterns.add('Mobile responsiveness optimization');
+          }
+          if (analysisText.includes('speed') || analysisText.includes('performance')) {
+            patterns.add('Page speed optimization');
+          }
+          if (analysisText.includes('seo') && (analysisText.includes('meta') || analysisText.includes('search'))) {
+            patterns.add('SEO optimization');
+          }
+          if (analysisText.includes('conversion') && (analysisText.includes('cta') || analysisText.includes('call-to-action'))) {
+            patterns.add('Call-to-action optimization');
+          }
+          if (analysisText.includes('accessibility') || analysisText.includes('a11y')) {
+            patterns.add('Accessibility improvements');
+          }
+          if (analysisText.includes('load') && analysisText.includes('time')) {
+            patterns.add('Page load optimization');
+          }
+          if (analysisText.includes('user') && analysisText.includes('experience')) {
+            patterns.add('User experience enhancement');
+          }
+          
+          // Common issues
+          if (analysisText.includes('missing') || analysisText.includes('lacking')) {
+            issues.add('Missing essential elements');
+          }
+          if (analysisText.includes('slow') || analysisText.includes('loading')) {
+            issues.add('Performance issues');
+          }
+          if (analysisText.includes('unclear') || analysisText.includes('confusing')) {
+            issues.add('Unclear messaging');
+          }
+          if (analysisText.includes('broken') || analysisText.includes('error')) {
+            issues.add('Technical issues');
+          }
+          if (analysisText.includes('poor') && analysisText.includes('contrast')) {
+            issues.add('Visual accessibility issues');
+          }
+          if (analysisText.includes('navigation') && analysisText.includes('difficult')) {
+            issues.add('Navigation problems');
+          }
+          
+        } catch (parseError) {
+          console.warn('Failed to parse analysis JSON:', parseError);
+        }
+      });
+
+      const averageScore = scores.length > 0 
+        ? scores.reduce((sum, score) => sum + score, 0) / scores.length 
+        : 0;
+
+      const stats = {
+        totalReports: results.length,
+        averageScore: Math.round(averageScore * 10) / 10,
+        topPatterns: Array.from(patterns).slice(0, 5),
+        commonIssues: Array.from(issues).slice(0, 5),
+      };
+
+      console.log(`📊 Generated stats without embeddings: ${stats.totalReports} reports, avg score ${stats.averageScore}`);
+      
+      return stats;
+    } catch (error) {
+      console.error('Failed to get stats without embeddings:', error);
+      throw new Error(`Failed to get statistics: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }
