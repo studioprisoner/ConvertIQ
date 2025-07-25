@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDownIcon, ChevronRightIcon, ArchiveBoxIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronRightIcon, ArchiveBoxIcon, ArrowPathIcon, ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { useSearchParams } from 'next/navigation';
 import { Heading } from '@/components/heading';
 import { Text } from '@/components/text';
@@ -9,6 +9,7 @@ import { Button } from '@/components/button';
 import { Badge } from '@/components/badge';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc/client';
+import ReactMarkdown from 'react-markdown';
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function ReportsPage() {
   const [archiveConfirm, setArchiveConfirm] = useState<{reportId: string, reportName: string} | null>(null);
   const [retriggerConfirm, setRetriggerConfirm] = useState<{analysisId: string, reportName: string} | null>(null);
   const [retriggeringAnalysis, setRetriggeringAnalysis] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // Fetch reports list if no websiteId, otherwise fetch specific dashboard
   const { data: reportsList, isLoading: isLoadingList, error: errorList } = trpc.reports.getReportsList.useQuery(
@@ -94,6 +96,28 @@ export default function ReportsPage() {
 
   const handleCancelArchive = () => {
     setArchiveConfirm(null);
+  };
+
+  // Copy markdown handler
+  const handleCopyMarkdown = async () => {
+    if (!scanResults?.summary) return;
+    
+    try {
+      await navigator.clipboard.writeText(scanResults.summary);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000); // Reset after 2 seconds
+    } catch (err) {
+      console.error('Failed to copy markdown:', err);
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = scanResults.summary;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
   };
 
   // Retrigger handlers
@@ -525,88 +549,38 @@ export default function ReportsPage() {
             <Text className="text-sm">Overall Score</Text>
           </div>
         </div>
-        <div className="space-y-4 mb-6">
-          {(() => {
-            // Smart text processing that handles numbered lists and various formats
-            const processReportText = (text: string) => {
-              // First, normalize numbered lists by ensuring they start on new lines
-              let processedText = text
-                // Handle numbered lists (1. 2. 3. etc.) by adding line breaks before them
-                .replace(/(\w)\s*(\d+\.\s)/g, '$1\n\n$2')
-                // Handle bullet points (• - *) by adding line breaks before them
-                .replace(/(\w)\s*([•\-\*]\s)/g, '$1\n\n$2')
-                // Clean up multiple consecutive line breaks
-                .replace(/\n{3,}/g, '\n\n')
-                // Split into logical sections, preserving numbered lists
-                .split(/(?<!\d)\.(?:\s+|$)(?!\d)/)
-                .filter(segment => segment.trim());
+        <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6 mb-6 relative">
+          {/* Copy button in top-right corner */}
+          <button
+            onClick={handleCopyMarkdown}
+            className={`absolute top-4 right-4 p-2 transition-colors rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+              copySuccess 
+                ? 'text-green-500 dark:text-green-400' 
+                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+            }`}
+            title={copySuccess ? "Copied!" : "Copy report as markdown"}
+          >
+            {copySuccess ? (
+              <CheckIcon className="h-5 w-5" />
+            ) : (
+              <ClipboardDocumentIcon className="h-5 w-5" />
+            )}
+          </button>
 
-              return processedText.map((segment, index) => {
-                const trimmedSegment = segment.trim();
-                if (!trimmedSegment) return null;
-
-                // Restore period for segments that don't end with punctuation (except last)
-                const isLast = index === processedText.length - 1;
-                let formattedSegment = trimmedSegment;
-                if (!isLast && !trimmedSegment.match(/[.!?:]$/)) {
-                  formattedSegment += '.';
-                }
-
-                const lowerSegment = formattedSegment.toLowerCase();
-
-                // Check for priority recommendations
-                if (lowerSegment.includes('top priority') || lowerSegment.includes('priority recommendation')) {
-                  return (
-                    <div key={index} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                      <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center">
-                        🎯 Priority Recommendations
-                      </h4>
-                      <div className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed whitespace-pre-line">
-                        {formattedSegment}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Check for quick wins
-                if (lowerSegment.includes('quick wins') || lowerSegment.includes('implementation within')) {
-                  return (
-                    <div key={index} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                      <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center">
-                        ⚡ Quick Wins
-                      </h4>
-                      <div className="text-green-800 dark:text-green-200 text-sm leading-relaxed whitespace-pre-line">
-                        {formattedSegment}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Check for long-term optimization
-                if (lowerSegment.includes('long-term') || lowerSegment.includes('revenue growth potential')) {
-                  return (
-                    <div key={index} className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-                      <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center">
-                        📈 Long-term Growth
-                      </h4>
-                      <div className="text-purple-800 dark:text-purple-200 text-sm leading-relaxed whitespace-pre-line">
-                        {formattedSegment}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Default case - regular paragraph with proper line break handling
-                return (
-                  <Text key={index} className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed whitespace-pre-line">
-                    {formattedSegment}
-                  </Text>
-                );
-              }).filter(Boolean);
-            };
-
-            return processReportText(mockScanResults.summary);
-          })()}
+          <div className="prose prose-sm prose-zinc dark:prose-invert max-w-none
+            prose-headings:text-zinc-900 dark:prose-headings:text-zinc-100
+            prose-p:text-zinc-600 dark:prose-p:text-zinc-400
+            prose-strong:text-zinc-900 dark:prose-strong:text-zinc-100
+            prose-ul:text-zinc-600 dark:prose-ul:text-zinc-400
+            prose-ol:text-zinc-600 dark:prose-ol:text-zinc-400
+            prose-li:text-zinc-600 dark:prose-li:text-zinc-400
+            prose-h1:text-xl prose-h1:font-bold prose-h1:mb-4
+            prose-h2:text-lg prose-h2:font-semibold prose-h2:mb-3 prose-h2:mt-6
+            prose-h3:text-base prose-h3:font-semibold prose-h3:mb-2 prose-h3:mt-4">
+            <ReactMarkdown>
+              {mockScanResults.summary}
+            </ReactMarkdown>
+          </div>
         </div>
 
         {/* Metrics Grid */}

@@ -168,7 +168,7 @@ export class AnthropicAnalysisProvider {
     seoAnalysis: any
   ): Promise<any> {
     const overallPrompt = `
-Based on the comprehensive analysis of ${crawlData.url}, provide overall insights and prioritized recommendations:
+Based on the comprehensive analysis of ${crawlData.url}, provide overall insights and prioritized recommendations in markdown format:
 
 CONVERSION PSYCHOLOGY SCORE: ${conversionAnalysis.overallScore}/10
 Key Conversion Issues: ${conversionAnalysis.keyFindings?.join(', ')}
@@ -179,19 +179,83 @@ Key UX Issues: ${uxAnalysis.keyFindings?.join(', ')}
 TECHNICAL SEO SCORE: ${seoAnalysis.overallScore}/10
 Key SEO Issues: ${seoAnalysis.keyFindings?.join(', ')}
 
-Provide:
-1. Overall website assessment (1-10 score)
-2. Top 5 priority recommendations across all areas
-3. Quick wins (high impact, low effort) to implement first
-4. Long-term optimization roadmap
-5. Potential revenue impact assessment
+IMPORTANT: Format your response using this EXACT markdown structure:
 
-Focus on actionable insights for small business owners with limited technical resources.
+# EXECUTIVE SUMMARY - [WEBSITE NAME] WEBSITE ANALYSIS
+
+## Overall Website Score: [X.X]/10
+[One sentence describing the overall state and opportunities]
+
+### TOP 5 PRIORITY RECOMMENDATIONS:
+1. [Recommendation Title]
+- [Specific action item 1]
+- [Specific action item 2]
+- Estimated Impact: [X-Y% increase in specific metric]
+
+2. [Recommendation Title]
+- [Specific action item 1]
+- [Specific action item 2]
+- Estimated Impact: [X-Y% increase in specific metric]
+
+3. [Recommendation Title]
+- [Specific action item 1]
+- [Specific action item 2]
+- Estimated Impact: [X-Y% increase in specific metric]
+
+4. [Recommendation Title]
+- [Specific action item 1]
+- [Specific action item 2]
+- Estimated Impact: [X-Y% increase in specific metric]
+
+5. [Recommendation Title]
+- [Specific action item 1]
+- [Specific action item 2]
+- Estimated Impact: [X-Y% increase in specific metric]
+
+### QUICK WINS (Implementation within 2 weeks)
+• [Quick win 1]
+• [Quick win 2]
+• [Quick win 3]
+• [Quick win 4]
+• [Quick win 5]
+
+### LONG-TERM ROADMAP (3-6 months)
+1. Phase 1: [Phase Name]
+- [Task 1]
+- [Task 2]
+- [Task 3]
+
+2. Phase 2: [Phase Name]
+- [Task 1]
+- [Task 2]
+- [Task 3]
+
+3. Phase 3: [Phase Name]
+- [Task 1]
+- [Task 2]
+- [Task 3]
+
+### POTENTIAL REVENUE IMPACT
+• Conservative Estimate: [X-Y% increase]
+• Aggressive Estimate: [X-Y% increase]
+• Primary Growth Drivers:
+- [Driver 1]
+- [Driver 2]
+- [Driver 3]
+
+### Implementation Notes
+- [Priority guidance]
+- [Resource management advice]
+- [Measurement recommendations]
+
+[Concluding paragraph about growth potential and highest ROI opportunities]
+
+Focus on actionable insights for small business owners. Use specific percentages, clear action items, and prioritize based on impact vs effort. Be concise but comprehensive.
 `;
 
     const result = await generateText({
       model: this.model,
-      system: 'You are ConvertIQ AI providing executive summary insights for comprehensive website analysis.',
+      system: 'You are ConvertIQ AI providing executive summary insights for comprehensive website analysis. ALWAYS format your response using proper markdown syntax with headers, bullet points, numbered lists, and bold text for emphasis. Your output will be rendered using Tailwind CSS prose classes.',
       prompt: overallPrompt,
       temperature: 0.4,
     });
