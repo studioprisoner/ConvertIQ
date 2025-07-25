@@ -67,17 +67,37 @@ export const reportsRouter = createTRPCRouter({
         const analysis = validAnalyses[0];
         const aiAnalysis = analysis.aiAnalysis ? JSON.parse(analysis.aiAnalysis) : null;
 
+        // Extract the actual scanned URL from rawData if available
+        let scannedUrl = website[0].url; // fallback to website URL
+        if (analysis.rawData) {
+          try {
+            const rawDataObj = JSON.parse(analysis.rawData);
+            
+            // Check multiple possible URL fields in rawData (url is primary, with fallbacks)
+            const possibleUrl = rawDataObj.url || rawDataObj.finalUrl || rawDataObj.redirectUrl;
+            
+            if (possibleUrl && possibleUrl.trim() !== '') {
+              scannedUrl = possibleUrl;
+            }
+          } catch (error) {
+            console.warn('Failed to parse rawData for scanned URL:', error);
+            // Keep using website[0].url as fallback
+          }
+        }
+
         console.log('📊 Dashboard data fetch:', {
           websiteId: input.websiteId,
           analysisId: analysis.id,
           hasAiAnalysis: !!aiAnalysis,
           aiAnalysisKeys: aiAnalysis ? Object.keys(aiAnalysis) : [],
+          websiteUrl: website[0].url,
+          scannedUrl,
         });
 
         // Convert real analysis data to dashboard format
         return {
           id: analysis.id,
-          websiteUrl: website[0].url,
+          websiteUrl: scannedUrl,
           scanDate: analysis.createdAt?.toISOString() || new Date().toISOString(),
           overallScore: aiAnalysis?.overallScore || 5.0,
           status: analysis.status || 'completed',
@@ -154,6 +174,7 @@ export const reportsRouter = createTRPCRouter({
             analysisCreatedAt: analyses.createdAt,
             aiAnalysis: analyses.aiAnalysis,
             errorMessage: analyses.errorMessage,
+            rawData: analyses.rawData,
           })
           .from(websites)
           .innerJoin(analyses, eq(analyses.websiteId, websites.id))
@@ -180,14 +201,32 @@ export const reportsRouter = createTRPCRouter({
         });
 
         // Convert to reports list format
-        const reports = Array.from(websiteMap.values()).map((row: any) => {
+        const reports = Array.from(websiteMap.values()).map((row: typeof reportsData[0]) => {
           const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
+          
+          // Extract the actual scanned URL from rawData if available
+          let scannedUrl = row.websiteUrl; // fallback to website URL
+          if (row.rawData) {
+            try {
+              const rawDataObj = JSON.parse(row.rawData);
+              
+              // Check multiple possible URL fields in rawData (url is primary, with fallbacks)
+              const possibleUrl = rawDataObj.url || rawDataObj.finalUrl || rawDataObj.redirectUrl;
+              
+              if (possibleUrl && possibleUrl.trim() !== '') {
+                scannedUrl = possibleUrl;
+              }
+            } catch (error) {
+              console.warn('Failed to parse rawData for scanned URL in reports list:', error);
+              // Keep using row.websiteUrl as fallback
+            }
+          }
           
           return {
             id: row.analysisId || row.websiteId,
             websiteId: row.websiteId,
-            websiteUrl: row.websiteUrl,
-            websiteName: row.websiteName || new URL(row.websiteUrl).hostname,
+            websiteUrl: scannedUrl,
+            websiteName: row.websiteName || new URL(scannedUrl).hostname,
             pageType: row.pageType || 'homepage',
             scanDate: row.analysisCreatedAt?.toISOString() || row.websiteCreatedAt?.toISOString() || new Date().toISOString(),
             status: row.analysisStatus,
@@ -861,6 +900,7 @@ export const reportsRouter = createTRPCRouter({
             analysisCreatedAt: analyses.createdAt,
             aiAnalysis: analyses.aiAnalysis,
             errorMessage: analyses.errorMessage,
+            rawData: analyses.rawData,
           })
           .from(websites)
           .innerJoin(analyses, eq(analyses.websiteId, websites.id))
@@ -872,14 +912,28 @@ export const reportsRouter = createTRPCRouter({
         // Filter to only show archived reports
         const archivedReports = archivedData
           .filter(row => row.errorMessage && row.errorMessage.includes('ARCHIVED_BY_USER'))
-          .map((row: any) => {
+          .map((row: typeof archivedData[0]) => {
             const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
+            
+            // Extract the actual scanned URL from rawData if available
+            let scannedUrl = row.websiteUrl; // fallback to website URL
+            if (row.rawData) {
+              try {
+                const rawDataObj = JSON.parse(row.rawData);
+                if (rawDataObj.url) {
+                  scannedUrl = rawDataObj.url;
+                }
+              } catch (error) {
+                console.warn('Failed to parse rawData for scanned URL in archived reports:', error);
+                // Keep using row.websiteUrl as fallback
+              }
+            }
             
             return {
               id: row.analysisId,
               websiteId: row.websiteId,
-              websiteUrl: row.websiteUrl,
-              websiteName: row.websiteName || new URL(row.websiteUrl).hostname,
+              websiteUrl: scannedUrl,
+              websiteName: row.websiteName || new URL(scannedUrl).hostname,
               pageType: row.pageType || 'homepage',
               scanDate: row.analysisCreatedAt?.toISOString() || row.websiteCreatedAt?.toISOString() || new Date().toISOString(),
               archivedDate: row.analysisCreatedAt?.toISOString() || new Date().toISOString(),

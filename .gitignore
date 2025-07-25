@@ -46,6 +46,10 @@ next-env.d.ts
 #ClaudeCode
 CLAUDE.md
 /.claude
+CLAUDE-activeContext.md
 
 #Uploads
 /public/uploads/avatars
+
+#Development Scripts
+/src/scripts/
