@@ -42,11 +42,12 @@ export async function seedSubscriptionPlans() {
     }).returning();
 
     // Insert plan prices for Basic Plan
-    // Note: For real implementation, create these products/prices in Polar sandbox first
     await db.insert(planPrices).values([
       {
         planId: basicPlan.id,
-        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? 'cf92e066-a329-44d0-bd1a-1ebf63da9c9e' : 'price_basic_monthly_placeholder',
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' 
+          ? 'cf92e066-a329-44d0-bd1a-1ebf63da9c9e' 
+          : process.env.price_basic_monthly_UUID || 'df0d68e6-a0e8-4e00-b2a8-38889bbecda7',
         billingInterval: 'monthly',
         amount: POLAR_CONFIG.plans.basic.priceMonthly,
         currency: 'USD',
@@ -54,7 +55,9 @@ export async function seedSubscriptionPlans() {
       },
       {
         planId: basicPlan.id,
-        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? '8cc86988-7517-4e25-9eb4-d563f97b7da0' : 'price_basic_annual_placeholder',
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' 
+          ? '8cc86988-7517-4e25-9eb4-d563f97b7da0' 
+          : process.env.price_basic_annual_UUID || 'f3d52f4f-1b66-46cb-a6e2-5b13f67e7a4f',
         billingInterval: 'annual',
         amount: POLAR_CONFIG.plans.basic.priceMonthly * 10,
         currency: 'USD',
@@ -63,11 +66,12 @@ export async function seedSubscriptionPlans() {
     ]);
 
     // Insert plan prices for Pro Plan
-    // Note: For real implementation, create these products/prices in Polar sandbox first
     await db.insert(planPrices).values([
       {
         planId: proPlan.id,
-        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? '4b1d68cb-d93e-43ae-85c7-9936b7b5b01c' : 'price_pro_monthly_placeholder',
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' 
+          ? '4b1d68cb-d93e-43ae-85c7-9936b7b5b01c' 
+          : process.env.price_pro_monthly_UUID || '6c2e473b-ad5c-4374-a657-4ca6fe1df00a',
         billingInterval: 'monthly',
         amount: POLAR_CONFIG.plans.pro.priceMonthly,
         currency: 'USD',
@@ -75,7 +79,9 @@ export async function seedSubscriptionPlans() {
       },
       {
         planId: proPlan.id,
-        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' ? '621355c8-a343-450b-bd81-fc5ed3e4a575' : 'price_pro_annual_placeholder',
+        polarPriceId: process.env.POLAR_ENVIRONMENT === 'sandbox' 
+          ? '621355c8-a343-450b-bd81-fc5ed3e4a575' 
+          : process.env.price_pro_annual_UUID || '0b5d29ab-3e00-44e7-9260-0fd020b7590d',
         billingInterval: 'annual',
         amount: POLAR_CONFIG.plans.pro.priceMonthly * 10,
         currency: 'USD',
