@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/db/connection';
 import { user as userTable } from '@/db/schema/auth';
+import { websites } from '@/db/schema/websites';
 import { eq } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
@@ -83,6 +84,46 @@ export async function POST(request: NextRequest) {
         { error: 'User not found' },
         { status: 404 }
       );
+    }
+
+    // If primaryDomain was updated, also add it to the websites table if it doesn't exist
+    if (primaryDomain) {
+      try {
+        console.log('🌐 Checking if primary domain exists in websites table...');
+        
+        // Check if this domain already exists for the user
+        const existingWebsite = await db
+          .select()
+          .from(websites)
+          .where(eq(websites.userId, session.user.id))
+          .limit(1);
+
+        // If user has no websites, add the primary domain as their first website
+        if (existingWebsite.length === 0) {
+          console.log('🆕 Adding primary domain to websites table...');
+          
+          // Extract domain name for the website name
+          const domainName = primaryDomain.replace(/^https?:\/\//, '').replace(/^www\./, '');
+          const websiteName = domainName.split('.')[0] || 'Primary Website';
+          
+          await db.insert(websites).values({
+            userId: session.user.id,
+            url: primaryDomain.trim(),
+            name: websiteName.charAt(0).toUpperCase() + websiteName.slice(1),
+            description: 'Primary domain from onboarding',
+            isValidated: true,
+            validationStatus: 'valid',
+            lastValidatedAt: new Date(),
+          });
+          
+          console.log('✅ Primary domain added to websites table');
+        } else {
+          console.log('ℹ️ User already has websites, skipping automatic domain addition');
+        }
+      } catch (websiteError) {
+        console.error('⚠️ Error adding primary domain to websites table:', websiteError);
+        // Don't fail the user update if website creation fails
+      }
     }
 
     console.log('✅ User updated successfully:', {
