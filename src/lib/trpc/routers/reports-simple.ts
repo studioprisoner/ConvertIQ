@@ -16,6 +16,23 @@ import { progressDashboardService } from '@/lib/reports/progress-dashboard';
 import type { AIAnalysisResult } from '@/lib/ai/types';
 import { reportTypeSchema, recommendationStatusSchema } from '@/lib/reports/types';
 
+// Helper function to extract first sentence from markdown text
+function getFirstSentence(text: string | null | undefined): string | null {
+  if (!text) return null;
+  
+  // Remove markdown headers and formatting
+  const cleanText = text
+    .replace(/^#+\s+/gm, '') // Remove markdown headers
+    .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
+    .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
+    .replace(/\n+/g, ' ') // Replace newlines with spaces
+    .trim();
+  
+  // Find first sentence ending with period, exclamation, or question mark
+  const sentenceMatch = cleanText.match(/^[^.!?]*[.!?]/);
+  return sentenceMatch ? sentenceMatch[0].trim() : cleanText.split('\n')[0].trim();
+}
+
 export const reportsRouter = createTRPCRouter({
   /**
    * Get dashboard data for a website
@@ -182,26 +199,15 @@ export const reportsRouter = createTRPCRouter({
           .limit(input.limit)
           .offset(input.offset);
 
-        // Group by website and get the latest analysis for each (excluding soft-deleted)
-        const websiteMap = new Map();
-        reportsData.forEach(row => {
-          const key = row.websiteId;
-          
+        // Filter out archived reports but show ALL analyses (not just latest per website)
+        const filteredReportsData = reportsData.filter(row => {
           // Skip archived reports
           const isArchived = row.errorMessage && row.errorMessage.includes('ARCHIVED_BY_USER');
-          if (isArchived) {
-            return;
-          }
-          
-          if (!websiteMap.has(key) || 
-              (row.analysisCreatedAt && websiteMap.get(key).analysisCreatedAt && 
-               row.analysisCreatedAt > websiteMap.get(key).analysisCreatedAt)) {
-            websiteMap.set(key, row);
-          }
+          return !isArchived;
         });
 
-        // Convert to reports list format
-        const reports = Array.from(websiteMap.values()).map((row: typeof reportsData[0]) => {
+        // Convert to reports list format - show each analysis as a separate report
+        const reports = filteredReportsData.map((row: typeof reportsData[0]) => {
           const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
           
           // Extract the actual scanned URL from rawData if available
@@ -233,7 +239,7 @@ export const reportsRouter = createTRPCRouter({
             overallScore: aiAnalysis?.overallScore || null,
             recommendationsCount: aiAnalysis?.recommendations?.length || 0,
             hasAnalysis: true, // Always true since we use innerJoin
-            summary: aiAnalysis?.summary || (row.analysisStatus === 'pending' ? 'Analysis in progress...' : 'Analysis completed'),
+            summary: getFirstSentence(aiAnalysis?.summary) || (row.analysisStatus === 'pending' ? 'Analysis in progress...' : 'Analysis completed'),
           };
         });
 
@@ -940,7 +946,7 @@ export const reportsRouter = createTRPCRouter({
               status: 'archived',
               overallScore: aiAnalysis?.overallScore || null,
               recommendationsCount: aiAnalysis?.recommendations?.length || 0,
-              summary: aiAnalysis?.summary || 'Archived report',
+              summary: getFirstSentence(aiAnalysis?.summary) || 'Archived report',
             };
           });
 
