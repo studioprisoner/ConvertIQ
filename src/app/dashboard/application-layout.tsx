@@ -81,10 +81,6 @@ function AccountDropdownMenu({
         <ShieldCheckIcon />
         <DropdownLabel>Privacy policy</DropdownLabel>
       </DropdownItem>
-      <DropdownItem href="#">
-        <LightBulbIcon />
-        <DropdownLabel>Share feedback</DropdownLabel>
-      </DropdownItem>
       <DropdownDivider />
       <DropdownItem onClick={onSignOut}>
         <ArrowRightStartOnRectangleIcon />
@@ -104,40 +100,40 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     checked: boolean;
   }>({ checked: false });
   const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
-  const multipleWebsitesGate = useFeatureGate('multiple_websites');
+  const multipleWebsitesGate = useFeatureGate("multiple_websites");
 
   // Check onboarding status directly from database
   useEffect(() => {
     if (!isPending && session && !onboardingCheck.checked) {
       const checkOnboardingStatus = async () => {
         try {
-          console.log('🔍 Checking onboarding status from database...');
-          const response = await fetch('/api/auth/check-onboarding', {
-            credentials: 'include',
+          console.log("🔍 Checking onboarding status from database...");
+          const response = await fetch("/api/auth/check-onboarding", {
+            credentials: "include",
           });
 
           if (response.ok) {
             const result = await response.json();
-            console.log('📋 Database onboarding check result:', result);
-            
+            console.log("📋 Database onboarding check result:", result);
+
             setOnboardingCheck({
               completed: result.onboardingCompleted,
               checked: true,
             });
 
             // Redirect if needed
-            if (!result.onboardingCompleted && pathname !== '/onboarding') {
-              console.log('🎯 Redirecting to onboarding - not completed');
+            if (!result.onboardingCompleted && pathname !== "/onboarding") {
+              console.log("🎯 Redirecting to onboarding - not completed");
               router.push("/onboarding");
             } else if (result.onboardingCompleted) {
-              console.log('✅ Onboarding is completed, staying on dashboard');
+              console.log("✅ Onboarding is completed, staying on dashboard");
             }
           } else {
-            console.error('❌ Failed to check onboarding status');
+            console.error("❌ Failed to check onboarding status");
             setOnboardingCheck({ checked: true });
           }
         } catch (error) {
-          console.error('❌ Error checking onboarding status:', error);
+          console.error("❌ Error checking onboarding status:", error);
           setOnboardingCheck({ checked: true });
         }
       };
@@ -155,7 +151,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     if (!isPending && !session) {
       // Add a small delay to allow for session establishment during registration flow
       redirectTimeoutRef.current = setTimeout(() => {
-        console.log('🚪 Redirecting to login - no session found after delay');
+        console.log("🚪 Redirecting to login - no session found after delay");
         router.push("/login");
       }, 1000); // 1 second delay
     }
@@ -230,11 +226,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-3 px-4 py-3">
-              <CompanyIcon
-                width={36}
-                height={36}
-                className="flex-shrink-0"
-              />
+              <CompanyIcon width={36} height={36} className="flex-shrink-0" />
               <SidebarLabel className="text-xl font-bold font-mono dark:text-white text-black">
                 ConvertIQ
               </SidebarLabel>
@@ -245,7 +237,9 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
             <SidebarSection>
               <SidebarItem
                 href="/dashboard/scan"
-                current={pathname === "/dashboard/scan" || pathname === "/dashboard"}
+                current={
+                  pathname === "/dashboard/scan" || pathname === "/dashboard"
+                }
               >
                 <HomeIcon />
                 <SidebarLabel>Dashboard</SidebarLabel>
@@ -329,9 +323,9 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
       }
     >
       {children}
-      <SupportDialog 
-        isOpen={isSupportDialogOpen} 
-        onClose={() => setIsSupportDialogOpen(false)} 
+      <SupportDialog
+        isOpen={isSupportDialogOpen}
+        onClose={() => setIsSupportDialogOpen(false)}
       />
     </SidebarLayout>
   );
