@@ -4,6 +4,7 @@ import { aiAnalysisEngine } from '@/lib/ai';
 import { analysisTypeSchema, aiAnalysisResultSchema } from '@/lib/ai/types';
 import { crawlResultSchema } from '@/lib/crawler/types';
 import { aiAnalysisDb } from '@/lib/ai/database';
+import { embeddingQueue } from '@/lib/embeddings';
 
 export const aiAnalysisRouter = createTRPCRouter({
   // Test AI connection
@@ -56,6 +57,15 @@ export const aiAnalysisRouter = createTRPCRouter({
             result
           );
           console.log('💾 Analysis saved with ID:', analysisId);
+          
+          // Queue embedding generation (asynchronous, don't block the response)
+          embeddingQueue.add({
+            analysisId,
+            priority: 'normal',
+          }).catch((error) => {
+            console.error('🔮 Failed to queue embedding generation:', error);
+            // Don't throw - embedding failure shouldn't fail the analysis
+          });
         }
         
         return result;
@@ -241,6 +251,68 @@ export const aiAnalysisRouter = createTRPCRouter({
       } catch (error) {
         console.error('📈 Failed to get analysis stats:', error);
         throw new Error(`Failed to retrieve stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
+
+  // Admin: Backfill embeddings for existing analyses
+  backfillEmbeddings: publicProcedure
+    .mutation(async () => {
+      console.log('🔮 Starting embedding backfill process');
+      
+      try {
+        await embeddingQueue.backfillEmbeddings();
+        
+        return {
+          success: true,
+          message: 'Embedding backfill process started',
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        console.error('🔮 Embedding backfill failed:', error);
+        throw new Error(`Backfill failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
+
+  // Admin: Get embedding queue status
+  getEmbeddingQueueStatus: publicProcedure
+    .query(async () => {
+      console.log('🔮 Getting embedding queue status');
+      
+      try {
+        const status = embeddingQueue.getStatus();
+        
+        console.log('🔮 Queue status:', status);
+        return status;
+      } catch (error) {
+        console.error('🔮 Failed to get queue status:', error);
+        throw new Error(`Failed to get queue status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
+
+  // Admin: Generate embedding for specific analysis
+  generateEmbedding: publicProcedure
+    .input(z.object({
+      analysisId: z.string().uuid(),
+      priority: z.enum(['normal', 'high']).default('high'),
+    }))
+    .mutation(async ({ input }) => {
+      console.log('🔮 Queuing embedding generation for analysis:', input.analysisId);
+      
+      try {
+        await embeddingQueue.add({
+          analysisId: input.analysisId,
+          priority: input.priority,
+        });
+        
+        return {
+          success: true,
+          analysisId: input.analysisId,
+          priority: input.priority,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        console.error('🔮 Failed to queue embedding generation:', error);
+        throw new Error(`Failed to queue embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }),
 });

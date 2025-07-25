@@ -3,6 +3,7 @@ import { analyses, websites } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import type { AIAnalysisResult } from './types';
 import type { CrawlResult } from '../crawler/types';
+import { embeddingService, textProcessor } from '@/lib/embeddings';
 
 export class AIAnalysisDatabase {
   /**
@@ -221,6 +222,104 @@ export class AIAnalysisDatabase {
     } catch (error) {
       console.error('💾 Failed to get analysis stats:', error);
       throw new Error(`Failed to retrieve stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Update analysis with embedding
+   */
+  async updateAnalysisWithEmbedding(
+    analysisId: string,
+    embedding: number[],
+    model: string = 'voyage-3.5'
+  ): Promise<void> {
+    try {
+      await db
+        .update(analyses)
+        .set({
+          embedding: embedding, // pgvector handles arrays directly
+          embeddingModel: model,
+          embeddingCreatedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(analyses.id, analysisId));
+
+      console.log('💾 Analysis embedding updated:', analysisId);
+    } catch (error) {
+      console.error('💾 Failed to update analysis embedding:', error);
+      throw new Error(`Failed to update embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get analyses without embeddings for backfill
+   */
+  async getAnalysesWithoutEmbeddings(): Promise<Array<{
+    id: string;
+    aiAnalysis: string;
+    websiteId: string;
+  }>> {
+    try {
+      const results = await db
+        .select({
+          id: analyses.id,
+          aiAnalysis: analyses.aiAnalysis,
+          websiteId: analyses.websiteId,
+        })
+        .from(analyses)
+        .where(
+          and(
+            eq(analyses.status, 'completed'),
+            // Check for null embedding
+            eq(analyses.embedding, null as any)
+          )
+        )
+        .orderBy(desc(analyses.createdAt));
+
+      return results
+        .filter(result => result.aiAnalysis) // Only return analyses with AI analysis
+        .map(result => ({
+          id: result.id,
+          aiAnalysis: result.aiAnalysis!,
+          websiteId: result.websiteId,
+        }));
+    } catch (error) {
+      console.error('💾 Failed to get analyses without embeddings:', error);
+      throw new Error(`Failed to retrieve analyses: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Generate and save embedding for an analysis
+   */
+  async generateEmbeddingForAnalysis(analysisId: string): Promise<void> {
+    try {
+      // Get the analysis
+      const result = await db
+        .select({
+          aiAnalysis: analyses.aiAnalysis,
+        })
+        .from(analyses)
+        .where(eq(analyses.id, analysisId))
+        .limit(1);
+
+      if (result.length === 0 || !result[0].aiAnalysis) {
+        throw new Error('Analysis not found or has no AI analysis');
+      }
+
+      // Extract key content for embedding
+      const keyContent = textProcessor.extractKeyContent(result[0].aiAnalysis);
+      
+      // Generate embedding
+      const embedding = await embeddingService.generateEmbedding(keyContent);
+      
+      // Save embedding
+      await this.updateAnalysisWithEmbedding(analysisId, embedding);
+      
+      console.log('💾 Embedding generated and saved for analysis:', analysisId);
+    } catch (error) {
+      console.error('💾 Failed to generate embedding for analysis:', error);
+      throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
