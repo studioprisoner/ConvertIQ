@@ -526,63 +526,87 @@ export default function ReportsPage() {
           </div>
         </div>
         <div className="space-y-4 mb-6">
-          {mockScanResults.summary.split('. ').map((sentence, index, array) => {
-            // Skip empty sentences
-            if (!sentence.trim()) return null;
-            
-            // Add period back if it's not the last sentence and doesn't already end with punctuation
-            const formattedSentence = index === array.length - 1 ? sentence : 
-              sentence.endsWith('.') || sentence.endsWith('!') || sentence.endsWith('?') ? sentence : sentence + '.';
-            
-            // Check if this sentence contains priority recommendations
-            if (sentence.toLowerCase().includes('top') && sentence.toLowerCase().includes('priority')) {
-              return (
-                <div key={index} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center">
-                    🎯 Priority Recommendations
-                  </h4>
-                  <Text className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed">
-                    {formattedSentence}
+          {(() => {
+            // Smart text processing that handles numbered lists and various formats
+            const processReportText = (text: string) => {
+              // First, normalize numbered lists by ensuring they start on new lines
+              let processedText = text
+                // Handle numbered lists (1. 2. 3. etc.) by adding line breaks before them
+                .replace(/(\w)\s*(\d+\.\s)/g, '$1\n\n$2')
+                // Handle bullet points (• - *) by adding line breaks before them
+                .replace(/(\w)\s*([•\-\*]\s)/g, '$1\n\n$2')
+                // Clean up multiple consecutive line breaks
+                .replace(/\n{3,}/g, '\n\n')
+                // Split into logical sections, preserving numbered lists
+                .split(/(?<!\d)\.(?:\s+|$)(?!\d)/)
+                .filter(segment => segment.trim());
+
+              return processedText.map((segment, index) => {
+                const trimmedSegment = segment.trim();
+                if (!trimmedSegment) return null;
+
+                // Restore period for segments that don't end with punctuation (except last)
+                const isLast = index === processedText.length - 1;
+                let formattedSegment = trimmedSegment;
+                if (!isLast && !trimmedSegment.match(/[.!?:]$/)) {
+                  formattedSegment += '.';
+                }
+
+                const lowerSegment = formattedSegment.toLowerCase();
+
+                // Check for priority recommendations
+                if (lowerSegment.includes('top priority') || lowerSegment.includes('priority recommendation')) {
+                  return (
+                    <div key={index} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center">
+                        🎯 Priority Recommendations
+                      </h4>
+                      <div className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed whitespace-pre-line">
+                        {formattedSegment}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Check for quick wins
+                if (lowerSegment.includes('quick wins') || lowerSegment.includes('implementation within')) {
+                  return (
+                    <div key={index} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                      <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center">
+                        ⚡ Quick Wins
+                      </h4>
+                      <div className="text-green-800 dark:text-green-200 text-sm leading-relaxed whitespace-pre-line">
+                        {formattedSegment}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Check for long-term optimization
+                if (lowerSegment.includes('long-term') || lowerSegment.includes('revenue growth potential')) {
+                  return (
+                    <div key={index} className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                      <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center">
+                        📈 Long-term Growth
+                      </h4>
+                      <div className="text-purple-800 dark:text-purple-200 text-sm leading-relaxed whitespace-pre-line">
+                        {formattedSegment}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Default case - regular paragraph with proper line break handling
+                return (
+                  <Text key={index} className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed whitespace-pre-line">
+                    {formattedSegment}
                   </Text>
-                </div>
-              );
-            }
-            
-            // Check if this sentence contains quick wins
-            if (sentence.toLowerCase().includes('quick wins') || sentence.toLowerCase().includes('implementation within')) {
-              return (
-                <div key={index} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                  <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center">
-                    ⚡ Quick Wins
-                  </h4>
-                  <Text className="text-green-800 dark:text-green-200 text-sm leading-relaxed">
-                    {formattedSentence}
-                  </Text>
-                </div>
-              );
-            }
-            
-            // Check if this sentence contains long-term optimization
-            if (sentence.toLowerCase().includes('long-term') || sentence.toLowerCase().includes('revenue growth potential')) {
-              return (
-                <div key={index} className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-                  <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center">
-                    📈 Long-term Growth
-                  </h4>
-                  <Text className="text-purple-800 dark:text-purple-200 text-sm leading-relaxed">
-                    {formattedSentence}
-                  </Text>
-                </div>
-              );
-            }
-            
-            // Default case - regular paragraph
-            return (
-              <Text key={index} className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">
-                {formattedSentence}
-              </Text>
-            );
-          }).filter(Boolean)}
+                );
+              }).filter(Boolean);
+            };
+
+            return processReportText(mockScanResults.summary);
+          })()}
         </div>
 
         {/* Metrics Grid */}
