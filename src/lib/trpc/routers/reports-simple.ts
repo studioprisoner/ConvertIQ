@@ -16,6 +16,23 @@ import { progressDashboardService } from '@/lib/reports/progress-dashboard';
 import type { AIAnalysisResult } from '@/lib/ai/types';
 import { reportTypeSchema, recommendationStatusSchema } from '@/lib/reports/types';
 
+// Helper function to extract first sentence from markdown text
+function getFirstSentence(text: string | null | undefined): string | null {
+  if (!text) return null;
+  
+  // Remove markdown headers and formatting
+  const cleanText = text
+    .replace(/^#+\s+/gm, '') // Remove markdown headers
+    .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
+    .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
+    .replace(/\n+/g, ' ') // Replace newlines with spaces
+    .trim();
+  
+  // Find first sentence ending with period, exclamation, or question mark
+  const sentenceMatch = cleanText.match(/^[^.!?]*[.!?]/);
+  return sentenceMatch ? sentenceMatch[0].trim() : cleanText.split('\n')[0].trim();
+}
+
 export const reportsRouter = createTRPCRouter({
   /**
    * Get dashboard data for a website
@@ -222,7 +239,7 @@ export const reportsRouter = createTRPCRouter({
             overallScore: aiAnalysis?.overallScore || null,
             recommendationsCount: aiAnalysis?.recommendations?.length || 0,
             hasAnalysis: true, // Always true since we use innerJoin
-            summary: aiAnalysis?.summary || (row.analysisStatus === 'pending' ? 'Analysis in progress...' : 'Analysis completed'),
+            summary: getFirstSentence(aiAnalysis?.summary) || (row.analysisStatus === 'pending' ? 'Analysis in progress...' : 'Analysis completed'),
           };
         });
 
@@ -929,7 +946,7 @@ export const reportsRouter = createTRPCRouter({
               status: 'archived',
               overallScore: aiAnalysis?.overallScore || null,
               recommendationsCount: aiAnalysis?.recommendations?.length || 0,
-              summary: aiAnalysis?.summary || 'Archived report',
+              summary: getFirstSentence(aiAnalysis?.summary) || 'Archived report',
             };
           });
 
