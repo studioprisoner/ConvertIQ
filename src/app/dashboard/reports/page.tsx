@@ -472,17 +472,34 @@ export default function ReportsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-3 mb-2">
+      <div className="space-y-4">
+        {/* Top button bar - all buttons aligned */}
+        <div className="flex items-center justify-between">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => router.push('/dashboard/reports')}
+          >
+            ← Back to Reports
+          </Button>
+          <div className="flex space-x-3">
+            <Button onClick={() => router.push('/dashboard/scan')}>
+              New Scan
+            </Button>
             <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => router.push('/dashboard/reports')}
+              variant="outline"
+              onClick={() => handleArchiveClick(mockScanResults.id, mockScanResults.websiteUrl)}
+              className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
+              title="Archive this report"
             >
-              ← Back to Reports
+              <ArchiveBoxIcon className="h-4 w-4 mr-1" />
+              Archive
             </Button>
           </div>
+        </div>
+        
+        {/* Title and description */}
+        <div>
           <Heading>Scan Results Dashboard</Heading>
           <Text className="mt-2">
             Analysis of {mockScanResults.websiteUrl} completed on {new Date(mockScanResults.scanDate).toLocaleDateString()}
@@ -492,20 +509,6 @@ export default function ReportsPage() {
               </span>
             )}
           </Text>
-        </div>
-        <div className="flex space-x-3 self-start sm:self-auto">
-          <Button onClick={() => router.push('/dashboard/scan')}>
-            New Scan
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => handleArchiveClick(mockScanResults.id, mockScanResults.websiteUrl)}
-            className="text-orange-600 hover:text-orange-700 hover:border-orange-300"
-            title="Archive this report"
-          >
-            <ArchiveBoxIcon className="h-4 w-4 mr-1" />
-            Archive
-          </Button>
         </div>
       </div>
 
