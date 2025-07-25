@@ -3,42 +3,62 @@ import { createTRPCRouter, publicProcedure } from '../server';
 import { vectorSearchService } from '@/lib/search/vector-search';
 
 export const searchRouter = createTRPCRouter({
-  // Semantic search for reports
+  // Semantic search for reports with keyword fallback
   searchReports: publicProcedure
     .input(z.object({
       query: z.string().min(1),
-      userId: z.string().uuid(),
+      userId: z.string(),
       limit: z.number().min(1).max(50).default(10),
       filters: z.object({
         dateRange: z.enum(['last_week', 'last_month', 'last_3_months', 'last_year']).optional(),
-        websites: z.array(z.string().uuid()).optional(),
+        websites: z.array(z.string()).optional(),
         minScore: z.number().min(0).max(1).default(0.7),
       }).default({}),
     }))
     .mutation(async ({ input }) => {
-      console.log('🔍 Semantic search starting for query:', input.query);
+      console.log('🔍 Search starting for query:', input.query);
       
       try {
         const startTime = Date.now();
         
-        const results = await vectorSearchService.findSimilarReports(
-          input.query,
-          input.userId,
-          input.limit,
-          input.filters.minScore
-        );
-        
-        const searchTime = Date.now() - startTime;
-        
-        console.log(`🔍 Semantic search completed: ${results.length} results in ${searchTime}ms`);
-        
-        return {
-          results,
-          totalCount: results.length,
-          searchTime,
-        };
+        // Try semantic search first
+        try {
+          const results = await vectorSearchService.findSimilarReports(
+            input.query,
+            input.userId,
+            input.limit,
+            input.filters.minScore
+          );
+          
+          const searchTime = Date.now() - startTime;
+          console.log(`🔍 Semantic search completed: ${results.length} results in ${searchTime}ms`);
+          
+          return results;
+        } catch (embeddingError) {
+          // If embedding fails due to rate limiting, fall back to keyword search
+          if (embeddingError instanceof Error && 
+              (embeddingError.message.includes('429') || 
+               embeddingError.message.includes('Too Many Requests'))) {
+            
+            console.log('🔍 Falling back to keyword search due to rate limiting');
+            
+            const keywordResults = await vectorSearchService.keywordSearch(
+              input.query,
+              input.userId,
+              input.limit
+            );
+            
+            const searchTime = Date.now() - startTime;
+            console.log(`🔍 Keyword search completed: ${keywordResults.length} results in ${searchTime}ms`);
+            
+            return keywordResults;
+          }
+          
+          // Re-throw other errors
+          throw embeddingError;
+        }
       } catch (error) {
-        console.error('🔍 Semantic search failed:', error);
+        console.error('🔍 Search failed:', error);
         throw new Error(`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }),
@@ -46,10 +66,11 @@ export const searchRouter = createTRPCRouter({
   // Find similar reports to a given report
   findSimilarReports: publicProcedure
     .input(z.object({
-      reportId: z.string().uuid(),
+      reportId: z.string(),
+      userId: z.string(),
       limit: z.number().min(1).max(10).default(5),
     }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       console.log('🔍 Finding similar reports for:', input.reportId);
       
       try {
@@ -60,9 +81,7 @@ export const searchRouter = createTRPCRouter({
         
         console.log(`🔍 Found ${similarReports.length} similar reports`);
         
-        return {
-          similarReports,
-        };
+        return similarReports;
       } catch (error) {
         console.error('🔍 Similar reports search failed:', error);
         throw new Error(`Failed to find similar reports: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -75,7 +94,7 @@ export const searchRouter = createTRPCRouter({
       embedding: z.array(z.number()),
       filters: z.object({
         dateRange: z.enum(['last_week', 'last_month', 'last_3_months', 'last_year']).optional(),
-        websites: z.array(z.string().uuid()).optional(),
+        websites: z.array(z.string()).optional(),
         minScore: z.number().min(0).max(1).default(0.6),
       }).default({}),
     }))
@@ -108,7 +127,7 @@ export const searchRouter = createTRPCRouter({
   // Get recommendation clusters (grouped similar recommendations)
   getRecommendationClusters: publicProcedure
     .input(z.object({
-      userId: z.string().uuid(),
+      userId: z.string(),
       minClusterSize: z.number().min(2).default(3),
     }))
     .query(async ({ input }) => {
@@ -171,7 +190,7 @@ export const searchRouter = createTRPCRouter({
   expandedSearch: publicProcedure
     .input(z.object({
       query: z.string().min(1),
-      userId: z.string().uuid(),
+      userId: z.string(),
       expansionTerms: z.array(z.string()).default([]),
       limit: z.number().min(1).max(50).default(10),
     }))
@@ -200,6 +219,27 @@ export const searchRouter = createTRPCRouter({
       } catch (error) {
         console.error('🔍 Expanded search failed:', error);
         throw new Error(`Expanded search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
+
+  // Get search statistics and insights
+  getSearchStats: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log('📊 Getting search stats for user:', input.userId);
+      
+      try {
+        // Get stats directly from database without requiring embeddings
+        const stats = await vectorSearchService.getStatsWithoutEmbeddings(input.userId);
+        
+        console.log(`📊 Stats generated: ${stats.totalReports} reports, avg score ${stats.averageScore}`);
+        
+        return stats;
+      } catch (error) {
+        console.error('📊 Search stats failed:', error);
+        throw new Error(`Failed to get search stats: ${error instanceof Error ? error.message : 'Unknown error'}`);  
       }
     }),
 });

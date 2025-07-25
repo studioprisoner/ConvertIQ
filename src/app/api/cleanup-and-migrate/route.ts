@@ -75,8 +75,15 @@ export async function POST(request: NextRequest) {
           limit: 1
         });
         
-        if (existingCustomers.items && existingCustomers.items.length > 0) {
-          polarCustomer = existingCustomers.items[0];
+        // Handle pagination response - iterate to get first item
+        const customersList = [];
+        for await (const customer of existingCustomers) {
+          customersList.push(customer);
+          break; // Only get first item
+        }
+        
+        if (customersList.length > 0) {
+          polarCustomer = customersList[0];
           console.log(`✅ Found existing Polar customer: ${polarCustomer.id}`);
         } else {
           throw new Error('Customer exists in Polar but could not be found via list API');

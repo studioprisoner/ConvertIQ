@@ -80,7 +80,7 @@ export default function DomainSetup({
 
     try {
       // Clean the domain and add https:// prefix for consistency
-      let cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+      const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
       const domainWithProtocol = `https://${cleanDomain}`;
       
       const response = await fetch('/api/auth/update-user', {
