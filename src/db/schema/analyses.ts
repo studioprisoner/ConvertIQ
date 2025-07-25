@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, text, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, text, pgEnum, vector, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
@@ -14,10 +14,16 @@ export const analyses = pgTable('analyses', {
   actions: analysisActionsEnum('actions').default('none'),
   rawData: text('raw_data'), // Store scraped HTML/data
   aiAnalysis: text('ai_analysis'), // Store AI analysis results
+  embedding: vector('embedding', { dimensions: 1024 }), // Voyage AI voyage-3.5 dimensions
+  embeddingModel: varchar('embedding_model', { length: 100 }).default('voyage-3.5'),
+  embeddingCreatedAt: timestamp('embedding_created_at'),
   errorMessage: text('error_message'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (table) => [
+  // HNSW index for optimal performance on Neon PostgreSQL
+  index('analyses_embedding_hnsw_idx').using('hnsw', table.embedding.op('vector_cosine_ops')),
+]);
 
 // Relations
 export const analysesRelations = relations(analyses, ({ one, many }) => ({
