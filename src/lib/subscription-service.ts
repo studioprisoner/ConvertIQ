@@ -188,22 +188,28 @@ export async function createSubscription(
     const isRealUUID = priceId.length === 36 && priceId.includes('-');
     
     // Force mock mode only when using placeholders or missing real UUIDs
-    // Allow real Polar API usage in development when using sandbox with real price IDs
+    // Allow real Polar API usage in both development and production when using real price IDs
     const forceMockMode = isPlaceholder || !isRealUUID;
+    
+    // Additional check: if we're in production, never use mock mode
+    const isProduction = process.env.NODE_ENV === 'production';
+    const finalMockMode = forceMockMode && !isProduction;
     
     console.log(`🔧 Subscription creation mode check:`, {
       priceId,
       isPlaceholder,
       isUsingSandbox,
       isDevelopment,
+      isProduction,
       isRealUUID,
-      forceMockMode
+      forceMockMode,
+      finalMockMode
     });
     
     let polarSubscription: any;
     let customer: any;
     
-    if (forceMockMode) {
+    if (finalMockMode) {
       // Mock Polar subscription for development when using sandbox without real products
       customer = { id: `dev_customer_${userId}`, email: userEmail };
       polarSubscription = {
