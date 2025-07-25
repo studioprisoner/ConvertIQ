@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import * as Sentry from '@sentry/nextjs';
 
 // GET /api/auth-check - Simple endpoint to check if user is authenticated
 export async function GET(request: NextRequest) {
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Auth check error:', error);
+    Sentry.captureException(error);
     return NextResponse.json(
       { 
         authenticated: false, 
