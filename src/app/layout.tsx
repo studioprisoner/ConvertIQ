@@ -4,6 +4,7 @@ import "@/styles/tailwind.css";
 import { TRPCProvider } from "@/lib/trpc/provider";
 import { SentryErrorBoundary } from "@/components/sentry-error-boundary";
 import { WebVitalsReporter } from "@/components/performance/web-vitals-reporter";
+import { Analytics } from "@vercel/analytics/react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,7 @@ export default function RootLayout({
           <TRPCProvider>
             <WebVitalsReporter />
             {children}
+            <Analytics />
           </TRPCProvider>
         </SentryErrorBoundary>
       </body>
