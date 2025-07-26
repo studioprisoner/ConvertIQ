@@ -9,7 +9,10 @@ import { Button } from '@/components/button';
 import { Badge } from '@/components/badge';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc/client';
-import ReactMarkdown from 'react-markdown';
+import { lazy, Suspense } from 'react';
+
+// Lazy load ReactMarkdown to reduce initial bundle size
+const ReactMarkdown = lazy(() => import('react-markdown'));
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -577,9 +580,11 @@ export default function ReportsPage() {
             prose-h1:text-xl prose-h1:font-bold prose-h1:mb-4
             prose-h2:text-lg prose-h2:font-semibold prose-h2:mb-3 prose-h2:mt-6
             prose-h3:text-base prose-h3:font-semibold prose-h3:mb-2 prose-h3:mt-4">
-            <ReactMarkdown>
-              {mockScanResults.summary}
-            </ReactMarkdown>
+            <Suspense fallback={<div className="animate-pulse bg-zinc-200 dark:bg-zinc-700 h-32 rounded"></div>}>
+              <ReactMarkdown>
+                {mockScanResults.summary}
+              </ReactMarkdown>
+            </Suspense>
           </div>
         </div>
 
