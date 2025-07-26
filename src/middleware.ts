@@ -10,6 +10,11 @@ import { rateLimit } from './lib/edge-rate-limit';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
+  // Skip middleware for auth routes to avoid Edge Runtime crypto issues
+  if (pathname.startsWith('/api/auth/')) {
+    return NextResponse.next();
+  }
+  
   // Security headers (additional to vercel.json)
   const response = NextResponse.next();
   
@@ -188,7 +193,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - monitoring (Sentry tunnel)
+     * - api/auth (auth endpoints - avoid Edge Runtime crypto issues)
      */
-    '/((?!_next/static|_next/image|favicon.ico|monitoring).*)',
+    '/((?!_next/static|_next/image|favicon.ico|monitoring|api/auth).*)',
   ],
 };
