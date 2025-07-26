@@ -26,7 +26,7 @@ interface UserSubscription {
   };
   billingCycle: BillingCycle;
   currentPeriodEnd: Date | null;
-  cancelAtPeriodEnd: boolean;
+  cancelAtPeriodEnd?: boolean;
 }
 
 interface PlanFeature {
@@ -87,6 +87,7 @@ const plans: Plan[] = [
 export default function BillingPage() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [loading, setLoading] = useState<string | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -209,6 +210,57 @@ export default function BillingPage() {
     return loading === planId || isCurrentPlan(planId);
   };
 
+  const handleCancelSubscription = async () => {
+    if (!subscription || !subscription.plan) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to cancel your ${subscription.plan.name}? You'll continue to have access until ${subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : "the end of your billing period"}.`,
+    );
+
+    if (!confirmed) return;
+
+    setCancelLoading(true);
+    try {
+      const response = await fetch("/api/subscription/cancel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to cancel subscription");
+      }
+
+      const result = await response.json();
+
+      // Update local subscription state
+      setSubscription((prev) =>
+        prev
+          ? {
+              ...prev,
+              cancelAtPeriodEnd: true,
+            }
+          : null,
+      );
+
+      alert(
+        "Your subscription has been canceled. You'll continue to have access until the end of your current billing period.",
+      );
+    } catch (error) {
+      console.error("Cancel subscription error:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to cancel subscription";
+      alert(`Error: ${errorMessage}. Please try again or contact support.`);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -239,8 +291,54 @@ export default function BillingPage() {
         </div>
       </div>
 
+      {/* Current Subscription Info */}
+      {!subscriptionLoading &&
+        subscription &&
+        subscription.status === "active" && (
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+            <Subheading level={3} className="mb-4">
+              Current Subscription
+            </Subheading>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Text className="font-medium">
+                    {subscription.plan?.name} Plan
+                  </Text>
+                  <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                    {subscription.currentPeriodEnd
+                      ? `Renews on ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
+                      : "Active subscription"}
+                  </Text>
+                  {subscription.cancelAtPeriodEnd && (
+                    <Text className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      ⚠️ Subscription will be canceled at the end of the current
+                      billing period
+                    </Text>
+                  )}
+                </div>
+              </div>
+
+              {subscription.cancelAtPeriodEnd && (
+                <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <Text className="text-sm text-red-800 dark:text-red-200">
+                    Your subscription has been canceled and will end on{" "}
+                    {subscription.currentPeriodEnd
+                      ? new Date(
+                          subscription.currentPeriodEnd,
+                        ).toLocaleDateString()
+                      : "the end of your billing period"}
+                    . You can still access all features until then.
+                  </Text>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       {/* Billing Toggle */}
-      <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+      <div className="bg-white dark:bg-zinc-900 rounded-lg p-6">
         <div className="flex justify-center">
           <fieldset className="grid grid-cols-2 gap-x-1 rounded-full p-1 text-center text-xs font-semibold leading-5 ring-1 ring-inset ring-gray-200 dark:ring-gray-800">
             <legend className="sr-only">Payment frequency</legend>
@@ -489,6 +587,41 @@ export default function BillingPage() {
           </div>
         </dl>
       </div>
+
+      {/* Cancel Subscription Section */}
+      {!subscriptionLoading &&
+        subscription &&
+        subscription.status === "active" &&
+        !subscription.cancelAtPeriodEnd && (
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-red-200 dark:border-red-800 p-6">
+            <Subheading
+              level={3}
+              className="mb-4 text-red-600 dark:text-red-400"
+            >
+              Cancel Subscription
+            </Subheading>
+
+            <div className="space-y-4">
+              <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                If you cancel your subscription, you'll continue to have access
+                to all features until the end of your current billing period on{" "}
+                {subscription.currentPeriodEnd
+                  ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
+                  : "your billing period end date"}
+                .
+              </Text>
+
+              <Button
+                onClick={handleCancelSubscription}
+                disabled={cancelLoading}
+                color="red"
+                className="text-white hover:bg-red-700"
+              >
+                {cancelLoading ? "Canceling..." : "Cancel Subscription"}
+              </Button>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

@@ -276,7 +276,10 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 <QuestionMarkCircleIcon />
                 <SidebarLabel>Support</SidebarLabel>
               </SidebarItem>
-              <SidebarItem href="#">
+              <SidebarItem 
+                href="/changelog"
+                current={pathname === "/changelog"}
+              >
                 <SparklesIcon />
                 <SidebarLabel>Changelog</SidebarLabel>
               </SidebarItem>
