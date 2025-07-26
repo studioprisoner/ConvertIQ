@@ -15,59 +15,63 @@ interface ChangelogEntry {
 const changelog: ChangelogEntry[] = [
   {
     version: "1.4.0",
-    date: "2025-01-26",
+    date: "2025-07-26",
     type: "feature",
     title: "Subscription Management",
-    description: "You can now easily manage your subscription and cancel anytime while keeping access until your billing period ends.",
+    description:
+      "You can now easily manage your subscription and cancel anytime while keeping access until your billing period ends.",
     items: [
       "Cancel your subscription directly from the billing page",
       "Keep full access to all features until your billing period expires",
       "Clear messaging about when your access will end",
-      "Improved billing page layout and user experience"
-    ]
+      "Improved billing page layout and user experience",
+    ],
   },
   {
     version: "1.3.2",
-    date: "2025-01-25",
+    date: "2025-07-25",
     type: "security",
     title: "Enhanced Security & Performance",
-    description: "Strengthened platform security and significantly improved page loading speeds.",
+    description:
+      "Strengthened platform security and significantly improved page loading speeds.",
     items: [
       "Faster page loading times across the entire platform",
       "Enhanced protection against malicious attacks",
       "Improved security for user data and accounts",
-      "Better platform stability and reliability"
-    ]
+      "Better platform stability and reliability",
+    ],
   },
   {
     version: "1.3.1",
-    date: "2025-01-24",
+    date: "2025-07-24",
     type: "improvement",
     title: "Better User Experience",
-    description: "Refreshed design and improved authentication flow for a smoother experience.",
+    description:
+      "Refreshed design and improved authentication flow for a smoother experience.",
     items: [
       "Updated login and registration pages with modern styling",
       "Fixed authentication issues for more reliable access",
       "Added usage analytics to help us improve the platform",
-      "Refreshed marketing page design"
-    ]
+      "Refreshed marketing page design",
+    ],
   },
   {
     version: "1.3.0",
-    date: "2025-01-23",
+    date: "2025-07-23",
     type: "feature",
     title: "Legal & Compliance",
-    description: "Added comprehensive legal documentation to ensure transparency and compliance.",
+    description:
+      "Added comprehensive legal documentation to ensure transparency and compliance.",
     items: [
       "Complete Privacy Policy explaining how we handle your data",
       "Clear Terms of Service outlining platform usage",
       "Pro plan now supports analyzing multiple client websites",
-      "Enhanced pricing page design and clarity"
-    ]
+      "Enhanced pricing page design and clarity",
+    ],
   },
   {
     version: "1.2.0",
-    date: "2025-01-20",
+    date: "2025-07-20",
     type: "feature",
     title: "In-App Support",
     description: "Get help faster with our new integrated support system.",
@@ -75,12 +79,12 @@ const changelog: ChangelogEntry[] = [
       "New support dialog accessible from anywhere in the dashboard",
       "Automatic ticket creation for faster response times",
       "Your account details are automatically included with support requests",
-      "Real-time confirmation when your support ticket is created"
-    ]
+      "Real-time confirmation when your support ticket is created",
+    ],
   },
   {
     version: "1.1.0",
-    date: "2025-01-18",
+    date: "2025-07-18",
     type: "feature",
     title: "Advanced Report Management",
     description: "Better organize and manage your website analysis reports.",
@@ -89,15 +93,16 @@ const changelog: ChangelogEntry[] = [
       "Detailed view for each report with comprehensive insights",
       "Track which recommendations you've implemented",
       "Archive old reports to keep your dashboard clean",
-      "Re-run analysis on websites to see improvements over time"
-    ]
+      "Re-run analysis on websites to see improvements over time",
+    ],
   },
   {
     version: "1.0.0",
-    date: "2025-01-15",
+    date: "2025-07-15",
     type: "feature",
     title: "ConvertIQ Launch",
-    description: "Welcome to ConvertIQ - your AI-powered website optimization platform.",
+    description:
+      "Welcome to ConvertIQ - your AI-powered website optimization platform.",
     items: [
       "AI analysis of your website's conversion potential",
       "Detailed reports with actionable marketing recommendations",
@@ -105,42 +110,46 @@ const changelog: ChangelogEntry[] = [
       "Flexible subscription plans (Basic and Pro)",
       "Domain verification to ensure accurate analysis",
       "Personal dashboard to track your optimization journey",
-      "Profile management with custom avatars"
-    ]
-  }
+      "Profile management with custom avatars",
+    ],
+  },
 ];
 
 const getTypeStyle = (type: ChangelogEntry["type"]) => {
   switch (type) {
     case "feature":
       return {
-        badge: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+        badge:
+          "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
         icon: "🎉",
-        iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+        iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
       };
     case "improvement":
       return {
-        badge: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
+        badge:
+          "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
         icon: "⚡",
-        iconBg: "bg-green-500/10 text-green-600 dark:text-green-400"
+        iconBg: "bg-green-500/10 text-green-600 dark:text-green-400",
       };
     case "fix":
       return {
-        badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+        badge:
+          "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
         icon: "🐛",
-        iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
       };
     case "security":
       return {
         badge: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
         icon: "🔒",
-        iconBg: "bg-red-500/10 text-red-600 dark:text-red-400"
+        iconBg: "bg-red-500/10 text-red-600 dark:text-red-400",
       };
     default:
       return {
-        badge: "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20",
+        badge:
+          "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20",
         icon: "📝",
-        iconBg: "bg-gray-500/10 text-gray-600 dark:text-gray-400"
+        iconBg: "bg-gray-500/10 text-gray-600 dark:text-gray-400",
       };
   }
 };
@@ -169,19 +178,35 @@ export default function ChangelogPage() {
                   className="flex items-center gap-3 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors group"
                 >
                   <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border border-white/20 dark:border-gray-800/20 group-hover:bg-white/80 dark:group-hover:bg-gray-800/80 transition-colors">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 19l-7-7 7-7"
+                      />
                     </svg>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CompanyIcon width={20} height={20} className="flex-shrink-0" />
+                    <CompanyIcon
+                      width={20}
+                      height={20}
+                      className="flex-shrink-0"
+                    />
                     <span className="font-bold font-mono">ConvertIQ</span>
                   </div>
                 </a>
-                
+
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">All systems operational</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    All systems operational
+                  </span>
                 </div>
               </motion.div>
             </div>
@@ -190,15 +215,15 @@ export default function ChangelogPage() {
           {/* Header */}
           <div className="pt-16 pb-16 px-6">
             <div className="max-w-4xl mx-auto text-center">
-              <motion.h1 
+              <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-5xl font-bold text-gray-900 dark:text-white mb-6 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent"
+                className="text-5xl font-bold text-gray-900 dark:text-white mb-6 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent font-mono"
               >
                 Changelog
               </motion.h1>
-              <motion.p 
+              <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
@@ -230,7 +255,9 @@ export default function ChangelogPage() {
 
                       <div className="flex gap-6">
                         {/* Icon */}
-                        <div className={`flex-shrink-0 w-16 h-16 rounded-xl ${typeStyle.iconBg} flex items-center justify-center text-2xl border border-white/20 dark:border-gray-800/20 shadow-lg backdrop-blur-sm`}>
+                        <div
+                          className={`flex-shrink-0 w-16 h-16 rounded-xl ${typeStyle.iconBg} flex items-center justify-center text-2xl border border-white/20 dark:border-gray-800/20 shadow-lg backdrop-blur-sm`}
+                        >
                           {typeStyle.icon}
                         </div>
 
@@ -244,7 +271,9 @@ export default function ChangelogPage() {
                                   <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
                                     {entry.title}
                                   </h2>
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${typeStyle.badge}`}>
+                                  <span
+                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${typeStyle.badge}`}
+                                  >
                                     {entry.type}
                                   </span>
                                 </div>
@@ -253,11 +282,14 @@ export default function ChangelogPage() {
                                     v{entry.version}
                                   </span>
                                   <time dateTime={entry.date}>
-                                    {new Date(entry.date).toLocaleDateString("en-US", {
-                                      year: "numeric",
-                                      month: "long",
-                                      day: "numeric",
-                                    })}
+                                    {new Date(entry.date).toLocaleDateString(
+                                      "en-US",
+                                      {
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                      },
+                                    )}
                                   </time>
                                 </div>
                               </div>
@@ -293,7 +325,7 @@ export default function ChangelogPage() {
               </div>
 
               {/* Footer CTA */}
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: changelog.length * 0.1 }}
@@ -304,7 +336,8 @@ export default function ChangelogPage() {
                     Stay updated
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400">
-                    Follow our progress as we continue to build and improve ConvertIQ
+                    Follow our progress as we continue to build and improve
+                    ConvertIQ
                   </p>
                 </div>
               </motion.div>
