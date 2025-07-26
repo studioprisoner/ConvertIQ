@@ -308,16 +308,7 @@ export const websitesRouter = createTRPCRouter({
         const scanDomain = urlObj.hostname.toLowerCase();
         console.log('🌐 Extracted scan domain:', scanDomain);
 
-        // Check if user has access to multiple domains feature
-        console.log('🔐 Checking feature access for multiple_websites...');
-        const featureAccess = await checkFeatureAccess(userId, 'multiple_websites');
-        console.log('🔐 Feature access result:', featureAccess);
-        if (!featureAccess.hasAccess) {
-          console.log('❌ Feature access denied');
-          throw new Error('DOMAIN_VALIDATION_REQUIRED');
-        }
-
-        // Get user's existing domains
+        // Get user's existing domains first
         console.log('📊 Querying user domains...');
         const userDomains = await db
           .select()
@@ -325,15 +316,26 @@ export const websitesRouter = createTRPCRouter({
           .where(eq(websites.userId, userId));
         console.log('📊 Found user domains:', userDomains.length);
 
-        // Check if the domain is already in user's allowed domains (BEFORE URL validation)
+        // Check if the domain is already in user's allowed domains
         const isDomainAllowed = userDomains.some(domain => {
           const domainHost = new URL(domain.url).hostname.toLowerCase();
           return domainHost === scanDomain;
         });
 
         if (!isDomainAllowed) {
-          console.log('❌ Domain not allowed, throwing DOMAIN_NOT_ALLOWED error');
-          // Domain not in allowed list
+          console.log('❌ Domain not in allowed domains, checking if user can add new domains...');
+          
+          // Only check multiple_websites feature if user is trying to scan a NEW domain
+          console.log('🔐 Checking feature access for multiple_websites...');
+          const featureAccess = await checkFeatureAccess(userId, 'multiple_websites');
+          console.log('🔐 Feature access result:', featureAccess);
+          
+          if (!featureAccess.hasAccess) {
+            console.log('❌ User cannot add multiple domains - Basic plan restriction');
+            throw new Error('DOMAIN_VALIDATION_REQUIRED');
+          }
+
+          // User has Pro plan, check domain limits
           const DOMAIN_LIMIT = 10;
           
           if (userDomains.length >= DOMAIN_LIMIT) {
@@ -343,6 +345,8 @@ export const websitesRouter = createTRPCRouter({
             throw new Error(`DOMAIN_NOT_ALLOWED:This domain is not in your allowed domains list. Would you like to add "${scanDomain}" to your domains? You are using ${userDomains.length} of ${DOMAIN_LIMIT} domains.`);
           }
         }
+
+        console.log('✅ Domain is allowed - user can scan this domain');
 
         // Only validate URL if domain is allowed (to avoid timeout blocking domain validation)
         console.log('✅ Domain allowed, starting URL validation...');
