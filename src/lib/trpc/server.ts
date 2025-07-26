@@ -34,6 +34,10 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 export const createTRPCRouter = t.router;
 export const publicProcedure = t.procedure;
 
+// In-memory cache for subscription data (short TTL to balance performance and freshness)
+const subscriptionCache = new Map<string, { data: any; expiry: number }>();
+const CACHE_TTL = 30 * 1000; // 30 seconds
+
 // Protected procedure that requires authentication
 export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   if (!ctx.session || !ctx.user) {
@@ -43,8 +47,24 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
     });
   }
 
-  // Get user's subscription data for plan validation
-  const subscription = await getUserSubscription(ctx.user.id);
+  // Check cache first for subscription data
+  const cacheKey = `subscription:${ctx.user.id}`;
+  const cached = subscriptionCache.get(cacheKey);
+  
+  let subscription;
+  if (cached && cached.expiry > Date.now()) {
+    subscription = cached.data;
+  } else {
+    // Get user's subscription data for plan validation
+    subscription = await getUserSubscription(ctx.user.id);
+    
+    // Cache the result
+    subscriptionCache.set(cacheKey, {
+      data: subscription,
+      expiry: Date.now() + CACHE_TTL
+    });
+  }
+  
   const userPlan = subscription?.plan?.slug || 'basic';
 
   return next({

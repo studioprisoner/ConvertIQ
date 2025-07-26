@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "@/styles/tailwind.css";
 import { TRPCProvider } from "@/lib/trpc/provider";
 import { SentryErrorBoundary } from "@/components/sentry-error-boundary";
+import { WebVitalsReporter } from "@/components/performance/web-vitals-reporter";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,6 +30,7 @@ export default function RootLayout({
       <body className="antialiased">
         <SentryErrorBoundary>
           <TRPCProvider>
+            <WebVitalsReporter />
             {children}
           </TRPCProvider>
         </SentryErrorBoundary>

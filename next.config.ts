@@ -7,6 +7,54 @@ const nextConfig: NextConfig = {
     // Enable Turbopack for faster builds (moved from experimental)
   },
   
+  // Bundle size optimization
+  experimental: {
+    optimizePackageImports: ['@heroicons/react', 'lucide-react', 'framer-motion'],
+  },
+  
+  // Code splitting optimizations
+  webpack: (config, { dev, isServer }) => {
+    if (!dev && !isServer) {
+      // Optimize bundle splitting for client
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          default: {
+            minChunks: 2,
+            priority: -20,
+            reuseExistingChunk: true,
+          },
+          vendor: {
+            name: 'vendor',
+            test: /[\\/]node_modules[\\/]/,
+            priority: -10,
+            reuseExistingChunk: true,
+            chunks: 'all',
+          },
+          react: {
+            name: 'react',
+            test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+            chunks: 'all',
+            priority: 20,
+          },
+          trpc: {
+            name: 'trpc',
+            test: /[\\/]node_modules[\\/]@trpc[\\/]/,
+            chunks: 'all',
+            priority: 15,
+          },
+          ui: {
+            name: 'ui',
+            test: /[\\/](components|lib)[\\/]/,
+            chunks: 'all',
+            priority: 10,
+          },
+        },
+      };
+    }
+    return config;
+  },
+  
   // ESLint configuration - temporarily disable for production build
   eslint: {
     // Temporarily ignore ESLint errors during builds for production deployment
@@ -42,6 +90,18 @@ const nextConfig: NextConfig = {
     formats: ['image/webp', 'image/avif'],
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 31536000, // 1 year
+    domains: [],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.vercel.app',
+        port: '',
+        pathname: '/**',
+      },
+    ],
   },
 };
 
