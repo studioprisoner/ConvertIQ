@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { authClient } from "@/lib/auth-client";
+import { useState, useEffect } from "react";
+import { authClient, useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/button";
@@ -20,6 +20,14 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const { data: session, isPending } = useSession();
+
+  // Redirect to dashboard if user is already logged in
+  useEffect(() => {
+    if (!isPending && session) {
+      router.push("/dashboard");
+    }
+  }, [session, isPending, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -111,6 +119,22 @@ export default function RegisterPage() {
   const isFormValid = formData.name.trim().length >= 2 && 
                     formData.email.trim().length > 0 && 
                     formData.email.includes("@");
+
+  // Show loading while checking session
+  if (isPending) {
+    return (
+      <div className="max-w-sm w-full">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-pulse text-gray-600">Checking authentication...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render register form if user is authenticated (redirect will happen)
+  if (session) {
+    return null;
+  }
 
   return (
     <div className="max-w-sm w-full">
