@@ -10,7 +10,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "security:audit": "bun run scripts/security-audit.ts",
+    "security:fix-permissions": "chmod 600 .env* 2>/dev/null || true"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.0-beta.7",
@@ -36,6 +38,7 @@
     "encoding": "^0.1.13",
     "framer-motion": "^12.23.6",
     "html2canvas": "^1.4.1",
+    "isomorphic-dompurify": "^2.26.0",
     "jspdf": "^3.0.1",
     "lucide-react": "^0.525.0",
     "next": "15.4.1",
