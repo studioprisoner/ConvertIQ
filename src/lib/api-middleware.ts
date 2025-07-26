@@ -203,37 +203,11 @@ export async function checkSubscriptionLimit(
   }
 }
 
-/**
- * Rate limiting for API endpoints
- */
-const rateLimitMap = new Map<string, number[]>();
-
-export function rateLimit(
-  identifier: string,
-  maxRequests: number = 100,
-  windowMs: number = 60000 // 1 minute
-): boolean {
-  const now = Date.now();
-  const windowStart = now - windowMs;
-  
-  const requests = rateLimitMap.get(identifier) || [];
-  
-  // Remove old requests outside the window
-  const validRequests = requests.filter(time => time > windowStart);
-  
-  if (validRequests.length >= maxRequests) {
-    return false; // Rate limit exceeded
-  }
-  
-  // Add current request
-  validRequests.push(now);
-  rateLimitMap.set(identifier, validRequests);
-  
-  return true; // Request allowed
-}
+// Re-export rate limiting functions from the edge-compatible module
+export { rateLimit, getRateLimitStatus } from './edge-rate-limit';
 
 /**
- * Wrapper to add rate limiting to API handlers
+ * Wrapper to add rate limiting to API handlers with enhanced headers
  */
 export function withRateLimit(
   handler: (request: NextRequest, ...args: any[]) => Promise<NextResponse>,
@@ -241,18 +215,86 @@ export function withRateLimit(
   windowMs: number = 60000
 ) {
   return async (request: NextRequest, ...args: any[]): Promise<NextResponse> => {
-    // Use IP address for rate limiting
+    // Use IP address and user agent for more specific rate limiting
     const ip = request.headers.get('x-forwarded-for') || 
                request.headers.get('x-real-ip') || 
+               request.ip ||
                'unknown';
     
-    if (!rateLimit(ip, maxRequests, windowMs)) {
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const identifier = `${ip}:${userAgent.slice(0, 50)}`; // Limit user agent length
+    
+    const status = getRateLimitStatus(identifier, maxRequests, windowMs);
+    
+    if (!status.allowed) {
       return NextResponse.json(
-        { error: 'Rate limit exceeded' },
-        { status: 429 }
+        { 
+          error: 'Rate limit exceeded',
+          message: 'Too many requests. Please try again later.',
+          retryAfter: Math.ceil(windowMs / 1000)
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(windowMs / 1000).toString(),
+            'X-RateLimit-Limit': maxRequests.toString(),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': new Date(status.resetTime).toISOString(),
+          }
+        }
       );
     }
     
-    return handler(request, ...args);
+    // Execute the handler
+    const response = await handler(request, ...args);
+    
+    // Add rate limit headers to successful responses
+    response.headers.set('X-RateLimit-Limit', maxRequests.toString());
+    response.headers.set('X-RateLimit-Remaining', status.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', new Date(status.resetTime).toISOString());
+    
+    return response;
+  };
+}
+
+/**
+ * Enhanced security wrapper for sensitive operations
+ */
+export function withSecurityHeaders(
+  handler: (request: NextRequest, ...args: any[]) => Promise<NextResponse>
+) {
+  return async (request: NextRequest, ...args: any[]): Promise<NextResponse> => {
+    // Additional security checks for sensitive operations
+    const userAgent = request.headers.get('user-agent') || '';
+    
+    // Block requests without user agent (likely bots)
+    if (!userAgent) {
+      return NextResponse.json(
+        { error: 'User agent required' },
+        { status: 400 }
+      );
+    }
+    
+    // Block suspicious user agents
+    const suspiciousAgents = [
+      'curl', 'wget', 'python-requests', 'scrapy', 'postman', 'insomnia'
+    ];
+    
+    if (suspiciousAgents.some(agent => userAgent.toLowerCase().includes(agent))) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+    
+    const response = await handler(request, ...args);
+    
+    // Add security headers
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    
+    return response;
   };
 }

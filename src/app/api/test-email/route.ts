@@ -9,7 +9,6 @@ export async function POST(request: NextRequest) {
     
     console.log('🧪 Testing email send to:', email);
     console.log('🔑 Resend API key available:', !!process.env.RESEND_API_KEY);
-    console.log('🔑 Resend API key starts with:', process.env.RESEND_API_KEY?.substring(0, 10));
     
     const result = await resend.emails.send({
       from: "ConvertIQ <noreply@convertiq.cloud>",
