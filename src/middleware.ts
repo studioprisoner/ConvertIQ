@@ -87,6 +87,34 @@ export async function middleware(request: NextRequest) {
     }
   }
   
+  // Block WordPress and common CMS exploitation attempts
+  const cmsExploitationPatterns = [
+    /\/wp-admin/i,
+    /\/wp-content/i,
+    /\/wp-includes/i,
+    /\/wp-config/i,
+    /\/wp-login/i,
+    /\/wordpress/i,
+    /\/xmlrpc\.php/i,
+    /\/wp-json/i,
+    /\.php$/i,
+    /\/phpmyadmin/i,
+    /\/administrator/i,
+    /\/cpanel/i,
+    /\/cgi-bin/i,
+    /\/admin\.php/i,
+    /\/login\.php/i,
+    /\/index\.php/i,
+  ];
+  
+  if (cmsExploitationPatterns.some(pattern => pattern.test(pathname))) {
+    console.warn(`🚨 CMS exploitation attempt blocked: ${pathname} from ${request.headers.get('x-forwarded-for') || request.ip}`);
+    return NextResponse.json(
+      { error: 'Not found' },
+      { status: 404 }
+    );
+  }
+
   // Prevent access to sensitive files
   const sensitivePatterns = [
     /\.env/,
