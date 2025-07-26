@@ -40,70 +40,8 @@ const FeatureCard = ({
   </motion.div>
 );
 
-const PricingCard = ({
-  plan,
-  price,
-  features,
-  popular = false,
-  delay = 0,
-}: {
-  plan: string;
-  price: string;
-  features: string[];
-  popular?: boolean;
-  delay?: number;
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay, duration: 0.5 }}
-    className={`relative ${popular ? "scale-105" : ""}`}
-  >
-    {popular && (
-      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-        <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium px-4 py-1 rounded-full">
-          Most Popular
-        </span>
-      </div>
-    )}
-    <div
-      className={`relative bg-white/90 backdrop-blur-sm border ${popular ? "border-blue-300" : "border-gray-200"} rounded-xl p-6 hover:bg-white transition-all duration-300 shadow-lg`}
-    >
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">{plan}</h3>
-      <div className="mb-6">
-        <span className="text-3xl font-bold text-gray-900">{price}</span>
-        {price !== "Free" && <span className="text-gray-600">/month</span>}
-      </div>
-      <ul className="space-y-3 mb-8">
-        {features.map((feature, index) => (
-          <li key={index} className="flex items-center text-gray-700">
-            <CheckIcon className="w-5 h-5 text-blue-600 mr-3 flex-shrink-0" />
-            {feature}
-          </li>
-        ))}
-      </ul>
-      <button
-        className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-300 ${
-          popular
-            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
-            : "bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-200"
-        }`}
-      >
-        Get Started
-      </button>
-    </div>
-  </motion.div>
-);
 
 export default function Home() {
-  const [email, setEmail] = useState("");
-
-  const handleEmailSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle email submission
-    console.log("Email submitted:", email);
-    setEmail("");
-  };
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -327,52 +265,133 @@ export default function Home() {
 
       {/* Pricing Section */}
       <section id="pricing" className="relative z-10 px-6 py-20">
-        <div className="max-w-6xl mx-auto">
+        <div className="mx-auto max-w-4xl text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              Simple, transparent pricing
-            </h2>
-            <p className="text-xl text-gray-700 max-w-2xl mx-auto">
-              Choose the plan that's right for your business. Start optimizing
-              your conversions today.
+            <h2 className="text-base font-semibold text-blue-600 mb-4">Pricing</h2>
+            <p className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 mb-6">
+              Choose the right plan for you
+            </p>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Choose an affordable plan that's packed with the best features for engaging your audience, creating customer loyalty, and driving sales.
             </p>
           </motion.div>
+        </div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <PricingCard
-              plan="Basic Plan"
-              price="$19"
-              features={[
-                "1 domain per account",
-                "Unlimited scans",
-                "AI-powered analysis & reporting",
-                "Conversion optimization insights",
-                "Email support",
-                "Historical data tracking",
-              ]}
-              delay={0.1}
-            />
-            <PricingCard
-              plan="Pro Plan"
-              price="$49"
-              features={[
-                "Up to 10 domains",
-                "Unlimited scans",
-                "Advanced AI analysis",
-                "Priority support",
-                "Custom recommendations",
-                "Export reports (PDF)",
-                "Multi-website support",
-              ]}
-              popular={true}
-              delay={0.2}
-            />
-          </div>
+        <div className="mx-auto mt-16 grid max-w-lg grid-cols-1 items-center gap-y-6 sm:mt-20 sm:gap-y-0 lg:max-w-4xl lg:grid-cols-2">
+          {/* Basic Plan */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+            className="bg-white/90 backdrop-blur-sm border border-blue-200/50 sm:mx-8 lg:mx-0 rounded-t-3xl sm:rounded-b-none lg:rounded-tr-none lg:rounded-bl-3xl rounded-3xl p-8 sm:p-10 shadow-lg"
+          >
+            <h3 className="text-base font-semibold text-blue-600">Basic Plan</h3>
+            <p className="mt-4 flex items-baseline gap-x-2">
+              <span className="text-5xl font-bold tracking-tight text-gray-900">$19</span>
+              <span className="text-base text-gray-600">/month</span>
+            </p>
+            <p className="mt-6 text-base text-gray-700">
+              Perfect for small businesses with a single website to optimize
+            </p>
+            <ul role="list" className="mt-8 space-y-3 text-sm text-gray-700 sm:mt-10">
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-blue-600" />
+                1 domain per account
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-blue-600" />
+                Unlimited scans
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-blue-600" />
+                AI-powered analysis & reporting
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-blue-600" />
+                Conversion optimization insights
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-blue-600" />
+                Email support
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-blue-600" />
+                Historical data tracking
+              </li>
+            </ul>
+            <a
+              href="/login"
+              className="mt-8 block rounded-lg px-3.5 py-2.5 text-center text-sm font-semibold bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-200 transition-all duration-300 sm:mt-10"
+            >
+              Get started today
+            </a>
+          </motion.div>
+
+          {/* Pro Plan */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="relative bg-gradient-to-br from-blue-600 to-indigo-600 shadow-2xl rounded-3xl p-8 sm:p-10"
+          >
+            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 text-white text-sm font-medium px-4 py-1 rounded-full shadow-lg">
+                Most Popular
+              </span>
+            </div>
+            <h3 className="text-base font-semibold text-cyan-200">Pro Plan</h3>
+            <p className="mt-4 flex items-baseline gap-x-2">
+              <span className="text-5xl font-bold tracking-tight text-white">$49</span>
+              <span className="text-base text-blue-200">/month</span>
+            </p>
+            <p className="mt-6 text-base text-blue-100">
+              For growing businesses managing multiple websites and domains
+            </p>
+            <ul role="list" className="mt-8 space-y-3 text-sm text-blue-100 sm:mt-10">
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
+                Up to 10 domains
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
+                Unlimited scans
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
+                AI-powered analysis & reporting
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
+                Advanced conversion optimization
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
+                Email support
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
+                Task management (coming soon)
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
+                Export reports (PDF) (coming soon)
+              </li>
+              <li className="flex gap-x-3">
+                <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
+                API access (coming soon)
+              </li>
+            </ul>
+            <a
+              href="/login"
+              className="mt-8 block rounded-lg bg-white px-3.5 py-2.5 text-center text-sm font-semibold text-blue-600 hover:bg-blue-50 shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white transition-all duration-300 sm:mt-10"
+            >
+              Get started today
+            </a>
+          </motion.div>
         </div>
       </section>
 
@@ -393,25 +412,14 @@ export default function Home() {
               websites with ConvertIQ's AI-powered optimization.
             </p>
 
-            <form
-              onSubmit={handleEmailSubmit}
-              className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto mb-6"
-            >
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="flex-1 px-4 py-3 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-              <button
-                type="submit"
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 font-semibold py-3 px-8 rounded-lg transition-all duration-300"
+            <div className="flex justify-center mb-6">
+              <a
+                href="/login"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 font-semibold py-4 px-8 rounded-lg transition-all duration-300 text-lg shadow-lg"
               >
                 Get Started
-              </button>
-            </form>
+              </a>
+            </div>
 
             <p className="text-sm text-gray-600">
               Get started today and transform your website conversions.
@@ -444,16 +452,16 @@ export default function Home() {
                 Terms
               </a>
               <a
-                href="/contact"
+                href="mailto:support@convertiq.cloud"
                 className="hover:text-gray-800 transition-colors"
               >
-                Contact
+                support@convertiq.cloud
               </a>
             </div>
           </div>
           <div className="mt-8 pt-8  text-center text-gray-600">
             <p>
-              &copy; 2024 ConvertIQ. All rights reserved. Transform your website
+              &copy; {new Date().getFullYear()} ConvertIQ. All rights reserved. Transform your website
               into a conversion machine.
             </p>
           </div>

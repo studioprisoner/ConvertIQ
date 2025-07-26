@@ -180,9 +180,9 @@ export default function RegisterPage() {
             <div className="text-center">
               <Text className="text-xs text-gray-500 dark:text-gray-400">
                 By creating an account, you agree to our{" "}
-                <TextLink href="#" className="underline">Terms of Service</TextLink>{" "}
+                <TextLink href="/terms" className="underline">Terms of Service</TextLink>{" "}
                 and{" "}
-                <TextLink href="#" className="underline">Privacy Policy</TextLink>
+                <TextLink href="/privacy" className="underline">Privacy Policy</TextLink>
               </Text>
             </div>
           </form>
