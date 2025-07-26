@@ -174,12 +174,12 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="mt-10 grid gap-4 sm:mt-16 lg:grid-cols-3 lg:grid-rows-2">
+          <div className="mt-10 grid gap-4 sm:mt-16 lg:grid-cols-3">
             {/* AI Analysis - Large Left Panel */}
             <div className="relative lg:row-span-2">
               <div className="absolute inset-px rounded-lg bg-white/70 backdrop-blur-sm lg:rounded-l-[2rem]" />
               <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] lg:rounded-l-[calc(2rem+1px)] border border-blue-200/50">
-                <div className="px-8 pt-8 pb-3 sm:px-10 sm:pt-10 sm:pb-0">
+                <div className="px-8 pt-8 pb-6 sm:px-10 sm:pt-10 sm:pb-8">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
                       <SparklesIcon className="w-6 h-6 text-white" />
@@ -194,7 +194,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="relative min-h-[30rem] w-full grow max-lg:mx-auto max-lg:max-w-sm">
-                  <div className="absolute inset-x-6 top-6 bottom-6 overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 shadow-2xl border border-blue-200">
+                  <div className="absolute inset-0 overflow-hidden rounded-t-xl bg-gradient-to-br from-blue-50 to-indigo-100 shadow-2xl border-t border-blue-200">
                     {/* Mock AI Analysis UI */}
                     <div className="p-6 h-full">
                       <div className="flex items-center gap-3 mb-6">
@@ -249,38 +249,41 @@ export default function Home() {
               <div className="pointer-events-none absolute inset-px rounded-lg shadow-sm ring-1 ring-black/5 lg:rounded-l-[2rem]" />
             </div>
 
-            {/* Performance Tracking - Top Right */}
-            <div className="relative max-lg:row-start-1">
+            {/* Report Management - Top Middle */}
+            <div className="relative max-lg:row-start-1 lg:col-start-2 lg:row-start-1">
               <div className="absolute inset-px rounded-lg bg-white/70 backdrop-blur-sm max-lg:rounded-t-[2rem]" />
               <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] max-lg:rounded-t-[calc(2rem+1px)] border border-blue-200/50">
-                <div className="px-8 pt-8 sm:px-10 sm:pt-10">
+                <div className="px-8 pt-8 pb-6 sm:px-10 sm:pt-10 sm:pb-8">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
                       <ChartBarIcon className="w-5 h-5 text-white" />
                     </div>
                   </div>
-                  <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">Performance Tracking</p>
+                  <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">Report Management</p>
                   <p className="mt-2 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
-                    Monitor improvements over time with detailed analytics and real impact metrics.
+                    Archive, restore, and retrigger scans with comprehensive report lifecycle management.
                   </p>
                 </div>
-                <div className="flex flex-1 items-center justify-center px-8 max-lg:pt-10 max-lg:pb-12 sm:px-10 lg:pb-2">
-                  {/* Mock Chart */}
-                  <div className="w-full max-w-xs">
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl p-6 border border-green-200">
-                      <div className="flex justify-between items-center mb-4">
-                        <span className="text-sm font-medium text-gray-700">Conversion Rate</span>
-                        <span className="text-green-600 text-sm font-semibold">+24%</span>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex items-end gap-1 h-16">
-                          <div className="bg-green-200 w-4 h-8 rounded-t"></div>
-                          <div className="bg-green-300 w-4 h-10 rounded-t"></div>
-                          <div className="bg-green-400 w-4 h-12 rounded-t"></div>
-                          <div className="bg-green-500 w-4 h-16 rounded-t"></div>
-                          <div className="bg-green-600 w-4 h-14 rounded-t"></div>
+                <div className="w-full">
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-t-xl border-t border-green-200 p-6">
+                    {/* Mock Report List */}
+                    <div className="space-y-3">
+                      <div className="bg-white/80 rounded-lg p-4 border border-green-200/50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">Acme Store</span>
+                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">Active</span>
                         </div>
-                        <div className="text-xs text-gray-500 text-center">Last 5 months</div>
+                        <div className="text-xs text-gray-500">3 recommendations • Last scan: 2 days ago</div>
+                      </div>
+                      <div className="bg-white/60 rounded-lg p-4 border border-green-200/30">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-600">E-commerce Site</span>
+                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">Archived</span>
+                        </div>
+                        <div className="text-xs text-gray-400">5 recommendations • Restore available</div>
+                      </div>
+                      <div className="text-center pt-2">
+                        <button className="text-sm text-green-600 font-medium hover:text-green-700">+ New Scan</button>
                       </div>
                     </div>
                   </div>
@@ -289,34 +292,41 @@ export default function Home() {
               <div className="pointer-events-none absolute inset-px rounded-lg shadow-sm ring-1 ring-black/5 max-lg:rounded-t-[2rem]" />
             </div>
 
-            {/* Quick Implementation - Bottom Middle */}
+            {/* Performance Tracking - Bottom Middle */}
             <div className="relative max-lg:row-start-3 lg:col-start-2 lg:row-start-2">
               <div className="absolute inset-px rounded-lg bg-white/70 backdrop-blur-sm" />
-              <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] border border-blue-200/50">
-                <div className="px-8 pt-8 sm:px-10 sm:pt-10">
-                  <div className="flex items-center gap-3 mb-4">
+              <div className="relative flex flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] border border-blue-200/50">
+                <div className="px-8 pt-6 pb-3 sm:px-10 sm:pt-8 sm:pb-4">
+                  <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
                       <RocketLaunchIcon className="w-5 h-5 text-white" />
                     </div>
                   </div>
-                  <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">Quick Implementation</p>
-                  <p className="mt-2 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
-                    No technical expertise required. Clear instructions and code snippets included.
+                  <p className="mt-1 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">Performance Tracking</p>
+                  <p className="mt-1 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
+                    Track trends over time and see the impact of implemented recommendations.
                   </p>
                 </div>
-                <div className="flex flex-1 items-center max-lg:py-6 lg:pb-2 px-8 sm:px-10">
-                  {/* Mock Code Snippet */}
-                  <div className="w-full bg-gray-900 rounded-lg p-4 text-xs font-mono text-green-400 overflow-hidden">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-gray-400 ml-2">implementation.html</span>
+                <div className="flex items-center max-lg:py-4 lg:pb-4 px-8 sm:px-10">
+                  {/* Mock Performance Chart */}
+                  <div className="w-full bg-white/90 rounded-lg p-3 border border-gray-200/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-700">Conversion Rate</span>
+                      <span className="text-xs text-green-600 font-semibold">+23% ↗</span>
                     </div>
-                    <div className="space-y-1">
-                      <div><span className="text-blue-400">&lt;button</span> <span className="text-purple-400">class=</span><span className="text-green-300">"cta-urgent"</span><span className="text-blue-400">&gt;</span></div>
-                      <div className="pl-2">🔥 Limited Time Offer</div>
-                      <div><span className="text-blue-400">&lt;/button&gt;</span></div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-12 h-2 bg-gradient-to-r from-gray-300 to-blue-400 rounded-full"></div>
+                        <span className="text-xs text-gray-500">Jan</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-2 bg-gradient-to-r from-gray-300 to-blue-500 rounded-full"></div>
+                        <span className="text-xs text-gray-500">Feb</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-2 bg-gradient-to-r from-gray-300 to-green-500 rounded-full"></div>
+                        <span className="text-xs text-gray-500">Mar</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -324,11 +334,11 @@ export default function Home() {
               <div className="pointer-events-none absolute inset-px rounded-lg shadow-sm ring-1 ring-black/5" />
             </div>
 
-            {/* Actionable Insights - Large Right Panel */}
-            <div className="relative lg:row-span-2">
+            {/* Actionable Insights - Right Panel */}
+            <div className="relative lg:col-start-3 lg:row-start-1 lg:row-span-2">
               <div className="absolute inset-px rounded-lg bg-white/70 backdrop-blur-sm max-lg:rounded-b-[2rem] lg:rounded-r-[2rem]" />
               <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] max-lg:rounded-b-[calc(2rem+1px)] lg:rounded-r-[calc(2rem+1px)] border border-blue-200/50">
-                <div className="px-8 pt-8 pb-3 sm:px-10 sm:pt-10 sm:pb-0">
+                <div className="px-8 pt-8 pb-6 sm:px-10 sm:pt-10 sm:pb-8">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
                       <LightBulbIcon className="w-6 h-6 text-white" />
@@ -343,7 +353,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="relative min-h-[30rem] w-full grow">
-                  <div className="absolute top-6 right-6 bottom-6 left-6 overflow-hidden rounded-xl bg-gradient-to-br from-purple-50 to-pink-100 shadow-2xl border border-purple-200">
+                  <div className="absolute inset-0 overflow-hidden rounded-t-xl bg-gradient-to-br from-purple-50 to-pink-100 shadow-2xl border-t border-purple-200">
                     {/* Mock Recommendations List */}
                     <div className="p-6 h-full overflow-hidden">
                       <div className="flex items-center justify-between mb-6">
