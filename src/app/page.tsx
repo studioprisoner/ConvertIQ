@@ -452,6 +452,12 @@ export default function Home() {
                 Terms
               </a>
               <a
+                href="/changelog"
+                className="hover:text-gray-800 transition-colors"
+              >
+                Changelog
+              </a>
+              <a
                 href="mailto:support@convertiq.cloud"
                 className="hover:text-gray-800 transition-colors"
               >

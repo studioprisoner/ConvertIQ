@@ -265,6 +265,27 @@ export async function checkFeatureAccess(
         featureType: 'boolean',
       };
     }
+
+    // Handle canceled subscriptions: Allow access until period end
+    if (subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd) {
+      const now = new Date();
+      const periodEnd = new Date(subscription.currentPeriodEnd);
+      
+      // If subscription is canceled but still within the paid period, allow access
+      if (now <= periodEnd) {
+        // Continue with normal feature checking logic below
+        console.log(`🔄 Canceled subscription still has access until ${periodEnd.toLocaleDateString()}`);
+      } else {
+        // Period has ended, deny access
+        await logFeatureAccessAttempt(userId, featureKey, false, subscription.plan.slug, false, sessionId);
+        return {
+          hasAccess: false,
+          upgradeRequired: true,
+          reason: 'Subscription canceled and period ended',
+          featureType: 'boolean',
+        };
+      }
+    }
     
     const planSlug = subscription.plan.slug;
     
