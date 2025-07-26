@@ -164,7 +164,7 @@ export class AnthropicAnalysisProvider {
       const uxResult = analysisResults[1].status === 'fulfilled' ? analysisResults[1].value : analysisResults[1].reason;
       const seoResult = analysisResults[2].status === 'fulfilled' ? analysisResults[2].value : analysisResults[2].reason;
 
-      // Generate simple overall insights without additional AI call
+      // Calculate scores and failure metrics
       const validScores = [
         conversionResult?.analysis?.overallScore,
         uxResult?.analysis?.overallScore,
@@ -176,13 +176,29 @@ export class AnthropicAnalysisProvider {
       const failures = analysisResults.filter(result => result.status === 'rejected').length;
       const partialWarning = failures > 0 ? `\n\n⚠️ **Note**: ${failures} analysis sections used fallback data due to processing timeouts. This is a temporary issue that will be resolved in future scans.` : '';
       
-      const overallAnalysis = {
-        summary: `# ${crawlData.url} Analysis Summary\n\n**Overall Score: ${overallScore}/10**\n\n**Conversion Score:** ${conversionResult?.analysis?.overallScore || 'N/A'}/10\n**UX Score:** ${uxResult?.analysis?.overallScore || 'N/A'}/10\n**SEO Score:** ${seoResult?.analysis?.overallScore || 'N/A'}/10${partialWarning}\n\nDetailed recommendations are available in each analysis section below.`,
-        overallScore,
-        priorityAreas: this.identifyPriorityAreasWithFallback(conversionResult?.analysis, uxResult?.analysis, seoResult?.analysis),
-        isPartial: failures > 0,
-        failedSections: failures,
-      };
+      // Generate detailed overall insights with optimized AI call
+      let overallAnalysis;
+      
+      // Only generate detailed insights if we have successful analyses (not all fallbacks)
+      if (failures < 3) {
+        try {
+          console.log('🧠 Generating detailed executive summary...');
+          overallAnalysis = await this.generateOptimizedOverallInsights(
+            crawlData,
+            conversionResult?.analysis,
+            uxResult?.analysis,
+            seoResult?.analysis,
+            overallScore,
+            failures
+          );
+        } catch (error) {
+          console.warn('Executive summary generation failed, using simple summary:', error.message);
+          overallAnalysis = this.createSimpleSummary(crawlData, overallScore, conversionResult, uxResult, seoResult, failures, partialWarning);
+        }
+      } else {
+        // All analyses failed, use simple summary
+        overallAnalysis = this.createSimpleSummary(crawlData, overallScore, conversionResult, uxResult, seoResult, failures, partialWarning);
+      }
 
       const totalProcessingTime = Date.now() - startTime;
 
@@ -282,6 +298,111 @@ export class AnthropicAnalysisProvider {
         isFallback: true,
       },
     };
+  }
+
+  private createSimpleSummary(crawlData: CrawlResult, overallScore: number, conversionResult: any, uxResult: any, seoResult: any, failures: number, partialWarning: string): any {
+    return {
+      summary: `# ${crawlData.url} Analysis Summary\n\n**Overall Score: ${overallScore}/10**\n\n**Conversion Score:** ${conversionResult?.analysis?.overallScore || 'N/A'}/10\n**UX Score:** ${uxResult?.analysis?.overallScore || 'N/A'}/10\n**SEO Score:** ${seoResult?.analysis?.overallScore || 'N/A'}/10${partialWarning}\n\nDetailed recommendations are available in each analysis section below.`,
+      overallScore,
+      priorityAreas: this.identifyPriorityAreasWithFallback(conversionResult?.analysis, uxResult?.analysis, seoResult?.analysis),
+      isPartial: failures > 0,
+      failedSections: failures,
+    };
+  }
+
+  private async generateOptimizedOverallInsights(
+    crawlData: CrawlResult,
+    conversionAnalysis: any,
+    uxAnalysis: any,
+    seoAnalysis: any,
+    overallScore: number,
+    failures: number
+  ): Promise<any> {
+    const startTime = Date.now();
+    
+    // Create a shorter, more focused prompt for faster processing
+    const optimizedPrompt = `Analyze ${crawlData.url} and provide a concise executive summary in markdown:
+
+SCORES:
+- Conversion: ${conversionAnalysis?.overallScore || 'N/A'}/10
+- UX: ${uxAnalysis?.overallScore || 'N/A'}/10  
+- SEO: ${seoAnalysis?.overallScore || 'N/A'}/10
+- Overall: ${overallScore}/10
+
+KEY ISSUES:
+- Conversion: ${conversionAnalysis?.keyFindings?.slice(0, 3)?.join(', ') || 'N/A'}
+- UX: ${uxAnalysis?.keyFindings?.slice(0, 3)?.join(', ') || 'N/A'}
+- SEO: ${seoAnalysis?.keyFindings?.slice(0, 3)?.join(', ') || 'N/A'}
+
+Format response as:
+
+# EXECUTIVE SUMMARY - ${crawlData.url.replace(/^https?:\/\//, '').toUpperCase()}
+
+## Overall Score: ${overallScore}/10
+[Brief assessment in 1-2 sentences]
+
+### TOP 4 PRIORITY RECOMMENDATIONS:
+1. **[High-Impact Action]**
+   - [Specific step 1]
+   - [Specific step 2]
+   - Impact: [X-Y% improvement estimate]
+
+2. **[Medium-High Impact Action]**
+   - [Specific step 1] 
+   - [Specific step 2]
+   - Impact: [X-Y% improvement estimate]
+
+3. **[Medium Impact Action]**
+   - [Specific step 1]
+   - [Specific step 2] 
+   - Impact: [X-Y% improvement estimate]
+
+4. **[Quick Win Action]**
+   - [Specific step 1]
+   - [Specific step 2]
+   - Impact: [X-Y% improvement estimate]
+
+### QUICK WINS (2 weeks):
+• [Action 1]
+• [Action 2] 
+• [Action 3]
+
+### REVENUE IMPACT POTENTIAL:
+- Conservative: [X-Y% increase]
+- Optimistic: [X-Y% increase]
+- Key drivers: [Driver 1], [Driver 2]
+
+Keep recommendations specific and actionable for small business owners.`;
+
+    try {
+      const result = await Promise.race([
+        generateText({
+          model: this.model,
+          system: 'You are ConvertIQ AI providing concise executive summary insights. Use proper markdown formatting with headers, bullet points, and bold text. Focus on actionable recommendations with specific impact estimates.',
+          prompt: optimizedPrompt,
+          temperature: 0.4,
+          maxTokens: 1500, // Limit tokens for faster processing
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Executive summary timeout after 20s')), 20000)
+        )
+      ]) as any;
+
+      const processingTime = Date.now() - startTime;
+      console.log(`🧠 Executive summary generated in ${processingTime}ms`);
+
+      return {
+        summary: result.text,
+        overallScore,
+        priorityAreas: this.identifyPriorityAreasWithFallback(conversionAnalysis, uxAnalysis, seoAnalysis),
+        isPartial: failures > 0,
+        failedSections: failures,
+        executiveSummaryTime: processingTime,
+      };
+    } catch (error) {
+      console.error('Optimized executive summary failed:', error);
+      throw error;
+    }
   }
 
   // Health check method
