@@ -390,7 +390,7 @@ export default function Home() {
                             </div>
                             <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">Technical</span>
                           </div>
-                          <p className="text-xs text-gray-600 mb-2">Page load time > 3 seconds</p>
+                          <p className="text-xs text-gray-600 mb-2">Page load time &gt; 3 seconds</p>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500">Est. Impact:</span>
                             <span className="text-xs font-semibold text-blue-600">+12% CVR</span>
