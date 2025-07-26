@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { CrawlResult } from '../crawler/types';
 import type { AIAnalysisResult, AnalysisType } from './types';
 import { AnthropicAnalysisProvider } from './providers/anthropic';
+import { withSentryTracing, addBreadcrumb, captureErrorWithContext } from '../sentry-utils';
 
 export class AIAnalysisEngine {
   private provider: AnthropicAnalysisProvider;
@@ -18,10 +19,28 @@ export class AIAnalysisEngine {
     websiteId: string,
     analysisType: AnalysisType = 'comprehensive'
   ): Promise<AIAnalysisResult> {
+    return withSentryTracing(
+      this._performAnalysis.bind(this),
+      'ai.analysis',
+      `Analyzing website ${websiteId} with type ${analysisType}`
+    )(crawlData, websiteId, analysisType);
+  }
+
+  private async _performAnalysis(
+    crawlData: CrawlResult,
+    websiteId: string,
+    analysisType: AnalysisType = 'comprehensive'
+  ): Promise<AIAnalysisResult> {
     const analysisId = uuidv4();
     const timestamp = new Date().toISOString();
 
     try {
+      addBreadcrumb(
+        `AI analysis started for ${crawlData.url}`,
+        'ai.analysis.start',
+        { websiteId, analysisType, url: crawlData.url }
+      );
+
       // Validate input data
       this.validateCrawlData(crawlData);
 
@@ -104,9 +123,31 @@ export class AIAnalysisEngine {
       // Sort recommendations by priority
       analysisResult.recommendations = this.prioritizeRecommendations(analysisResult.recommendations || []);
 
+      addBreadcrumb(
+        `AI analysis completed for ${crawlData.url}`,
+        'ai.analysis.success',
+        { 
+          websiteId, 
+          analysisType, 
+          score: analysisResult.overallScore,
+          recommendationCount: analysisResult.recommendations?.length || 0
+        }
+      );
+
       return analysisResult as AIAnalysisResult;
     } catch (error) {
       console.error('AI Analysis failed:', error);
+      
+      captureErrorWithContext(
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          component: 'ai-analysis-engine',
+          action: 'analyze',
+          url: crawlData.url,
+          additionalData: { websiteId, analysisType }
+        }
+      );
+      
       throw new Error(`Analysis failed for ${crawlData.url}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
