@@ -14,33 +14,6 @@ import Image from "next/image";
 import { CompanyIcon } from "@/components/company-logo";
 import { useSession } from "@/lib/auth-client";
 
-const FeatureCard = ({
-  icon: Icon,
-  title,
-  description,
-  delay = 0,
-}: {
-  icon: any;
-  title: string;
-  description: string;
-  delay?: number;
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay, duration: 0.5 }}
-    className="relative group"
-  >
-    <div className="absolute inset-0 bg-gradient-to-r from-blue-100/50 to-indigo-100/50 rounded-xl blur-xl transition-all duration-300 group-hover:blur-2xl group-hover:scale-105"></div>
-    <div className="relative bg-white/70 backdrop-blur-sm border border-blue-200/50 rounded-xl p-6 hover:bg-white/80 transition-all duration-300 shadow-lg">
-      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mb-4">
-        <Icon className="w-6 h-6 text-white" />
-      </div>
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
-      <p className="text-gray-700 leading-relaxed">{description}</p>
-    </div>
-  </motion.div>
-);
 
 export default function Home() {
   const { data: session } = useSession();
@@ -183,65 +156,253 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Features Section */}
+      {/* Features Section - Bento Box */}
       <section id="features" className="relative px-6 py-20">
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto max-w-2xl px-6 lg:max-w-7xl lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            <h2 className="text-center text-base/7 font-semibold text-blue-600">AI-Powered Optimization</h2>
+            <p className="mx-auto mt-2 max-w-lg text-center text-4xl font-semibold tracking-tight text-balance text-gray-950 sm:text-5xl">
               Everything you need to{" "}
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 optimize conversions
               </span>
-            </h2>
-            <p className="text-xl text-gray-700 max-w-3xl mx-auto">
-              Our AI analyzes your website using proven psychology principles
-              and UX best practices, then provides specific recommendations you
-              can implement today.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <FeatureCard
-              icon={SparklesIcon}
-              title="AI-Powered Analysis"
-              description="Advanced AI scans your website for conversion opportunities using psychology principles and UX best practices proven to increase sales."
-              delay={0.1}
-            />
-            <FeatureCard
-              icon={LightBulbIcon}
-              title="Actionable Insights"
-              description="Get specific, prioritized recommendations with step-by-step implementation guides that you can act on immediately."
-              delay={0.2}
-            />
-            <FeatureCard
-              icon={ChartBarIcon}
-              title="Performance Tracking"
-              description="Monitor your improvements over time with detailed analytics and see the real impact of your optimization efforts."
-              delay={0.3}
-            />
-            <FeatureCard
-              icon={RocketLaunchIcon}
-              title="Quick Implementation"
-              description="No technical expertise required. Our recommendations come with clear instructions and code snippets where needed."
-              delay={0.4}
-            />
-            <FeatureCard
-              icon={CheckIcon}
-              title="Conversion Psychology"
-              description="Leverage proven psychological triggers like scarcity, social proof, and authority to boost your conversion rates."
-              delay={0.5}
-            />
-            <FeatureCard
-              icon={SparklesIcon}
-              title="Mobile Optimization"
-              description="Ensure your website converts on all devices with mobile-specific recommendations and responsive design insights."
-              delay={0.6}
-            />
+          <div className="mt-10 grid gap-4 sm:mt-16 lg:grid-cols-3 lg:grid-rows-2">
+            {/* AI Analysis - Large Left Panel */}
+            <div className="relative lg:row-span-2">
+              <div className="absolute inset-px rounded-lg bg-white/70 backdrop-blur-sm lg:rounded-l-[2rem]" />
+              <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] lg:rounded-l-[calc(2rem+1px)] border border-blue-200/50">
+                <div className="px-8 pt-8 pb-3 sm:px-10 sm:pt-10 sm:pb-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                      <SparklesIcon className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">AI-Powered</span>
+                  </div>
+                  <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">
+                    AI-Powered Analysis
+                  </p>
+                  <p className="mt-2 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
+                    Advanced AI scans your website for conversion opportunities using psychology principles and UX best practices.
+                  </p>
+                </div>
+                <div className="relative min-h-[30rem] w-full grow max-lg:mx-auto max-lg:max-w-sm">
+                  <div className="absolute inset-x-6 top-6 bottom-6 overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 shadow-2xl border border-blue-200">
+                    {/* Mock AI Analysis UI */}
+                    <div className="p-6 h-full">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                          <SparklesIcon className="w-4 h-4 text-white" />
+                        </div>
+                        <span className="font-semibold text-gray-800">AI Analysis</span>
+                        <div className="ml-auto flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-sm text-gray-600">Analyzing...</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="bg-white/80 rounded-lg p-4 border border-blue-200/50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-4 h-4 bg-amber-500 rounded"></div>
+                            <span className="text-sm font-medium">Psychology Triggers</span>
+                          </div>
+                          <div className="text-xs text-gray-600">Analyzing social proof elements...</div>
+                          <div className="mt-2 bg-amber-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-amber-500 h-full w-3/4 animate-pulse"></div>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-white/80 rounded-lg p-4 border border-blue-200/50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-4 h-4 bg-green-500 rounded"></div>
+                            <span className="text-sm font-medium">UX Patterns</span>
+                          </div>
+                          <div className="text-xs text-gray-600">Checking navigation flow...</div>
+                          <div className="mt-2 bg-green-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-green-500 h-full w-4/5 animate-pulse"></div>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-white/80 rounded-lg p-4 border border-blue-200/50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                            <span className="text-sm font-medium">Technical SEO</span>
+                          </div>
+                          <div className="text-xs text-gray-600">Scanning meta tags...</div>
+                          <div className="mt-2 bg-blue-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-blue-500 h-full w-2/3 animate-pulse"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="pointer-events-none absolute inset-px rounded-lg shadow-sm ring-1 ring-black/5 lg:rounded-l-[2rem]" />
+            </div>
+
+            {/* Performance Tracking - Top Right */}
+            <div className="relative max-lg:row-start-1">
+              <div className="absolute inset-px rounded-lg bg-white/70 backdrop-blur-sm max-lg:rounded-t-[2rem]" />
+              <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] max-lg:rounded-t-[calc(2rem+1px)] border border-blue-200/50">
+                <div className="px-8 pt-8 sm:px-10 sm:pt-10">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                      <ChartBarIcon className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">Performance Tracking</p>
+                  <p className="mt-2 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
+                    Monitor improvements over time with detailed analytics and real impact metrics.
+                  </p>
+                </div>
+                <div className="flex flex-1 items-center justify-center px-8 max-lg:pt-10 max-lg:pb-12 sm:px-10 lg:pb-2">
+                  {/* Mock Chart */}
+                  <div className="w-full max-w-xs">
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl p-6 border border-green-200">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="text-sm font-medium text-gray-700">Conversion Rate</span>
+                        <span className="text-green-600 text-sm font-semibold">+24%</span>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-end gap-1 h-16">
+                          <div className="bg-green-200 w-4 h-8 rounded-t"></div>
+                          <div className="bg-green-300 w-4 h-10 rounded-t"></div>
+                          <div className="bg-green-400 w-4 h-12 rounded-t"></div>
+                          <div className="bg-green-500 w-4 h-16 rounded-t"></div>
+                          <div className="bg-green-600 w-4 h-14 rounded-t"></div>
+                        </div>
+                        <div className="text-xs text-gray-500 text-center">Last 5 months</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="pointer-events-none absolute inset-px rounded-lg shadow-sm ring-1 ring-black/5 max-lg:rounded-t-[2rem]" />
+            </div>
+
+            {/* Quick Implementation - Bottom Middle */}
+            <div className="relative max-lg:row-start-3 lg:col-start-2 lg:row-start-2">
+              <div className="absolute inset-px rounded-lg bg-white/70 backdrop-blur-sm" />
+              <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] border border-blue-200/50">
+                <div className="px-8 pt-8 sm:px-10 sm:pt-10">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
+                      <RocketLaunchIcon className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">Quick Implementation</p>
+                  <p className="mt-2 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
+                    No technical expertise required. Clear instructions and code snippets included.
+                  </p>
+                </div>
+                <div className="flex flex-1 items-center max-lg:py-6 lg:pb-2 px-8 sm:px-10">
+                  {/* Mock Code Snippet */}
+                  <div className="w-full bg-gray-900 rounded-lg p-4 text-xs font-mono text-green-400 overflow-hidden">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-gray-400 ml-2">implementation.html</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div><span className="text-blue-400">&lt;button</span> <span className="text-purple-400">class=</span><span className="text-green-300">"cta-urgent"</span><span className="text-blue-400">&gt;</span></div>
+                      <div className="pl-2">🔥 Limited Time Offer</div>
+                      <div><span className="text-blue-400">&lt;/button&gt;</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="pointer-events-none absolute inset-px rounded-lg shadow-sm ring-1 ring-black/5" />
+            </div>
+
+            {/* Actionable Insights - Large Right Panel */}
+            <div className="relative lg:row-span-2">
+              <div className="absolute inset-px rounded-lg bg-white/70 backdrop-blur-sm max-lg:rounded-b-[2rem] lg:rounded-r-[2rem]" />
+              <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)] max-lg:rounded-b-[calc(2rem+1px)] lg:rounded-r-[calc(2rem+1px)] border border-blue-200/50">
+                <div className="px-8 pt-8 pb-3 sm:px-10 sm:pt-10 sm:pb-0">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                      <LightBulbIcon className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm font-medium">Priority</span>
+                  </div>
+                  <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">
+                    Actionable Insights
+                  </p>
+                  <p className="mt-2 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
+                    Get specific, prioritized recommendations with step-by-step implementation guides.
+                  </p>
+                </div>
+                <div className="relative min-h-[30rem] w-full grow">
+                  <div className="absolute top-6 right-6 bottom-6 left-6 overflow-hidden rounded-xl bg-gradient-to-br from-purple-50 to-pink-100 shadow-2xl border border-purple-200">
+                    {/* Mock Recommendations List */}
+                    <div className="p-6 h-full overflow-hidden">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="font-semibold text-gray-800">Top Recommendations</h3>
+                        <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">3 High Impact</span>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="bg-white/80 rounded-lg p-4 border border-purple-200/50 border-l-4 border-l-red-500">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">1</div>
+                              <span className="font-medium text-sm">Add Social Proof</span>
+                            </div>
+                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">High Impact</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-2">Missing customer testimonials on homepage</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">Est. Impact:</span>
+                            <span className="text-xs font-semibold text-red-600">+15% CVR</span>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-white/80 rounded-lg p-4 border border-purple-200/50 border-l-4 border-l-amber-500">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">2</div>
+                              <span className="font-medium text-sm">Optimize CTA</span>
+                            </div>
+                            <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-medium">Medium</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-2">Button text lacks urgency</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">Est. Impact:</span>
+                            <span className="text-xs font-semibold text-amber-600">+8% CVR</span>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-white/80 rounded-lg p-4 border border-purple-200/50 border-l-4 border-l-blue-500">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">3</div>
+                              <span className="font-medium text-sm">Mobile Speed</span>
+                            </div>
+                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">Technical</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-2">Page load time > 3 seconds</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">Est. Impact:</span>
+                            <span className="text-xs font-semibold text-blue-600">+12% CVR</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="pointer-events-none absolute inset-px rounded-lg shadow-sm ring-1 ring-black/5 max-lg:rounded-b-[2rem] lg:rounded-r-[2rem]" />
+            </div>
           </div>
         </div>
       </section>
