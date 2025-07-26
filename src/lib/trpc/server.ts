@@ -2,6 +2,7 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import { ZodError } from 'zod';
 import { auth } from '@/lib/auth';
 import { getUserSubscription } from '@/lib/subscription-service';
+import { handleTrpcError, addBreadcrumb } from '@/lib/sentry-utils';
 
 // Create tRPC context
 export const createTRPCContext = async (opts: { req?: Request }) => {
@@ -16,9 +17,12 @@ export const createTRPCContext = async (opts: { req?: Request }) => {
   };
 };
 
-// Initialize tRPC
+// Initialize tRPC with enhanced error handling
 const t = initTRPC.context<typeof createTRPCContext>().create({
   errorFormatter({ shape, error }) {
+    // Log tRPC errors to Sentry
+    handleTrpcError(error, shape.data?.path || 'unknown', shape.data);
+    
     return {
       ...shape,
       data: {
@@ -32,14 +36,51 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 
 // Export router and procedure helpers
 export const createTRPCRouter = t.router;
-export const publicProcedure = t.procedure;
+
+// Add middleware to track tRPC calls
+const loggingMiddleware = t.middleware(async ({ ctx, type, path, input, next }) => {
+  const start = Date.now();
+  
+  // Add breadcrumb for the tRPC call
+  addBreadcrumb(
+    `tRPC ${type}: ${path}`,
+    'trpc.call',
+    { 
+      type,
+      path,
+      userId: ctx.user?.id,
+      hasInput: !!input 
+    }
+  );
+
+  const result = await next();
+  const duration = Date.now() - start;
+
+  // Add breadcrumb for successful completion
+  if (result.ok) {
+    addBreadcrumb(
+      `tRPC ${type}: ${path} completed`,
+      'trpc.success',
+      { 
+        type,
+        path,
+        duration,
+        userId: ctx.user?.id
+      }
+    );
+  }
+
+  return result;
+});
+
+export const publicProcedure = t.procedure.use(loggingMiddleware);
 
 // In-memory cache for subscription data (short TTL to balance performance and freshness)
 const subscriptionCache = new Map<string, { data: any; expiry: number }>();
 const CACHE_TTL = 30 * 1000; // 30 seconds
 
 // Protected procedure that requires authentication
-export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
+export const protectedProcedure = t.procedure.use(loggingMiddleware).use(async ({ ctx, next }) => {
   if (!ctx.session || !ctx.user) {
     throw new TRPCError({
       code: 'UNAUTHORIZED',
