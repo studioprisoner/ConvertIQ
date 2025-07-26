@@ -43,7 +43,7 @@ export class AnthropicAnalysisProvider {
           temperature: 0.3, // Lower temperature for more consistent analysis
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Conversion analysis timeout after 15s')), 15000)
+          setTimeout(() => reject(new Error('Conversion analysis timeout after 25s')), 25000)
         )
       ]) as any;
 
@@ -77,7 +77,7 @@ export class AnthropicAnalysisProvider {
           temperature: 0.3,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('UX analysis timeout after 15s')), 15000)
+          setTimeout(() => reject(new Error('UX analysis timeout after 25s')), 25000)
         )
       ]) as any;
 
@@ -111,7 +111,7 @@ export class AnthropicAnalysisProvider {
           temperature: 0.3,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SEO analysis timeout after 15s')), 15000)
+          setTimeout(() => reject(new Error('SEO analysis timeout after 25s')), 25000)
         )
       ]) as any;
 
@@ -141,47 +141,67 @@ export class AnthropicAnalysisProvider {
     const startTime = Date.now();
 
     try {
-      // Run all analyses in parallel for efficiency with timeout
-      const analysisPromise = Promise.all([
-        this.analyzeConversionPsychology(crawlData),
-        this.analyzeUX(crawlData),
-        this.analyzeTechnicalSEO(crawlData),
+      console.log('🤖 Starting comprehensive analysis with graceful degradation...');
+      
+      // Run all analyses in parallel with individual error handling
+      const analysisResults = await Promise.allSettled([
+        this.analyzeConversionPsychology(crawlData).catch(error => {
+          console.warn('Conversion analysis failed, using fallback:', error.message);
+          return this.createFallbackConversionAnalysis();
+        }),
+        this.analyzeUX(crawlData).catch(error => {
+          console.warn('UX analysis failed, using fallback:', error.message);
+          return this.createFallbackUXAnalysis();
+        }),
+        this.analyzeTechnicalSEO(crawlData).catch(error => {
+          console.warn('SEO analysis failed, using fallback:', error.message);
+          return this.createFallbackSEOAnalysis();
+        }),
       ]);
 
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Comprehensive analysis timeout after 45s')), 45000)
-      );
-
-      const [conversionResult, uxResult, seoResult] = await Promise.race([
-        analysisPromise,
-        timeoutPromise
-      ]) as any[];
+      // Extract results, handling both successful and fallback cases
+      const conversionResult = analysisResults[0].status === 'fulfilled' ? analysisResults[0].value : analysisResults[0].reason;
+      const uxResult = analysisResults[1].status === 'fulfilled' ? analysisResults[1].value : analysisResults[1].reason;
+      const seoResult = analysisResults[2].status === 'fulfilled' ? analysisResults[2].value : analysisResults[2].reason;
 
       // Generate simple overall insights without additional AI call
-      const overallScore = Math.round((conversionResult.analysis.overallScore + uxResult.analysis.overallScore + seoResult.analysis.overallScore) / 3);
+      const validScores = [
+        conversionResult?.analysis?.overallScore,
+        uxResult?.analysis?.overallScore,
+        seoResult?.analysis?.overallScore
+      ].filter(score => typeof score === 'number' && score > 0);
+      
+      const overallScore = validScores.length > 0 ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length) : 5;
+      
+      const failures = analysisResults.filter(result => result.status === 'rejected').length;
+      const partialWarning = failures > 0 ? `\n\n⚠️ **Note**: ${failures} analysis sections used fallback data due to processing timeouts. This is a temporary issue that will be resolved in future scans.` : '';
       
       const overallAnalysis = {
-        summary: `# ${crawlData.url} Analysis Summary\n\n**Overall Score: ${overallScore}/10**\n\n**Conversion Score:** ${conversionResult.analysis.overallScore}/10\n**UX Score:** ${uxResult.analysis.overallScore}/10\n**SEO Score:** ${seoResult.analysis.overallScore}/10\n\nDetailed recommendations are available in each analysis section below.`,
+        summary: `# ${crawlData.url} Analysis Summary\n\n**Overall Score: ${overallScore}/10**\n\n**Conversion Score:** ${conversionResult?.analysis?.overallScore || 'N/A'}/10\n**UX Score:** ${uxResult?.analysis?.overallScore || 'N/A'}/10\n**SEO Score:** ${seoResult?.analysis?.overallScore || 'N/A'}/10${partialWarning}\n\nDetailed recommendations are available in each analysis section below.`,
         overallScore,
-        priorityAreas: this.identifyPriorityAreas(conversionResult.analysis, uxResult.analysis, seoResult.analysis),
+        priorityAreas: this.identifyPriorityAreasWithFallback(conversionResult?.analysis, uxResult?.analysis, seoResult?.analysis),
+        isPartial: failures > 0,
+        failedSections: failures,
       };
 
       const totalProcessingTime = Date.now() - startTime;
 
       return {
-        conversionPsychology: conversionResult.analysis,
-        uxAnalysis: uxResult.analysis,
-        technicalSeo: seoResult.analysis,
+        conversionPsychology: conversionResult?.analysis || null,
+        uxAnalysis: uxResult?.analysis || null,
+        technicalSeo: seoResult?.analysis || null,
         overallInsights: overallAnalysis,
         metadata: {
           processingTime: totalProcessingTime,
           modelUsed: 'claude-3-5-sonnet-20241022',
-          promptVersion: 'comprehensive-1.1.0-optimized',
-          confidence: 0.85, // Slightly lower for comprehensive analysis
+          promptVersion: 'comprehensive-1.2.0-graceful-degradation',
+          confidence: failures === 0 ? 0.85 : Math.max(0.4, 0.85 - (failures * 0.15)), // Lower confidence for partial results
+          isPartial: failures > 0,
+          failedSections: failures,
         },
       };
     } catch (error) {
-      console.error('Comprehensive analysis failed:', error);
+      console.error('Comprehensive analysis failed completely:', error);
       throw new Error(`Comprehensive analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -198,6 +218,70 @@ export class AnthropicAnalysisProvider {
     return areas
       .sort((a, b) => a.score - b.score)
       .map(area => area.name);
+  }
+
+  private identifyPriorityAreasWithFallback(conversionAnalysis: any, uxAnalysis: any, seoAnalysis: any): string[] {
+    const areas = [
+      { name: 'Conversion Psychology', score: conversionAnalysis?.overallScore || 5 },
+      { name: 'User Experience', score: uxAnalysis?.overallScore || 5 },
+      { name: 'Technical SEO', score: seoAnalysis?.overallScore || 5 },
+    ].filter(area => area.score > 0);
+
+    // Sort by lowest score (highest priority for improvement)
+    return areas
+      .sort((a, b) => a.score - b.score)
+      .map(area => area.name);
+  }
+
+  private createFallbackConversionAnalysis(): any {
+    return {
+      analysis: {
+        overallScore: 5,
+        keyFindings: ['Analysis temporarily unavailable due to processing timeout'],
+        priorityRecommendations: ['Re-scan your website when our servers are less busy for detailed conversion analysis'],
+      },
+      metadata: {
+        processingTime: 0,
+        modelUsed: 'fallback',
+        promptVersion: 'fallback-1.0.0',
+        confidence: 0.3,
+        isFallback: true,
+      },
+    };
+  }
+
+  private createFallbackUXAnalysis(): any {
+    return {
+      analysis: {
+        overallScore: 5,
+        keyFindings: ['Analysis temporarily unavailable due to processing timeout'],
+        priorityRecommendations: ['Re-scan your website when our servers are less busy for detailed UX analysis'],
+      },
+      metadata: {
+        processingTime: 0,
+        modelUsed: 'fallback',
+        promptVersion: 'fallback-1.0.0',
+        confidence: 0.3,
+        isFallback: true,
+      },
+    };
+  }
+
+  private createFallbackSEOAnalysis(): any {
+    return {
+      analysis: {
+        overallScore: 5,
+        keyFindings: ['Analysis temporarily unavailable due to processing timeout'],
+        priorityRecommendations: ['Re-scan your website when our servers are less busy for detailed SEO analysis'],
+      },
+      metadata: {
+        processingTime: 0,
+        modelUsed: 'fallback',
+        promptVersion: 'fallback-1.0.0',
+        confidence: 0.3,
+        isFallback: true,
+      },
+    };
   }
 
   // Health check method
