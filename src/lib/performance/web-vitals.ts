@@ -1,15 +1,15 @@
-import { onCLS, onFID, onFCP, onLCP, onTTFB } from 'web-vitals';
+import { onCLS, onINP, onFCP, onLCP, onTTFB } from 'web-vitals';
 
 // Core Web Vitals thresholds
 const THRESHOLDS = {
   LCP: { good: 2500, needsImprovement: 4000 },
-  FID: { good: 100, needsImprovement: 300 },
+  INP: { good: 200, needsImprovement: 500 }, // INP replaces FID in web-vitals v4+
   CLS: { good: 0.1, needsImprovement: 0.25 },
   FCP: { good: 1800, needsImprovement: 3000 },
   TTFB: { good: 800, needsImprovement: 1800 },
 };
 
-type MetricName = 'LCP' | 'FID' | 'CLS' | 'FCP' | 'TTFB';
+type MetricName = 'LCP' | 'INP' | 'CLS' | 'FCP' | 'TTFB';
 
 interface WebVitalMetric {
   name: MetricName;
@@ -81,11 +81,11 @@ export function reportWebVitals() {
       sendToAnalytics(webVitalMetric);
     });
 
-    onFID((metric) => {
+    onINP((metric) => {
       const webVitalMetric: WebVitalMetric = {
-        name: 'FID',
+        name: 'INP',
         value: metric.value,
-        rating: getMetricRating('FID', metric.value),
+        rating: getMetricRating('INP', metric.value),
         delta: metric.delta,
         id: metric.id,
       };
