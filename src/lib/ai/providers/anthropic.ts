@@ -43,7 +43,7 @@ export class AnthropicAnalysisProvider {
           temperature: 0.3, // Lower temperature for more consistent analysis
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Conversion analysis timeout after 25s')), 25000)
+          setTimeout(() => reject(new Error('Conversion analysis timeout after 20s')), 20000)
         )
       ]) as any;
 
@@ -77,7 +77,7 @@ export class AnthropicAnalysisProvider {
           temperature: 0.3,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('UX analysis timeout after 25s')), 25000)
+          setTimeout(() => reject(new Error('UX analysis timeout after 20s')), 20000)
         )
       ]) as any;
 
@@ -111,7 +111,7 @@ export class AnthropicAnalysisProvider {
           temperature: 0.3,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SEO analysis timeout after 25s')), 25000)
+          setTimeout(() => reject(new Error('SEO analysis timeout after 20s')), 20000)
         )
       ]) as any;
 
@@ -139,25 +139,60 @@ export class AnthropicAnalysisProvider {
 
   async generateComprehensiveAnalysis(crawlData: CrawlResult): Promise<any> {
     const startTime = Date.now();
+    const TOTAL_TIMEOUT = 25000; // 25 seconds to stay well under Vercel 30s limit
 
     try {
       console.log('🤖 Starting comprehensive analysis with graceful degradation...');
+      console.log(`⏱️ Total timeout set to ${TOTAL_TIMEOUT}ms`);
       
-      // Run all analyses in parallel with individual error handling
-      const analysisResults = await Promise.allSettled([
-        this.analyzeConversionPsychology(crawlData).catch(error => {
+      // Create a promise that will timeout the entire analysis if it takes too long
+      const analysisPromise = this.performComprehensiveAnalysisInternal(crawlData, startTime, TOTAL_TIMEOUT);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Total comprehensive analysis timeout after 25s')), TOTAL_TIMEOUT)
+      );
+      
+      return await Promise.race([analysisPromise, timeoutPromise]);
+    } catch (error) {
+      console.error('Comprehensive analysis failed completely:', error);
+      throw new Error(`Comprehensive analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private async performComprehensiveAnalysisInternal(crawlData: CrawlResult, startTime: number, totalTimeout: number): Promise<any> {
+    try {
+      // Run all analyses in parallel with individual error handling and shorter timeouts
+      const analysisPromises = [
+        Promise.race([
+          this.analyzeConversionPsychology(crawlData),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Individual conversion analysis timeout after 8s')), 8000)
+          )
+        ]).catch(error => {
           console.warn('Conversion analysis failed, using fallback:', error.message);
           return this.createFallbackConversionAnalysis();
         }),
-        this.analyzeUX(crawlData).catch(error => {
+        Promise.race([
+          this.analyzeUX(crawlData),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Individual UX analysis timeout after 8s')), 8000)
+          )
+        ]).catch(error => {
           console.warn('UX analysis failed, using fallback:', error.message);
           return this.createFallbackUXAnalysis();
         }),
-        this.analyzeTechnicalSEO(crawlData).catch(error => {
+        Promise.race([
+          this.analyzeTechnicalSEO(crawlData),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Individual SEO analysis timeout after 8s')), 8000)
+          )
+        ]).catch(error => {
           console.warn('SEO analysis failed, using fallback:', error.message);
           return this.createFallbackSEOAnalysis();
         }),
-      ]);
+      ];
+
+      const analysisResults = await Promise.allSettled(analysisPromises);
+      console.log(`⏱️ Individual analyses completed in ${Date.now() - startTime}ms`);
 
       // Extract results, handling both successful and fallback cases
       const conversionResult = analysisResults[0].status === 'fulfilled' ? analysisResults[0].value : analysisResults[0].reason;
@@ -182,7 +217,9 @@ export class AnthropicAnalysisProvider {
       // Only generate detailed insights if we have successful analyses (not all fallbacks)
       if (failures < 3) {
         try {
+          const summaryStartTime = Date.now();
           console.log('🧠 Generating detailed executive summary...');
+          console.log(`⏱️ Time remaining: ${totalTimeout - (summaryStartTime - startTime)}ms`);
           overallAnalysis = await this.generateOptimizedOverallInsights(
             crawlData,
             conversionResult?.analysis,
@@ -191,6 +228,7 @@ export class AnthropicAnalysisProvider {
             overallScore,
             failures
           );
+          console.log(`⏱️ Executive summary completed in ${Date.now() - summaryStartTime}ms`);
         } catch (error) {
           console.warn('Executive summary generation failed, using simple summary:', error.message);
           overallAnalysis = this.createSimpleSummary(crawlData, overallScore, conversionResult, uxResult, seoResult, failures, partialWarning);
@@ -381,10 +419,10 @@ Keep recommendations specific and actionable for small business owners.`;
           system: 'You are ConvertIQ AI providing concise executive summary insights. Use proper markdown formatting with headers, bullet points, and bold text. Focus on actionable recommendations with specific impact estimates.',
           prompt: optimizedPrompt,
           temperature: 0.4,
-          maxTokens: 1500, // Limit tokens for faster processing
+          maxTokens: 1200, // Limit tokens for faster processing
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Executive summary timeout after 20s')), 20000)
+          setTimeout(() => reject(new Error('Executive summary timeout after 12s')), 12000)
         )
       ]) as any;
 
