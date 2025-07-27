@@ -459,7 +459,7 @@ class AIServicesTest {
     ];
 
     let passCount = 0;
-    let totalCount = sections.length;
+    const totalCount = sections.length;
 
     sections.forEach(section => {
       const result = this.results[section.key];
