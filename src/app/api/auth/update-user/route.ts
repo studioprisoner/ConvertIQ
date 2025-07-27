@@ -59,7 +59,12 @@ export async function POST(request: NextRequest) {
     });
 
     // Prepare update object
-    const updateData: any = {
+    const updateData: {
+      updatedAt: Date;
+      name?: string;
+      primaryDomain?: string;
+      onboardingCompleted?: boolean;
+    } = {
       updatedAt: new Date(),
     };
 

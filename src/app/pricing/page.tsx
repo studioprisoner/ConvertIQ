@@ -364,9 +364,7 @@ export default function PricingPage() {
                 When will I be charged?
               </dt>
               <dd className="mt-2 text-base leading-7 text-gray-600 dark:text-gray-400">
-                You'll be charged immediately when you select a plan. Your
-                subscription starts right away, giving you instant access to all
-                features.
+                You&apos;ll be charged immediately when you select a plan. Your subscription starts right away, giving you instant access to all features.
               </dd>
             </div>
 

@@ -103,18 +103,19 @@ export async function POST(request: NextRequest) {
               limit: 1
             });
 
-            if (existingCustomers.items && existingCustomers.items.length > 0) {
-              const existingCustomer = existingCustomers.items[0];
+            // Convert iterator to array
+            const existingCustomersArray = [];
+            for await (const customer of existingCustomers) {
+              existingCustomersArray.push(customer);
+            }
+
+            if (existingCustomersArray.length > 0) {
+              const existingCustomer = existingCustomersArray[0];
               results.push({
                 userId: userData.id,
                 email: userData.email,
                 status: 'found_existing',
-                polarCustomerId: existingCustomer.id,
-                polarCustomer: {
-                  id: existingCustomer.id,
-                  email: existingCustomer.email,
-                  name: existingCustomer.name
-                }
+                polarCustomer: existingCustomer
               });
             } else {
               results.push({

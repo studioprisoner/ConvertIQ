@@ -99,7 +99,6 @@ export default function ArchivedReportsPage() {
             </Text>
           </div>
           <Button 
-            variant="outline"
             onClick={() => router.push('/dashboard/reports')}
           >
             ← Back to Reports
@@ -133,7 +132,6 @@ export default function ArchivedReportsPage() {
           </Text>
         </div>
         <Button 
-          variant="outline"
           onClick={() => router.push('/dashboard/reports')}
         >
           ← Back to Reports
@@ -179,8 +177,6 @@ export default function ArchivedReportsPage() {
                   </Text>
                 </div>
                 <Button
-                  variant="outline"
-                  size="sm"
                   onClick={() => handleRescanClick(report.websiteId, report.websiteName)}
                   className="text-blue-600 hover:text-blue-700 hover:border-blue-300"
                   title="Rescan this website"
@@ -217,7 +213,7 @@ export default function ArchivedReportsPage() {
 
       {archivedReports.hasMore && (
         <div className="text-center">
-          <Button variant="outline" onClick={() => {
+          <Button onClick={() => {
             // TODO: Implement pagination
             console.log('Load more archived reports');
           }}>
@@ -240,18 +236,17 @@ export default function ArchivedReportsPage() {
             </div>
             <div className="flex space-x-3 justify-end">
               <Button
-                variant="outline"
                 onClick={handleCancelRescan}
-                disabled={rescanMutation.isLoading}
+                disabled={rescanMutation.isPending}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirmRescan}
-                disabled={rescanMutation.isLoading}
+                disabled={rescanMutation.isPending}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {rescanMutation.isLoading ? 'Starting Rescan...' : 'Start Rescan'}
+                {rescanMutation.isPending ? 'Starting Rescan...' : 'Start Rescan'}
               </Button>
             </div>
           </div>

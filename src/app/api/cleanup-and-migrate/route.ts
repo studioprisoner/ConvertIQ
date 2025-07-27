@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     // Step 2: Create real Polar customer
     console.log('👤 Creating real Polar customer...');
     
-    let polarCustomer;
+    let polarCustomer: any;
     try {
       polarCustomer = await polar.customers.create({
         email: userRecord.email,
@@ -75,15 +75,14 @@ export async function POST(request: NextRequest) {
           limit: 1
         });
         
-        // Handle pagination response - iterate to get first item
-        const customersList = [];
+        // Convert iterator to array
+        const customersArray = [];
         for await (const customer of existingCustomers) {
-          customersList.push(customer);
-          break; // Only get first item
+          customersArray.push(customer);
         }
         
-        if (customersList.length > 0) {
-          polarCustomer = customersList[0];
+        if (customersArray.length > 0) {
+          polarCustomer = customersArray[0];
           console.log(`✅ Found existing Polar customer: ${polarCustomer.id}`);
         } else {
           throw new Error('Customer exists in Polar but could not be found via list API');
