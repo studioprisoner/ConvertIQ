@@ -20,9 +20,16 @@ function extractDomain(url: string): string {
   }
 }
 
-// Helper function to check if two URLs belong to the same domain
+// Helper function to normalize domain (remove www prefix)
+function normalizeDomain(hostname: string): string {
+  return hostname.toLowerCase().replace(/^www\./, '');
+}
+
+// Helper function to check if two URLs belong to the same domain (ignoring www)
 function isSameDomain(url1: string, url2: string): boolean {
-  return extractDomain(url1) === extractDomain(url2);
+  const domain1 = normalizeDomain(extractDomain(url1));
+  const domain2 = normalizeDomain(extractDomain(url2));
+  return domain1 === domain2;
 }
 
 export const websitesRouter = createTRPCRouter({
@@ -130,10 +137,14 @@ export const websitesRouter = createTRPCRouter({
         throw new Error(`Pro plan allows up to ${DOMAIN_LIMIT} domains. You currently have ${userWebsites.length} domains. Please remove some domains or upgrade your plan.`);
       }
 
-      // Check if domain with this URL already exists for this user
-      const existing = userWebsites.find(website => website.url === input.url);
+      // Check if domain with this URL already exists for this user (ignoring www)
+      const inputDomain = normalizeDomain(extractDomain(input.url));
+      const existing = userWebsites.find(website => {
+        const websiteDomain = normalizeDomain(extractDomain(website.url));
+        return websiteDomain === inputDomain;
+      });
       if (existing) {
-        throw new Error('Domain with this URL already exists');
+        throw new Error('Domain already exists (www and non-www versions are treated as the same domain)');
       }
 
       // Create new domain
@@ -205,20 +216,24 @@ export const websitesRouter = createTRPCRouter({
           throw new Error(validation.error || 'Invalid URL');
         }
 
-        // Check if another website with this URL already exists for this user
-        const urlExists = await db
+        // Check if another website with this domain already exists for this user (ignoring www)
+        const inputDomain = normalizeDomain(extractDomain(input.url));
+        const allUserWebsites = await db
           .select()
           .from(websites)
           .where(and(
-            eq(websites.url, input.url),
             eq(websites.userId, userId),
             // Exclude current website
             ne(websites.id, input.id)
-          ))
-          .limit(1);
+          ));
 
-        if (urlExists.length > 0) {
-          throw new Error('Another website with this URL already exists');
+        const domainExists = allUserWebsites.some(website => {
+          const websiteDomain = normalizeDomain(extractDomain(website.url));
+          return websiteDomain === inputDomain;
+        });
+
+        if (domainExists) {
+          throw new Error('Another website with this domain already exists (www and non-www versions are treated as the same domain)');
         }
 
         updateData.url = input.url;
@@ -306,7 +321,9 @@ export const websitesRouter = createTRPCRouter({
         // Extract domain from URL for validation (do this first)
         const urlObj = new URL(input.url);
         const scanDomain = urlObj.hostname.toLowerCase();
+        const normalizedScanDomain = normalizeDomain(scanDomain);
         console.log('🌐 Extracted scan domain:', scanDomain);
+        console.log('🌐 Normalized scan domain:', normalizedScanDomain);
 
         // Get user's existing domains first
         console.log('📊 Querying user domains...');
@@ -316,10 +333,12 @@ export const websitesRouter = createTRPCRouter({
           .where(eq(websites.userId, userId));
         console.log('📊 Found user domains:', userDomains.length);
 
-        // Check if the domain is already in user's allowed domains
+        // Check if the domain is already in user's allowed domains (ignoring www)
         const isDomainAllowed = userDomains.some(domain => {
           const domainHost = new URL(domain.url).hostname.toLowerCase();
-          return domainHost === scanDomain;
+          const normalizedDomainHost = normalizeDomain(domainHost);
+          console.log(`🔍 Comparing normalized domains: ${normalizedScanDomain} vs ${normalizedDomainHost}`);
+          return normalizedScanDomain === normalizedDomainHost;
         });
 
         if (!isDomainAllowed) {
@@ -342,7 +361,7 @@ export const websitesRouter = createTRPCRouter({
             throw new Error(`DOMAIN_LIMIT_REACHED:This domain is not in your allowed domains list. Pro plan allows up to ${DOMAIN_LIMIT} domains. Please add this domain to your domains list first or scan a URL from your existing domains.`);
           } else {
             // User has space - offer to add domain
-            throw new Error(`DOMAIN_NOT_ALLOWED:This domain is not in your allowed domains list. Would you like to add "${scanDomain}" to your domains? You are using ${userDomains.length} of ${DOMAIN_LIMIT} domains.`);
+            throw new Error(`DOMAIN_NOT_ALLOWED:This domain is not in your allowed domains list. Would you like to add "${normalizedScanDomain}" to your domains? You are using ${userDomains.length} of ${DOMAIN_LIMIT} domains.`);
           }
         }
 
