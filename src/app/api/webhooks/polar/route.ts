@@ -205,8 +205,28 @@ async function handleSubscriptionCreated(data: SubscriptionCreatedData) {
       let userId = (data.metadata as any)?.userId;
       let planId = (data.metadata as any)?.planId;
       
-      // If userId is missing, try to find the user by customer email
-      if (!userId) {
+      // If userId is missing or invalid, try to find the user by customer email
+      let needsUserLookup = !userId;
+      
+      // If userId exists, verify it's valid in our database
+      if (userId) {
+        console.log(`🔍 Verifying user ID from metadata: ${userId}`);
+        const [existingUser] = await db
+          .select({ id: user.id })
+          .from(user)
+          .where(eq(user.id, userId))
+          .limit(1);
+          
+        if (!existingUser) {
+          console.log(`⚠️ User ID from metadata not found in database: ${userId}`);
+          needsUserLookup = true;
+          userId = null; // Reset to trigger lookup
+        } else {
+          console.log(`✅ User ID verified in database: ${userId}`);
+        }
+      }
+      
+      if (needsUserLookup) {
         console.log('⚠️ userId missing from metadata, looking up customer in Polar...');
         try {
           const customer = await polar.customers.get(data.customer_id);
@@ -299,8 +319,10 @@ async function handleSubscriptionCreated(data: SubscriptionCreatedData) {
           metadata: {
             ...data,
             webhookProcessedAt: new Date().toISOString(),
-            userLookupMethod: (data.metadata as any)?.userId ? 'metadata' : 'customer_email',
-            planLookupMethod: (data.metadata as any)?.planId ? 'metadata' : 'price_mapping'
+            userLookupMethod: needsUserLookup ? 'customer_email' : 'metadata',
+            planLookupMethod: (data.metadata as any)?.planId ? 'metadata' : 'price_mapping',
+            originalMetadataUserId: (data.metadata as any)?.userId,
+            resolvedUserId: userId
           },
         })
         .returning();
