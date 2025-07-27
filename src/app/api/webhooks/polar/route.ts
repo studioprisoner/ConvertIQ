@@ -90,6 +90,57 @@ export async function POST(request: NextRequest) {
         await handlePaymentFailed(data as any);
         break;
       
+      case 'order.paid':
+        await handleOrderPaid(data as any);
+        break;
+      
+      case 'customer.created':
+      case 'customer.updated':
+        await handleCustomerEvent(data as any, type);
+        break;
+      
+      case 'checkout.created':
+      case 'checkout.updated':
+        await handleCheckoutEvent(data as any, type);
+        break;
+      
+      case 'order.created':
+        await handleOrderCreated(data as any);
+        break;
+      
+      case 'subscription.uncanceled':
+      case 'subscription.revoked':
+      case 'subscription.active':
+        await handleSubscriptionStatusChange(data as any, type);
+        break;
+      
+      case 'customer.deleted':
+      case 'customer.state_changed':
+        await handleCustomerEvent(data as any, type);
+        break;
+      
+      case 'order.updated':
+      case 'order.refunded':
+        await handleOrderEvent(data as any, type);
+        break;
+      
+      case 'refund.created':
+      case 'refund.updated':
+        await handleRefundEvent(data as any, type);
+        break;
+      
+      case 'product.created':
+      case 'product.updated':
+      case 'benefit.created':
+      case 'benefit.updated':
+      case 'benefit_grant.created':
+      case 'benefit_grant.cycled':
+      case 'benefit_grant.updated':
+      case 'benefit_grant.revoked':
+      case 'organization.updated':
+        await handleInformationalEvent(data as any, type);
+        break;
+      
       default:
         console.log('Unhandled webhook event type:', type);
     }
@@ -305,4 +356,90 @@ async function handlePaymentSucceeded(data: PaymentEventData) {
 async function handlePaymentFailed(data: PaymentEventData) {
   // TODO: Handle failed payment, send email notification
   console.log('Payment failed for subscription:', data.subscription_id);
+}
+
+async function handleOrderPaid(data: any) {
+  try {
+    console.log('🔄 Processing order.paid webhook:', data.id);
+    
+    // Check if this order has a subscription (subscription orders)
+    if (!data.subscription_id || !data.subscription) {
+      console.log('ℹ️ Order does not contain subscription, skipping');
+      return;
+    }
+    
+    const subscriptionData = data.subscription;
+    console.log('📝 Creating subscription from order.paid event:', subscriptionData.id);
+    
+    // Use the same logic as subscription.created but with subscription data from the order
+    await handleSubscriptionCreated(subscriptionData);
+    
+    console.log('✅ Order paid webhook processed successfully:', data.id);
+  } catch (error) {
+    console.error('❌ Error handling order paid:', error);
+    throw error;
+  }
+}
+
+async function handleCustomerEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Customer event ${eventType}:`, data.id);
+  // We don't need to do anything special for customer events currently
+  // Just log and acknowledge
+}
+
+async function handleCheckoutEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Checkout event ${eventType}:`, data.id);
+  // We don't need to do anything special for checkout events currently
+  // Just log and acknowledge
+}
+
+async function handleOrderCreated(data: any) {
+  console.log('ℹ️ Order created:', data.id);
+  // We don't need to do anything special for order creation currently
+  // The important event is order.paid
+}
+
+async function handleSubscriptionStatusChange(data: any, eventType: string) {
+  try {
+    console.log(`🔄 Processing ${eventType} webhook:`, data.id);
+    
+    let newStatus = data.status || 'active';
+    if (eventType === 'subscription.uncanceled' || eventType === 'subscription.active') {
+      newStatus = 'active';
+    } else if (eventType === 'subscription.revoked') {
+      newStatus = 'canceled';
+    }
+    
+    await db
+      .update(subscriptions)
+      .set({
+        status: newStatus,
+        canceledAt: eventType === 'subscription.revoked' ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.polarSubscriptionId, data.id));
+
+    console.log(`✅ Subscription ${eventType} processed:`, data.id);
+  } catch (error) {
+    console.error(`❌ Error handling ${eventType}:`, error);
+    throw error;
+  }
+}
+
+async function handleOrderEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Order event ${eventType}:`, data.id);
+  // We don't need to do anything special for order updates/refunds currently
+  // Just log and acknowledge
+}
+
+async function handleRefundEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Refund event ${eventType}:`, data.id);
+  // TODO: In the future, we might want to handle refunds by updating subscription status
+  // For now, just log and acknowledge
+}
+
+async function handleInformationalEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Informational event ${eventType}:`, data.id || 'N/A');
+  // These are informational events that don't require action
+  // Just log and acknowledge
 }
