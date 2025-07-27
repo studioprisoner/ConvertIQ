@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     // Step 2: Create real Polar customer
     console.log('👤 Creating real Polar customer...');
     
-    let polarCustomer;
+    let polarCustomer: any;
     try {
       polarCustomer = await polar.customers.create({
         email: userRecord.email,
