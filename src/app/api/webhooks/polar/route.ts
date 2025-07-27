@@ -90,6 +90,10 @@ export async function POST(request: NextRequest) {
         await handlePaymentFailed(data as any);
         break;
       
+      case 'order.paid':
+        await handleOrderPaid(data as any);
+        break;
+      
       default:
         console.log('Unhandled webhook event type:', type);
     }
@@ -305,4 +309,27 @@ async function handlePaymentSucceeded(data: PaymentEventData) {
 async function handlePaymentFailed(data: PaymentEventData) {
   // TODO: Handle failed payment, send email notification
   console.log('Payment failed for subscription:', data.subscription_id);
+}
+
+async function handleOrderPaid(data: any) {
+  try {
+    console.log('🔄 Processing order.paid webhook:', data.id);
+    
+    // Check if this order has a subscription (subscription orders)
+    if (!data.subscription_id || !data.subscription) {
+      console.log('ℹ️ Order does not contain subscription, skipping');
+      return;
+    }
+    
+    const subscriptionData = data.subscription;
+    console.log('📝 Creating subscription from order.paid event:', subscriptionData.id);
+    
+    // Use the same logic as subscription.created but with subscription data from the order
+    await handleSubscriptionCreated(subscriptionData);
+    
+    console.log('✅ Order paid webhook processed successfully:', data.id);
+  } catch (error) {
+    console.error('❌ Error handling order paid:', error);
+    throw error;
+  }
 }
