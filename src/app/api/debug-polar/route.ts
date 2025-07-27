@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       case 'polar-org':
         try {
           // Test if we can access Polar API
-          const orgs = await polar.organizations.list();
+          const orgs = await polar.organizations.list({ limit: 10 });
           return NextResponse.json({
             success: true,
             message: 'Polar API accessible',
