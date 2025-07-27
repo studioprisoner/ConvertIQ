@@ -37,9 +37,15 @@ export async function POST(request: NextRequest) {
         limit: 1
       });
       
-      if (customers.items && customers.items.length > 0) {
-        polarCustomer = customers.items[0];
-        console.log(`👤 Found Polar customer: ${polarCustomer.id}`);
+      // Convert iterator to array
+      const customersArray = [];
+      for await (const customer of customers) {
+        customersArray.push(customer);
+      }
+      
+      if (customersArray.length > 0) {
+        polarCustomer = customersArray[0];
+        console.log(`👤 Found Polar customer:`, polarCustomer);
       } else {
         return NextResponse.json({
           success: false,
@@ -56,13 +62,19 @@ export async function POST(request: NextRequest) {
     // Get customer's subscriptions from Polar
     try {
       const polarSubscriptions = await polar.subscriptions.list({
-        customerId: polarCustomer.id,
+        customerId: (polarCustomer as any).id,
         limit: 10
       });
 
-      console.log(`📋 Found ${polarSubscriptions.items?.length || 0} Polar subscriptions`);
+      // Convert iterator to array
+      const subscriptionsArray = [];
+      for await (const subscription of polarSubscriptions) {
+        subscriptionsArray.push(subscription);
+      }
 
-      if (!polarSubscriptions.items || polarSubscriptions.items.length === 0) {
+      console.log(`📋 Found ${subscriptionsArray.length} Polar subscriptions`);
+
+      if (subscriptionsArray.length === 0) {
         return NextResponse.json({
           success: false,
           error: 'No active subscriptions found in Polar'
@@ -71,8 +83,9 @@ export async function POST(request: NextRequest) {
 
       const results = [];
 
-      for (const polarSub of polarSubscriptions.items) {
-        console.log(`🔍 Processing subscription: ${polarSub.id} (status: ${polarSub.status})`);
+      for (const polarSubRaw of subscriptionsArray) {
+        const polarSub = polarSubRaw as any;
+        console.log(`🔍 Processing subscription:`, polarSub);
 
         // Check if we already have this subscription locally
         const existingLocal = await db
@@ -139,7 +152,7 @@ export async function POST(request: NextRequest) {
           userId: userRecord.id,
           planId: planId,
           polarSubscriptionId: polarSub.id,
-          polarCustomerId: polarCustomer.id,
+          polarCustomerId: (polarCustomer as any).id,
           polarProductId: polarSub.productId,
           polarPriceId: polarSub.priceId,
           status: polarSub.status as any,
@@ -183,10 +196,7 @@ export async function POST(request: NextRequest) {
           email: userRecord.email,
           name: userRecord.name
         },
-        polarCustomer: {
-          id: polarCustomer.id,
-          email: polarCustomer.email
-        },
+        polarCustomer: polarCustomer,
         results,
         summary: {
           total: results.length,

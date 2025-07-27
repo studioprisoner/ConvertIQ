@@ -98,7 +98,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, isPending } = useSession();
-  const redirectTimeoutRef = useRef<NodeJS.Timeout>();
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [onboardingCheck, setOnboardingCheck] = useState<{
     completed?: boolean;
     checked: boolean;

@@ -17,12 +17,12 @@ import { trpc } from '@/lib/trpc/client';
 interface Domain {
   id: string;
   url: string;
-  name: string;
-  description?: string;
-  status: 'active' | 'inactive' | 'pending';
-  lastScanAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  name: string | null;
+  description?: string | null;
+  status?: 'active' | 'inactive' | 'pending';
+  lastScanAt?: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export default function DomainsPage() {
@@ -108,7 +108,7 @@ export default function DomainsPage() {
   const openEditDialog = (domain: Domain) => {
     setSelectedDomain(domain);
     setFormData({
-      name: domain.name,
+      name: domain.name || '',
       url: domain.url,
       description: domain.description || '',
     });
@@ -125,15 +125,16 @@ export default function DomainsPage() {
       case 'active':
         return <Badge color="green">Active</Badge>;
       case 'inactive':
-        return <Badge color="gray">Inactive</Badge>;
+        return <Badge color="zinc">Inactive</Badge>;
       case 'pending':
         return <Badge color="yellow">Pending</Badge>;
       default:
-        return <Badge color="gray">{status}</Badge>;
+        return <Badge color="zinc">{status}</Badge>;
     }
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | string | null | undefined) => {
+    if (!date) return 'Never';
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',
@@ -215,7 +216,7 @@ export default function DomainsPage() {
                 <TableRow key={domain.id}>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{domain.name}</div>
+                      <div className="font-medium">{domain.name || 'Unnamed Domain'}</div>
                       {domain.description && (
                         <div className="text-sm text-gray-500">{domain.description}</div>
                       )}
@@ -231,9 +232,9 @@ export default function DomainsPage() {
                       {domain.url}
                     </a>
                   </TableCell>
-                  <TableCell>{getStatusBadge(domain.status)}</TableCell>
+                  <TableCell>{getStatusBadge(domain.status || 'pending')}</TableCell>
                   <TableCell>
-                    {domain.lastScanAt ? formatDate(domain.lastScanAt) : 'Never'}
+                    {formatDate(domain.lastScanAt)}
                   </TableCell>
                   <TableCell>{formatDate(domain.createdAt)}</TableCell>
                   <TableCell>

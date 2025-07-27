@@ -277,8 +277,6 @@ export default function HistoryPage() {
                   </td>
                   <td className="p-4">
                     <Button
-                      size="sm"
-                      variant="outline"
                       onClick={() => router.push(`/dashboard/reports?websiteId=${report.websiteId}`)}
                     >
                       View Report

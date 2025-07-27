@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db/connection';
 import { user } from '@/db/schema/auth';
 import { subscriptions, subscriptionPlans, usageTracking, planPrices } from '@/db/schema/subscriptions';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 // POST /api/manual-subscription-create - Manually create a subscription for testing
 export async function POST(request: NextRequest) {
@@ -58,8 +58,12 @@ export async function POST(request: NextRequest) {
     const [price] = await db
       .select()
       .from(planPrices)
-      .where(eq(planPrices.planId, plan.id))
-      .where(eq(planPrices.billingInterval, billingCycle))
+      .where(
+        and(
+          eq(planPrices.planId, plan.id),
+          eq(planPrices.billingInterval, billingCycle)
+        )
+      )
       .limit(1);
 
     if (!price) {

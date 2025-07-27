@@ -15,7 +15,6 @@ const updateWebsiteSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1, 'Website name is required').max(100).optional(),
   description: z.string().max(500).optional(),
-  isActive: z.boolean().optional(),
 });
 
 // GET /api/websites - List user's websites
@@ -27,7 +26,6 @@ export const GET = withAuthHandler(async (request: NextRequest, user: any) => {
         url: websites.url,
         name: websites.name,
         description: websites.description,
-        isActive: websites.isActive,
         createdAt: websites.createdAt,
         updatedAt: websites.updatedAt,
       })
@@ -170,7 +168,6 @@ export const PUT = withAuthHandler(async (request: NextRequest, user: any) => {
     const updateData: any = {};
     if (validatedData.name !== undefined) updateData.name = validatedData.name;
     if (validatedData.description !== undefined) updateData.description = validatedData.description;
-    if (validatedData.isActive !== undefined) updateData.isActive = validatedData.isActive;
     
     updateData.updatedAt = new Date();
 
