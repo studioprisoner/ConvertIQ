@@ -66,6 +66,7 @@ export default function AccountPage() {
   const [isDomainLoading, setIsDomainLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
 
   // Update state when user data changes
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function AccountPage() {
       setName(user.name || "");
       setEmail(user.email || "");
       setPrimaryDomain(user.primaryDomain || "");
+      setCurrentAvatarUrl(user.avatarUrl || user.image || null);
     }
   }, [user]);
 
@@ -226,10 +228,13 @@ export default function AccountPage() {
     console.log("Avatar uploaded successfully:", url);
     setSuccess("Profile picture updated successfully!");
     
-    // Refresh the session to get updated user data
+    // Immediately update the avatar display
+    setCurrentAvatarUrl(url);
+    
+    // Clear success message after a delay
     setTimeout(() => {
-      window.location.reload();
-    }, 1500);
+      setSuccess(null);
+    }, 3000);
   };
 
   const handleAvatarUploadError = (error: Error) => {
@@ -256,8 +261,14 @@ export default function AccountPage() {
       const data = await response.json();
       console.log("Avatar removed:", data);
 
-      // Refresh the session to get updated user data
-      window.location.reload();
+      // Immediately update the avatar display
+      setCurrentAvatarUrl(null);
+      setSuccess("Profile picture removed successfully!");
+      
+      // Clear success message after a delay
+      setTimeout(() => {
+        setSuccess(null);
+      }, 3000);
     } catch (error) {
       console.error("Failed to remove avatar:", error);
       alert("Failed to remove avatar. Please try again.");
@@ -282,7 +293,7 @@ export default function AccountPage() {
         <Heading level={2}>Profile Picture</Heading>
         <div className="flex items-center gap-6">
           <Avatar
-            src={user?.avatarUrl || user?.image || undefined}
+            src={currentAvatarUrl || undefined}
             initials={
               user?.name
                 ? user.name
