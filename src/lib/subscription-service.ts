@@ -250,6 +250,7 @@ export async function createSubscription(
         },
         metadata: {
           userId: userId,
+          planId: plan.id,
           planSlug: planSlug,
           source: 'convertiq',
           billingCycle: billingCycle
