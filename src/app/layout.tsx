@@ -17,8 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ConvertIQ - AI-Powered Conversion Optimization for Small Businesses",
-  description: "Empower your small business with data-driven website analysis and actionable recommendations to boost conversions and sales.",
+  title: "ConvertIQ - AI-Powered Conversion Optimisation for Small Businesses",
+  description:
+    "Empower your small business with data-driven website analysis and actionable recommendations to boost conversions and sales.",
 };
 
 export default function RootLayout({

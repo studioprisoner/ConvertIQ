@@ -14,7 +14,6 @@ import Image from "next/image";
 import { CompanyIcon } from "@/components/company-logo";
 import { useSession } from "@/lib/auth-client";
 
-
 export default function Home() {
   const { data: session } = useSession();
 
@@ -109,7 +108,7 @@ export default function Home() {
               <div className="inline-flex items-center space-x-6">
                 <span className="rounded-full bg-blue-50 px-3 py-1 text-sm/6 font-semibold text-blue-700 ring-1 ring-blue-200 ring-inset">
                   <SparklesIcon className="w-4 h-4 inline mr-2" />
-                  AI-Powered Conversion Optimization
+                  AI-Powered Conversion Optimisation
                 </span>
               </div>
             </div>
@@ -165,7 +164,9 @@ export default function Home() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-center text-base/7 font-semibold text-blue-600">AI-Powered Optimization</h2>
+            <h2 className="text-center text-base/7 font-semibold text-blue-600">
+              AI-Powered Optimisation
+            </h2>
             <p className="mx-auto mt-2 max-w-lg text-center text-4xl font-semibold tracking-tight text-balance text-gray-950 sm:text-5xl">
               Everything you need to{" "}
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
@@ -184,13 +185,16 @@ export default function Home() {
                     <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
                       <SparklesIcon className="w-6 h-6 text-white" />
                     </div>
-                    <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">AI-Powered</span>
+                    <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+                      AI-Powered
+                    </span>
                   </div>
                   <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">
                     AI-Powered Analysis
                   </p>
                   <p className="mt-2 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
-                    Advanced AI scans your website for conversion opportunities using psychology principles and UX best practices.
+                    Advanced AI scans your website for conversion opportunities
+                    using psychology principles and UX best practices.
                   </p>
                 </div>
                 <div className="relative min-h-[30rem] w-full grow max-lg:mx-auto max-lg:max-w-sm">
@@ -201,42 +205,58 @@ export default function Home() {
                         <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
                           <SparklesIcon className="w-4 h-4 text-white" />
                         </div>
-                        <span className="font-semibold text-gray-800">AI Analysis</span>
+                        <span className="font-semibold text-gray-800">
+                          AI Analysis
+                        </span>
                         <div className="ml-auto flex items-center gap-2">
                           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                          <span className="text-sm text-gray-600">Analyzing...</span>
+                          <span className="text-sm text-gray-600">
+                            Analyzing...
+                          </span>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-4">
                         <div className="bg-white/80 rounded-lg p-4 border border-blue-200/50">
                           <div className="flex items-center gap-2 mb-2">
                             <div className="w-4 h-4 bg-amber-500 rounded"></div>
-                            <span className="text-sm font-medium">Psychology Triggers</span>
+                            <span className="text-sm font-medium">
+                              Psychology Triggers
+                            </span>
                           </div>
-                          <div className="text-xs text-gray-600">Analyzing social proof elements...</div>
+                          <div className="text-xs text-gray-600">
+                            Analyzing social proof elements...
+                          </div>
                           <div className="mt-2 bg-amber-100 h-2 rounded-full overflow-hidden">
                             <div className="bg-amber-500 h-full w-3/4 animate-pulse"></div>
                           </div>
                         </div>
-                        
+
                         <div className="bg-white/80 rounded-lg p-4 border border-blue-200/50">
                           <div className="flex items-center gap-2 mb-2">
                             <div className="w-4 h-4 bg-green-500 rounded"></div>
-                            <span className="text-sm font-medium">UX Patterns</span>
+                            <span className="text-sm font-medium">
+                              UX Patterns
+                            </span>
                           </div>
-                          <div className="text-xs text-gray-600">Checking navigation flow...</div>
+                          <div className="text-xs text-gray-600">
+                            Checking navigation flow...
+                          </div>
                           <div className="mt-2 bg-green-100 h-2 rounded-full overflow-hidden">
                             <div className="bg-green-500 h-full w-4/5 animate-pulse"></div>
                           </div>
                         </div>
-                        
+
                         <div className="bg-white/80 rounded-lg p-4 border border-blue-200/50">
                           <div className="flex items-center gap-2 mb-2">
                             <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                            <span className="text-sm font-medium">Technical SEO</span>
+                            <span className="text-sm font-medium">
+                              Technical SEO
+                            </span>
                           </div>
-                          <div className="text-xs text-gray-600">Scanning meta tags...</div>
+                          <div className="text-xs text-gray-600">
+                            Scanning meta tags...
+                          </div>
                           <div className="mt-2 bg-blue-100 h-2 rounded-full overflow-hidden">
                             <div className="bg-blue-500 h-full w-2/3 animate-pulse"></div>
                           </div>
@@ -259,9 +279,12 @@ export default function Home() {
                       <ChartBarIcon className="w-5 h-5 text-white" />
                     </div>
                   </div>
-                  <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">Report Management</p>
+                  <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">
+                    Report Management
+                  </p>
                   <p className="mt-2 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
-                    Archive, restore, and retrigger scans with comprehensive report lifecycle management.
+                    Archive, restore, and retrigger scans with comprehensive
+                    report lifecycle management.
                   </p>
                 </div>
                 <div className="w-full">
@@ -270,20 +293,34 @@ export default function Home() {
                     <div className="space-y-3">
                       <div className="bg-white/80 rounded-lg p-4 border border-green-200/50">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700">Acme Store</span>
-                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">Active</span>
+                          <span className="text-sm font-medium text-gray-700">
+                            Acme Store
+                          </span>
+                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
+                            Active
+                          </span>
                         </div>
-                        <div className="text-xs text-gray-500">3 recommendations • Last scan: 2 days ago</div>
+                        <div className="text-xs text-gray-500">
+                          3 recommendations • Last scan: 2 days ago
+                        </div>
                       </div>
                       <div className="bg-white/60 rounded-lg p-4 border border-green-200/30">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-600">E-commerce Site</span>
-                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">Archived</span>
+                          <span className="text-sm font-medium text-gray-600">
+                            E-commerce Site
+                          </span>
+                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
+                            Archived
+                          </span>
                         </div>
-                        <div className="text-xs text-gray-400">5 recommendations • Restore available</div>
+                        <div className="text-xs text-gray-400">
+                          5 recommendations • Restore available
+                        </div>
                       </div>
                       <div className="text-center pt-2">
-                        <button className="text-sm text-green-600 font-medium hover:text-green-700">+ New Scan</button>
+                        <button className="text-sm text-green-600 font-medium hover:text-green-700">
+                          + New Scan
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -302,17 +339,24 @@ export default function Home() {
                       <RocketLaunchIcon className="w-5 h-5 text-white" />
                     </div>
                   </div>
-                  <p className="mt-1 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">Performance Tracking</p>
+                  <p className="mt-1 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">
+                    Performance Tracking
+                  </p>
                   <p className="mt-1 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
-                    Track trends over time and see the impact of implemented recommendations.
+                    Track trends over time and see the impact of implemented
+                    recommendations.
                   </p>
                 </div>
                 <div className="flex items-center max-lg:py-4 lg:pb-4 px-8 sm:px-10">
                   {/* Mock Performance Chart */}
                   <div className="w-full bg-white/90 rounded-lg p-3 border border-gray-200/50">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-700">Conversion Rate</span>
-                      <span className="text-xs text-green-600 font-semibold">+23% ↗</span>
+                      <span className="text-xs font-medium text-gray-700">
+                        Conversion Rate
+                      </span>
+                      <span className="text-xs text-green-600 font-semibold">
+                        +23% ↗
+                      </span>
                     </div>
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
@@ -343,13 +387,16 @@ export default function Home() {
                     <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
                       <LightBulbIcon className="w-6 h-6 text-white" />
                     </div>
-                    <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm font-medium">Priority</span>
+                    <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm font-medium">
+                      Priority
+                    </span>
                   </div>
                   <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 max-lg:text-center">
                     Actionable Insights
                   </p>
                   <p className="mt-2 max-w-lg text-sm/6 text-gray-600 max-lg:text-center">
-                    Get specific, prioritized recommendations with step-by-step implementation guides.
+                    Get specific, prioritized recommendations with step-by-step
+                    implementation guides.
                   </p>
                 </div>
                 <div className="relative min-h-[30rem] w-full grow">
@@ -357,53 +404,93 @@ export default function Home() {
                     {/* Mock Recommendations List */}
                     <div className="p-6 h-full overflow-hidden">
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-semibold text-gray-800">Top Recommendations</h3>
-                        <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">3 High Impact</span>
+                        <h3 className="font-semibold text-gray-800">
+                          Top Recommendations
+                        </h3>
+                        <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
+                          3 High Impact
+                        </span>
                       </div>
-                      
+
                       <div className="space-y-4">
                         <div className="bg-white/80 rounded-lg p-4 border border-purple-200/50 border-l-4 border-l-red-500">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">1</div>
-                              <span className="font-medium text-sm">Add Social Proof</span>
+                              <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                1
+                              </div>
+                              <span className="font-medium text-sm">
+                                Add Social Proof
+                              </span>
                             </div>
-                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">High Impact</span>
+                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium">
+                              High Impact
+                            </span>
                           </div>
-                          <p className="text-xs text-gray-600 mb-2">Missing customer testimonials on homepage</p>
+                          <p className="text-xs text-gray-600 mb-2">
+                            Missing customer testimonials on homepage
+                          </p>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">Est. Impact:</span>
-                            <span className="text-xs font-semibold text-red-600">+15% CVR</span>
+                            <span className="text-xs text-gray-500">
+                              Est. Impact:
+                            </span>
+                            <span className="text-xs font-semibold text-red-600">
+                              +15% CVR
+                            </span>
                           </div>
                         </div>
-                        
+
                         <div className="bg-white/80 rounded-lg p-4 border border-purple-200/50 border-l-4 border-l-amber-500">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">2</div>
-                              <span className="font-medium text-sm">Optimize CTA</span>
+                              <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                2
+                              </div>
+                              <span className="font-medium text-sm">
+                                Optimize CTA
+                              </span>
                             </div>
-                            <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-medium">Medium</span>
+                            <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-xs font-medium">
+                              Medium
+                            </span>
                           </div>
-                          <p className="text-xs text-gray-600 mb-2">Button text lacks urgency</p>
+                          <p className="text-xs text-gray-600 mb-2">
+                            Button text lacks urgency
+                          </p>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">Est. Impact:</span>
-                            <span className="text-xs font-semibold text-amber-600">+8% CVR</span>
+                            <span className="text-xs text-gray-500">
+                              Est. Impact:
+                            </span>
+                            <span className="text-xs font-semibold text-amber-600">
+                              +8% CVR
+                            </span>
                           </div>
                         </div>
-                        
+
                         <div className="bg-white/80 rounded-lg p-4 border border-purple-200/50 border-l-4 border-l-blue-500">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">3</div>
-                              <span className="font-medium text-sm">Mobile Speed</span>
+                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                3
+                              </div>
+                              <span className="font-medium text-sm">
+                                Mobile Speed
+                              </span>
                             </div>
-                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">Technical</span>
+                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">
+                              Technical
+                            </span>
                           </div>
-                          <p className="text-xs text-gray-600 mb-2">Page load time &gt; 3 seconds</p>
+                          <p className="text-xs text-gray-600 mb-2">
+                            Page load time &gt; 3 seconds
+                          </p>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">Est. Impact:</span>
-                            <span className="text-xs font-semibold text-blue-600">+12% CVR</span>
+                            <span className="text-xs text-gray-500">
+                              Est. Impact:
+                            </span>
+                            <span className="text-xs font-semibold text-blue-600">
+                              +12% CVR
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -533,7 +620,7 @@ export default function Home() {
               </li>
               <li className="flex gap-x-3">
                 <CheckIcon className="h-6 w-5 flex-none text-blue-600" />
-                Conversion optimization insights
+                Conversion optimisation insights
               </li>
               <li className="flex gap-x-3">
                 <CheckIcon className="h-6 w-5 flex-none text-blue-600" />
@@ -592,7 +679,7 @@ export default function Home() {
               </li>
               <li className="flex gap-x-3">
                 <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
-                Advanced conversion optimization
+                Advanced conversion optimisation
               </li>
               <li className="flex gap-x-3">
                 <CheckIcon className="h-6 w-5 flex-none text-cyan-300" />
@@ -635,7 +722,7 @@ export default function Home() {
             </h2>
             <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto">
               Join thousands of small businesses that have transformed their
-              websites with ConvertIQ's AI-powered optimization.
+              websites with ConvertIQ's AI-powered optimisation.
             </p>
 
             <div className="flex justify-center mb-6">

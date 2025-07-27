@@ -102,14 +102,14 @@ const changelog: ChangelogEntry[] = [
     type: "feature",
     title: "ConvertIQ Launch",
     description:
-      "Welcome to ConvertIQ - your AI-powered website optimization platform.",
+      "Welcome to ConvertIQ - your AI-powered website optimisation platform.",
     items: [
       "AI analysis of your website's conversion potential",
       "Detailed reports with actionable marketing recommendations",
       "Secure account creation and management",
       "Flexible subscription plans (Basic and Pro)",
       "Domain verification to ensure accurate analysis",
-      "Personal dashboard to track your optimization journey",
+      "Personal dashboard to track your optimisation journey",
       "Profile management with custom avatars",
     ],
   },

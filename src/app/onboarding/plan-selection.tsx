@@ -21,13 +21,13 @@ export default function PlanSelection({
   nextStep,
   setError,
   isLoading,
-  setIsLoading
+  setIsLoading,
 }: PlanSelectionProps) {
   const [selectedPlan, setSelectedPlan] = useState<"basic" | "pro" | null>(
-    data.planType || null
+    data.planType || null,
   );
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
-    data.billingCycle || "monthly"
+    data.billingCycle || "monthly",
   );
 
   const handlePlanSelection = async () => {
@@ -45,21 +45,21 @@ export default function PlanSelection({
         planType: selectedPlan,
         billingCycle: billingCycle,
       };
-      localStorage.setItem('lastPlanSelection', JSON.stringify(planData));
+      localStorage.setItem("lastPlanSelection", JSON.stringify(planData));
 
-      const response = await fetch('/api/onboarding/plan-selection', {
-        method: 'POST',
+      const response = await fetch("/api/onboarding/plan-selection", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        credentials: 'include',
+        credentials: "include",
         body: JSON.stringify(planData),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Plan selection failed');
+        throw new Error(result.error || "Plan selection failed");
       }
 
       // Update onboarding data
@@ -84,21 +84,21 @@ export default function PlanSelection({
     {
       id: "basic" as const,
       name: "Basic",
-      price: billingCycle === "monthly" ? 19 : 15.20,
+      price: billingCycle === "monthly" ? 19 : 15.2,
       originalPrice: billingCycle === "monthly" ? 19 : 19,
       features: [
         "1 website analysis",
         "Marketing improvement reports",
-        "Conversion rate optimization reports",
+        "Conversion rate optimisation reports",
         "Basic recommendations",
-        "Email support"
+        "Email support",
       ],
       popular: false,
     },
     {
       id: "pro" as const,
       name: "Pro",
-      price: billingCycle === "monthly" ? 49 : 39.20,
+      price: billingCycle === "monthly" ? 49 : 39.2,
       originalPrice: billingCycle === "monthly" ? 49 : 49,
       features: [
         "Unlimited website analyses",
@@ -107,7 +107,7 @@ export default function PlanSelection({
         "Priority recommendations",
         "Custom reporting",
         "Priority support",
-        "API access"
+        "API access",
       ],
       popular: true,
     },
@@ -170,7 +170,7 @@ export default function PlanSelection({
                 </span>
               </div>
             )}
-            
+
             <div className="text-center">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 {plan.name}
@@ -184,7 +184,9 @@ export default function PlanSelection({
                 </span>
                 {billingCycle === "annual" && (
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    <span className="line-through">${plan.originalPrice}/month</span>
+                    <span className="line-through">
+                      ${plan.originalPrice}/month
+                    </span>
                   </div>
                 )}
               </div>
@@ -204,7 +206,9 @@ export default function PlanSelection({
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {feature}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -217,7 +221,11 @@ export default function PlanSelection({
               }`}
             >
               {selectedPlan === plan.id && (
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <svg
+                  className="w-3 h-3 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path
                     fillRule="evenodd"
                     d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -241,7 +249,9 @@ export default function PlanSelection({
       </div>
 
       <div className="text-center text-sm text-gray-500 dark:text-gray-400">
-        <Text>No commitment • Cancel anytime • 14-day money-back guarantee</Text>
+        <Text>
+          No commitment • Cancel anytime • 14-day money-back guarantee
+        </Text>
       </div>
     </div>
   );
