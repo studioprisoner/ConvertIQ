@@ -385,8 +385,16 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
     
     console.log('📋 All subscriptions for user:', allUserSubs.length);
     allUserSubs.forEach(sub => {
-      console.log(`  - Subscription ${sub.id}: status=${sub.status}, planId=${sub.planId}`);
+      console.log(`  - Subscription ${sub.id}: status=${sub.status}, planId=${sub.planId}, created=${sub.createdAt}`);
     });
+    
+    // For post-payment scenarios, also check for very recent subscriptions
+    // that might still be processing
+    if (allUserSubs.length === 0) {
+      console.log('⚠️ No subscriptions found - checking if user just completed payment...');
+      // Could implement additional checks here for recent payment events
+      // or subscription creation attempts
+    }
     
     const result = await db
       .select({

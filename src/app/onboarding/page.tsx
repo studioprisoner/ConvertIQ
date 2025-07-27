@@ -184,8 +184,19 @@ function OnboardingContent() {
         console.log('⚠️ Session refresh error, will use page reload fallback:', refreshError);
       }
 
-      // Clean up localStorage
+      // Clean up localStorage and set payment completion flag
       localStorage.removeItem('lastPlanSelection');
+      
+      // Set flag to help feature gates handle post-payment timing
+      const paymentSuccess = searchParams.get('payment');
+      if (paymentSuccess === 'success') {
+        // Use utility to set payment flag
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('payment-completed', 'true');
+          console.log('🎯 Set payment-completed flag for feature gate timing');
+        }
+      }
+      
       console.log('🧹 Cleaned up localStorage');
 
       // Force a page reload to refresh the session with updated user data
