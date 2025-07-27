@@ -415,7 +415,27 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
       .limit(1);
 
     console.log('✅ Active subscriptions found:', result.length);
-    if (!result.length) return null;
+    
+    // If no active subscription found, let's check what subscriptions exist for this user
+    if (!result.length) {
+      console.log('❌ No active subscription found for user. Checking database for ANY subscriptions...');
+      const allSubs = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.userId, userId));
+      
+      console.log(`📊 Total subscriptions in DB for user ${userId}:`, allSubs.length);
+      if (allSubs.length === 0) {
+        console.log('🚨 ISSUE: No subscription records found for this user in the database');
+        console.log('🔍 This suggests the user needs to complete the subscription process');
+      } else {
+        console.log('📋 Found subscriptions with statuses:');
+        allSubs.forEach(sub => {
+          console.log(`  - ${sub.id}: status="${sub.status}", created=${sub.createdAt}`);
+        });
+      }
+      return null;
+    }
 
     const { subscription, plan, usage } = result[0];
 
