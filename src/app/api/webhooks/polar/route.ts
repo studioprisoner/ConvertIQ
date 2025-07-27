@@ -76,16 +76,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Polar webhook received:', { type, id: data?.id });
 
-    // Store the event for audit trail
-    await db.insert(subscriptionEvents).values({
-      subscriptionId: data?.subscription_id || null, // Only use actual subscription IDs
-      eventType: type,
-      eventData: data,
-      polarEventId: event.id,
-      processed: false,
-    });
-
-    // Handle different event types
+    // Handle different event types first
     switch (type) {
       case 'subscription.created':
         await handleSubscriptionCreated(data as any);
@@ -166,11 +157,14 @@ export async function POST(request: NextRequest) {
         console.log('Unhandled webhook event type:', type);
     }
 
-    // Mark event as processed
-    await db
-      .update(subscriptionEvents)
-      .set({ processed: true })
-      .where(eq(subscriptionEvents.polarEventId, event.id));
+    // Store the event for audit trail AFTER processing
+    await db.insert(subscriptionEvents).values({
+      subscriptionId: data?.subscription_id || null, // Only use actual subscription IDs
+      eventType: type,
+      eventData: data,
+      polarEventId: event.id,
+      processed: true, // Mark as processed since we just handled it
+    });
 
     return NextResponse.json({ received: true });
   } catch (error) {
