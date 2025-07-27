@@ -15,13 +15,21 @@ import type {
 
 // Verify Polar webhook signature
 function verifySignature(payload: string, signature: string, secret: string): boolean {
+  // Polar signature format: "v1,base64signature"
+  const parts = signature.split(',');
+  if (parts.length !== 2 || parts[0] !== 'v1') {
+    console.error('Invalid signature format:', signature);
+    return false;
+  }
+  
+  const receivedSignature = parts[1];
   const expectedSignature = crypto
     .createHmac('sha256', secret)
     .update(payload)
-    .digest('hex');
+    .digest('base64');
   
   return crypto.timingSafeEqual(
-    Buffer.from(signature),
+    Buffer.from(receivedSignature),
     Buffer.from(expectedSignature)
   );
 }
@@ -30,15 +38,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
     const headersList = await headers();
-    const signature = headersList.get('polar-signature');
+    const signature = headersList.get('webhook-signature');
     
-    // DEBUG: Log all headers to identify signature header
-    const allHeaders: Record<string, string> = {};
-    headersList.forEach((value, key) => {
-      allHeaders[key] = value;
-    });
-    console.log('🔍 Webhook headers received:', allHeaders);
-    console.log('🔍 Looking for polar-signature:', signature);
+    console.log('🔍 Webhook signature received:', signature ? 'Present' : 'Missing');
     console.log('🔍 Has POLAR_WEBHOOK_SECRET:', !!process.env.POLAR_WEBHOOK_SECRET);
     
     // Allow manual triggers to bypass signature verification
@@ -47,8 +49,6 @@ export async function POST(request: NextRequest) {
     if (!isManualTrigger) {
       if (!signature || !process.env.POLAR_WEBHOOK_SECRET) {
         console.error('❌ Missing signature or webhook secret');
-        console.error('❌ Signature header:', signature);
-        console.error('❌ Has webhook secret:', !!process.env.POLAR_WEBHOOK_SECRET);
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
 
