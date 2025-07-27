@@ -26,8 +26,8 @@ export function Avatar({
       {...props}
       className={clsx(
         className,
-        // Basic layout - force square aspect ratio
-        'inline-grid shrink-0 align-middle aspect-square [--avatar-radius:20%] *:col-start-1 *:row-start-1',
+        // Basic layout - force square aspect ratio with explicit dimensions
+        'inline-block shrink-0 align-middle aspect-square overflow-hidden relative [--avatar-radius:20%]',
         'outline -outline-offset-1 outline-black/10 dark:outline-white/10',
         // Border radius
         square ? 'rounded-(--avatar-radius) *:rounded-(--avatar-radius)' : 'rounded-full *:rounded-full'
@@ -35,7 +35,7 @@ export function Avatar({
     >
       {initials && (
         <svg
-          className="size-full fill-current p-[5%] text-[48px] font-medium uppercase select-none"
+          className="absolute inset-0 size-full fill-current p-[5%] text-[48px] font-medium uppercase select-none"
           viewBox="0 0 100 100"
           aria-hidden={alt ? undefined : 'true'}
         >
@@ -45,7 +45,7 @@ export function Avatar({
           </text>
         </svg>
       )}
-      {src && <img className="size-full object-cover" src={src} alt={alt} />}
+      {src && <img className="absolute inset-0 size-full object-cover" src={src} alt={alt} />}
     </span>
   )
 }
