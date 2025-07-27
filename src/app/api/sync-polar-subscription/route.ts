@@ -9,7 +9,7 @@ import { eq } from 'drizzle-orm';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userEmail = 'josh@studioprisoner.com' } = body;
+    const { userEmail = 'studioprisoner@gmail.com' } = body;
 
     // Get the user
     const userData = await db
