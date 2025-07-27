@@ -158,8 +158,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Store the event for audit trail AFTER processing
+    let subscriptionId = null;
+    if (data?.subscription_id) {
+      // Look up our internal subscription ID from the Polar subscription ID
+      const [subscription] = await db
+        .select({ id: subscriptions.id })
+        .from(subscriptions)
+        .where(eq(subscriptions.polarSubscriptionId, data.subscription_id))
+        .limit(1);
+      subscriptionId = subscription?.id || null;
+    }
+
     await db.insert(subscriptionEvents).values({
-      subscriptionId: data?.subscription_id || null, // Only use actual subscription IDs
+      subscriptionId: subscriptionId,
       eventType: type,
       eventData: data,
       polarEventId: event.id,
