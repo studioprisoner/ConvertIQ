@@ -32,12 +32,23 @@ export async function POST(request: NextRequest) {
     const headersList = await headers();
     const signature = headersList.get('polar-signature');
     
+    // DEBUG: Log all headers to identify signature header
+    const allHeaders: Record<string, string> = {};
+    headersList.forEach((value, key) => {
+      allHeaders[key] = value;
+    });
+    console.log('🔍 Webhook headers received:', allHeaders);
+    console.log('🔍 Looking for polar-signature:', signature);
+    console.log('🔍 Has POLAR_WEBHOOK_SECRET:', !!process.env.POLAR_WEBHOOK_SECRET);
+    
     // Allow manual triggers to bypass signature verification
     const isManualTrigger = signature === 'manual-trigger';
     
     if (!isManualTrigger) {
       if (!signature || !process.env.POLAR_WEBHOOK_SECRET) {
-        console.error('Missing signature or webhook secret');
+        console.error('❌ Missing signature or webhook secret');
+        console.error('❌ Signature header:', signature);
+        console.error('❌ Has webhook secret:', !!process.env.POLAR_WEBHOOK_SECRET);
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
 
