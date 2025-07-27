@@ -23,45 +23,23 @@ function verifySignature(payload: string, signature: string, secret: string, tim
   }
   
   const receivedSignature = parts[1];
-  
-  // Try different payload formats that Polar might use (Svix standard format)
   const webhookId = headersList?.get('webhook-id') || '';
-  const payloadFormats = [
-    payload, // Just the body
-    timestamp ? `${timestamp}.${payload}` : null, // timestamp.body format
-    timestamp ? `${timestamp}${payload}` : null, // timestampbody format
-    // Svix standard format: webhook_id.timestamp.payload
-    timestamp && webhookId ? `${webhookId}.${timestamp}.${payload}` : null,
-    // Alternative formats
-    timestamp && webhookId ? `${timestamp}.${webhookId}.${payload}` : null,
-    webhookId ? `${webhookId}.${payload}` : null,
-  ].filter(Boolean) as string[];
   
-  console.log('🔍 Signature debug:');
-  console.log('  Received:', receivedSignature);
-  console.log('  Timestamp:', timestamp);
-  console.log('  Webhook ID:', webhookId);
-  console.log('  Payload length:', payload.length);
-  console.log('  Secret length:', secret.length);
-  
-  for (const testPayload of payloadFormats) {
+  // Polar uses Svix standard format: webhook_id.timestamp.payload
+  if (timestamp && webhookId) {
+    const signedPayload = `${webhookId}.${timestamp}.${payload}`;
     const expectedSignature = crypto
       .createHmac('sha256', secret)
-      .update(testPayload)
+      .update(signedPayload)
       .digest('base64');
     
-    console.log(`  Testing payload format (${testPayload.length} chars):`, expectedSignature);
-    
-    if (crypto.timingSafeEqual(
+    return crypto.timingSafeEqual(
       Buffer.from(receivedSignature),
       Buffer.from(expectedSignature)
-    )) {
-      console.log('✅ Signature verified with format:', testPayload === payload ? 'body-only' : 'timestamp+body');
-      return true;
-    }
+    );
   }
   
-  console.log('❌ No signature format matched');
+  console.error('Missing webhook-id or timestamp for signature verification');
   return false;
 }
 
@@ -72,9 +50,7 @@ export async function POST(request: NextRequest) {
     const signature = headersList.get('webhook-signature');
     const timestamp = headersList.get('webhook-timestamp');
     
-    console.log('🔍 Webhook signature received:', signature ? 'Present' : 'Missing');
-    console.log('🔍 Webhook timestamp:', timestamp);
-    console.log('🔍 Has POLAR_WEBHOOK_SECRET:', !!process.env.POLAR_WEBHOOK_SECRET);
+    console.log('🔍 Webhook received with signature:', signature ? 'Present' : 'Missing');
     
     // Allow manual triggers to bypass signature verification
     const isManualTrigger = signature === 'manual-trigger';
@@ -102,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // Store the event for audit trail
     await db.insert(subscriptionEvents).values({
-      subscriptionId: data?.subscription_id || data?.id,
+      subscriptionId: data?.subscription_id || null, // Only use actual subscription IDs
       eventType: type,
       eventData: data,
       polarEventId: event.id,
