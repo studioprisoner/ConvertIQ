@@ -31,16 +31,22 @@ export async function GET(request: NextRequest) {
       case 'polar-org':
         try {
           // Test if we can access Polar API
-          const orgs = await polar.organizations.list();
+          const orgs = await polar.organizations.list({ limit: 10 });
+          
+          // Convert iterator to array
+          const orgsArray = [];
+          for await (const org of orgs) {
+            orgsArray.push(org);
+          }
+          
           return NextResponse.json({
             success: true,
             message: 'Polar API accessible',
             data: {
               environment: process.env.POLAR_ENVIRONMENT || 'sandbox',
-              organizations: orgs.items.map(org => ({
-                id: org.id,
-                name: org.name
-              }))
+              organizationCount: orgsArray.length,
+              // Just return raw organization data to see the structure
+              organizations: orgsArray
             }
           });
         } catch (polarError) {
@@ -76,10 +82,22 @@ export async function GET(request: NextRequest) {
             limit: 1
           });
           
+          // Convert specific customers iterator to array
+          const specificCustomersArray = [];
+          for await (const customer of specificCustomers) {
+            specificCustomersArray.push(customer);
+          }
+          
           // Also get all customers to see what's available
           const allCustomers = await polar.customers.list({
             limit: 10
           });
+          
+          // Convert all customers iterator to array
+          const allCustomersArray = [];
+          for await (const customer of allCustomers) {
+            allCustomersArray.push(customer);
+          }
           
           return NextResponse.json({
             success: true,
@@ -88,22 +106,12 @@ export async function GET(request: NextRequest) {
               environment: process.env.POLAR_ENVIRONMENT || 'sandbox',
               specificSearch: {
                 email: 'josh@studioprisoner.com',
-                found: specificCustomers.items?.length || 0,
-                customer: specificCustomers.items?.[0] ? {
-                  id: specificCustomers.items[0].id,
-                  email: specificCustomers.items[0].email,
-                  name: specificCustomers.items[0].name,
-                  metadata: specificCustomers.items[0].metadata
-                } : null
+                found: specificCustomersArray.length,
+                customer: specificCustomersArray[0] || null
               },
               allCustomers: {
-                total: allCustomers.items?.length || 0,
-                customers: allCustomers.items?.map(c => ({
-                  id: c.id,
-                  email: c.email,
-                  name: c.name,
-                  metadata: c.metadata
-                })) || []
+                total: allCustomersArray.length,
+                customers: allCustomersArray
               }
             }
           });
@@ -122,23 +130,19 @@ export async function GET(request: NextRequest) {
             organizationId: '7e745b0f-336e-4acb-b73e-e20c4b4f26d0'
           });
           
+          // Convert iterator to array
+          const productsArray = [];
+          for await (const product of products) {
+            productsArray.push(product);
+          }
+          
           return NextResponse.json({
             success: true,
             message: 'Polar products retrieved',
             data: {
               environment: process.env.POLAR_ENVIRONMENT || 'sandbox',
-              productsFound: products.items?.length || 0,
-              products: products.items?.map(p => ({
-                id: p.id,
-                name: p.name,
-                prices: p.prices?.map(price => ({
-                  id: price.id,
-                  amount: price.amount,
-                  currency: price.currency,
-                  interval: price.recurringInterval,
-                  intervalCount: price.recurringIntervalCount
-                })) || []
-              })) || []
+              productsFound: productsArray.length,
+              products: productsArray
             }
           });
         } catch (productError) {

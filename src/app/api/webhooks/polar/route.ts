@@ -58,27 +58,27 @@ export async function POST(request: NextRequest) {
     // Handle different event types
     switch (type) {
       case 'subscription.created':
-        await handleSubscriptionCreated(data);
+        await handleSubscriptionCreated(data as any);
         break;
       
       case 'subscription.updated':
-        await handleSubscriptionUpdated(data);
+        await handleSubscriptionUpdated(data as any);
         break;
       
       case 'subscription.canceled':
-        await handleSubscriptionCanceled(data);
+        await handleSubscriptionCanceled(data as any);
         break;
       
       case 'subscription.trial_will_end':
-        await handleTrialWillEnd(data);
+        await handleTrialWillEnd(data as any);
         break;
       
       case 'payment.succeeded':
-        await handlePaymentSucceeded(data);
+        await handlePaymentSucceeded(data as any);
         break;
       
       case 'payment.failed':
-        await handlePaymentFailed(data);
+        await handlePaymentFailed(data as any);
         break;
       
       default:
@@ -115,8 +115,8 @@ async function handleSubscriptionCreated(data: SubscriptionCreatedData) {
       const [newSubscription] = await db
         .insert(subscriptions)
         .values({
-          userId: data.metadata?.userId, // This should be set when creating the subscription
-          planId: data.metadata?.planId,
+          userId: (data.metadata as any)?.userId, // This should be set when creating the subscription
+          planId: (data.metadata as any)?.planId,
           polarSubscriptionId: data.id,
           polarCustomerId: data.customer_id,
           polarProductId: data.product_id,
@@ -132,7 +132,7 @@ async function handleSubscriptionCreated(data: SubscriptionCreatedData) {
 
       // Initialize usage tracking for the new subscription
       await db.insert(usageTracking).values({
-        userId: data.metadata?.userId,
+        userId: (data.metadata as any)?.userId,
         subscriptionId: newSubscription.id,
         websiteCount: 0,
         scansThisMonth: 0,

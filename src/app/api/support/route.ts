@@ -60,7 +60,7 @@ ${description}
 
     return NextResponse.json({
       success: true,
-      issueId: issue?.identifier,
+      issueId: 'created',
       message: 'Support request submitted successfully'
     })
 

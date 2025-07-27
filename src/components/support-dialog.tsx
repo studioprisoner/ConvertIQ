@@ -162,7 +162,7 @@ export function SupportDialog({ isOpen, onClose }: SupportDialogProps) {
                   Thank you for your message
                 </p>
                 <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  We've received your support request{issueId && ` (#${issueId})`} and will get back to you as soon as possible.
+                  We&apos;ve received your support request{issueId && ` (#${issueId})`} and will get back to you as soon as possible.
                 </p>
                 <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
                   You can also reach us directly at <span className="font-medium">support@convertiq.cloud</span> if you have any urgent questions.

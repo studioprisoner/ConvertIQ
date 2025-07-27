@@ -103,7 +103,7 @@ export function PrimaryDomainSetup({
                 <div className="flex items-center gap-2 mt-2 text-green-600">
                   <CheckCircle className="h-4 w-4" />
                   <Text className="text-sm">
-                    You'll be able to scan all pages on {getRootDomain(domain.toLowerCase())}
+                    You&apos;ll be able to scan all pages on {getRootDomain(domain.toLowerCase())}
                   </Text>
                 </div>
               )}
@@ -124,7 +124,7 @@ export function PrimaryDomainSetup({
         <div className="mt-4 p-3 bg-gray-50 rounded-lg">
           <Text className="text-sm text-gray-600">
             <strong>Note:</strong> You can scan any page within your domain (including subdomains).
-            For example, if you set "example.com", you can scan www.example.com, shop.example.com, 
+            For example, if you set &ldquo;example.com&rdquo;, you can scan www.example.com, shop.example.com, 
             and any page like example.com/products.
           </Text>
         </div>

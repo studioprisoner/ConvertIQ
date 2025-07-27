@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Current session found:', {
       userId: session.user.id,
       userEmail: session.user.email,
-      onboardingCompleted: (session.user as any).onboardingCompleted
+      onboardingCompleted: (session.user as { onboardingCompleted?: boolean }).onboardingCompleted
     });
 
     // Force session refresh by getting fresh user data
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     console.log('🆕 Fresh session data:', {
       userId: freshSession?.user.id,
-      onboardingCompleted: (freshSession?.user as any).onboardingCompleted
+      onboardingCompleted: (freshSession?.user as { onboardingCompleted?: boolean })?.onboardingCompleted
     });
 
     return NextResponse.json({

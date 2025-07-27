@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { auth } from '@/lib/auth';
 import { getUserSubscription } from '@/lib/subscription-service';
 import { handleTrpcError, addBreadcrumb } from '@/lib/sentry-utils';
+import { db } from '@/db/connection';
 
 // Create tRPC context
 export const createTRPCContext = async (opts: { req?: Request }) => {
@@ -14,6 +15,7 @@ export const createTRPCContext = async (opts: { req?: Request }) => {
     req: opts.req,
     session,
     user: session?.user || null,
+    db,
   };
 };
 
@@ -115,6 +117,7 @@ export const protectedProcedure = t.procedure.use(loggingMiddleware).use(async (
       session: ctx.session,
       subscription,
       userPlan,
+      db: ctx.db,
     },
   });
 });

@@ -1,0 +1,78 @@
+import '@testing-library/jest-dom';
+
+// Mock environment variables for testing
+process.env.NODE_ENV = 'test';
+process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://test:test@localhost:5432/convertiq_test';
+process.env.POLAR_ACCESS_TOKEN = 'test-token';
+process.env.ANTHROPIC_API_KEY = 'test-key';
+process.env.BETTER_AUTH_SECRET = 'test-secret';
+process.env.RESEND_API_KEY = 'test-resend-key';
+
+// Mock fetch for API testing
+global.fetch = vi.fn();
+
+// Mock Next.js router
+vi.mock('next/navigation', () => ({
+  useRouter: vi.fn(() => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+  })),
+  useSearchParams: vi.fn(() => ({
+    get: vi.fn(),
+  })),
+  usePathname: vi.fn(() => '/'),
+}));
+
+// Mock auth
+vi.mock('@/lib/auth', () => ({
+  auth: {
+    api: {
+      getSession: vi.fn(),
+    },
+  },
+}));
+
+// Mock Polar SDK
+vi.mock('@/lib/polar', () => ({
+  polar: {
+    users: {
+      create: vi.fn(),
+      get: vi.fn(),
+    },
+    subscriptions: {
+      create: vi.fn(),
+      get: vi.fn(),
+      list: vi.fn(),
+    },
+  },
+}));
+
+// Mock AI services
+vi.mock('@/lib/ai/analysis-engine', () => ({
+  analysisEngine: {
+    generateAnalysis: vi.fn(),
+  },
+}));
+
+// Mock report generators
+vi.mock('@/lib/reports/generators/marketing-report', () => ({
+  marketingReportGenerator: {
+    generateMarketingReport: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/reports/generators/conversion-report', () => ({
+  conversionReportGenerator: {
+    generateConversionReport: vi.fn(),
+  },
+}));
+
+// Reset all mocks before each test
+beforeEach(() => {
+  vi.clearAllMocks();
+});
