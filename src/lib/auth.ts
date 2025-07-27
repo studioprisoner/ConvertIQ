@@ -48,10 +48,12 @@ export const auth = betterAuth({
       disableSignUp: false, // Allow signup through Email OTP
       autoSignIn: true, // Automatically sign in after OTP verification
       async sendVerificationOTP({ email, otp, type }) {
-        const subject = 
-          type === "sign-in" ? "Sign in to ConvertIQ" :
-          type === "email-verification" ? "Verify your email" :
-          "Reset your password";
+        const subject =
+          type === "sign-in"
+            ? "Sign in to ConvertIQ"
+            : type === "email-verification"
+              ? "Verify your email"
+              : "Reset your password";
 
         const htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -64,7 +66,7 @@ export const auth = betterAuth({
             <p>This code will expire in 5 minutes.</p>
             <p>If you didn't request this code, please ignore this email.</p>
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-            <p style="color: #6b7280; font-size: 14px;">ConvertIQ - AI-Powered Conversion Optimization</p>
+            <p style="color: #6b7280; font-size: 14px;">ConvertIQ - AI-Powered Conversion Optimisation</p>
           </div>
         `;
 
@@ -84,7 +86,7 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
   trustedOrigins: [
     process.env.NEXT_PUBLIC_URL || "http://localhost:3000",
-    "http://localhost:3000"
+    "http://localhost:3000",
   ],
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
