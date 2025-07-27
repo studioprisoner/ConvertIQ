@@ -14,7 +14,7 @@ import type {
 } from '@/types/polar';
 
 // Verify Polar webhook signature
-function verifySignature(payload: string, signature: string, secret: string): boolean {
+function verifySignature(payload: string, signature: string, secret: string, timestamp?: string | null): boolean {
   // Polar signature format: "v1,base64signature"
   const parts = signature.split(',');
   if (parts.length !== 2 || parts[0] !== 'v1') {
@@ -23,15 +23,39 @@ function verifySignature(payload: string, signature: string, secret: string): bo
   }
   
   const receivedSignature = parts[1];
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('base64');
   
-  return crypto.timingSafeEqual(
-    Buffer.from(receivedSignature),
-    Buffer.from(expectedSignature)
-  );
+  // Try different payload formats that Polar might use
+  const payloadFormats = [
+    payload, // Just the body
+    timestamp ? `${timestamp}.${payload}` : null, // timestamp.body format
+    timestamp ? `${timestamp}${payload}` : null, // timestampbody format
+  ].filter(Boolean) as string[];
+  
+  console.log('🔍 Signature debug:');
+  console.log('  Received:', receivedSignature);
+  console.log('  Timestamp:', timestamp);
+  console.log('  Payload length:', payload.length);
+  console.log('  Secret length:', secret.length);
+  
+  for (const testPayload of payloadFormats) {
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(testPayload)
+      .digest('base64');
+    
+    console.log(`  Testing payload format (${testPayload.length} chars):`, expectedSignature);
+    
+    if (crypto.timingSafeEqual(
+      Buffer.from(receivedSignature),
+      Buffer.from(expectedSignature)
+    )) {
+      console.log('✅ Signature verified with format:', testPayload === payload ? 'body-only' : 'timestamp+body');
+      return true;
+    }
+  }
+  
+  console.log('❌ No signature format matched');
+  return false;
 }
 
 export async function POST(request: NextRequest) {
@@ -39,8 +63,10 @@ export async function POST(request: NextRequest) {
     const body = await request.text();
     const headersList = await headers();
     const signature = headersList.get('webhook-signature');
+    const timestamp = headersList.get('webhook-timestamp');
     
     console.log('🔍 Webhook signature received:', signature ? 'Present' : 'Missing');
+    console.log('🔍 Webhook timestamp:', timestamp);
     console.log('🔍 Has POLAR_WEBHOOK_SECRET:', !!process.env.POLAR_WEBHOOK_SECRET);
     
     // Allow manual triggers to bypass signature verification
@@ -53,7 +79,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify webhook signature for real webhooks
-      if (!verifySignature(body, signature, process.env.POLAR_WEBHOOK_SECRET)) {
+      const isValidSignature = verifySignature(body, signature, process.env.POLAR_WEBHOOK_SECRET, timestamp);
+      if (!isValidSignature) {
         console.error('Invalid webhook signature');
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
