@@ -94,6 +94,25 @@ export async function POST(request: NextRequest) {
         await handleOrderPaid(data as any);
         break;
       
+      case 'customer.created':
+      case 'customer.updated':
+        await handleCustomerEvent(data as any, type);
+        break;
+      
+      case 'checkout.created':
+      case 'checkout.updated':
+        await handleCheckoutEvent(data as any, type);
+        break;
+      
+      case 'order.created':
+        await handleOrderCreated(data as any);
+        break;
+      
+      case 'subscription.uncanceled':
+      case 'subscription.revoked':
+        await handleSubscriptionStatusChange(data as any, type);
+        break;
+      
       default:
         console.log('Unhandled webhook event type:', type);
     }
@@ -330,6 +349,46 @@ async function handleOrderPaid(data: any) {
     console.log('✅ Order paid webhook processed successfully:', data.id);
   } catch (error) {
     console.error('❌ Error handling order paid:', error);
+    throw error;
+  }
+}
+
+async function handleCustomerEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Customer event ${eventType}:`, data.id);
+  // We don't need to do anything special for customer events currently
+  // Just log and acknowledge
+}
+
+async function handleCheckoutEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Checkout event ${eventType}:`, data.id);
+  // We don't need to do anything special for checkout events currently
+  // Just log and acknowledge
+}
+
+async function handleOrderCreated(data: any) {
+  console.log('ℹ️ Order created:', data.id);
+  // We don't need to do anything special for order creation currently
+  // The important event is order.paid
+}
+
+async function handleSubscriptionStatusChange(data: any, eventType: string) {
+  try {
+    console.log(`🔄 Processing ${eventType} webhook:`, data.id);
+    
+    const newStatus = eventType === 'subscription.uncanceled' ? 'active' : 'canceled';
+    
+    await db
+      .update(subscriptions)
+      .set({
+        status: newStatus,
+        canceledAt: eventType === 'subscription.revoked' ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.polarSubscriptionId, data.id));
+
+    console.log(`✅ Subscription ${eventType} processed:`, data.id);
+  } catch (error) {
+    console.error(`❌ Error handling ${eventType}:`, error);
     throw error;
   }
 }
