@@ -14,7 +14,7 @@ import type {
 } from '@/types/polar';
 
 // Verify Polar webhook signature
-function verifySignature(payload: string, signature: string, secret: string, timestamp?: string | null): boolean {
+function verifySignature(payload: string, signature: string, secret: string, timestamp?: string | null, headersList?: Headers): boolean {
   // Polar signature format: "v1,base64signature"
   const parts = signature.split(',');
   if (parts.length !== 2 || parts[0] !== 'v1') {
@@ -24,16 +24,23 @@ function verifySignature(payload: string, signature: string, secret: string, tim
   
   const receivedSignature = parts[1];
   
-  // Try different payload formats that Polar might use
+  // Try different payload formats that Polar might use (Svix standard format)
+  const webhookId = headersList?.get('webhook-id') || '';
   const payloadFormats = [
     payload, // Just the body
     timestamp ? `${timestamp}.${payload}` : null, // timestamp.body format
     timestamp ? `${timestamp}${payload}` : null, // timestampbody format
+    // Svix standard format: webhook_id.timestamp.payload
+    timestamp && webhookId ? `${webhookId}.${timestamp}.${payload}` : null,
+    // Alternative formats
+    timestamp && webhookId ? `${timestamp}.${webhookId}.${payload}` : null,
+    webhookId ? `${webhookId}.${payload}` : null,
   ].filter(Boolean) as string[];
   
   console.log('🔍 Signature debug:');
   console.log('  Received:', receivedSignature);
   console.log('  Timestamp:', timestamp);
+  console.log('  Webhook ID:', webhookId);
   console.log('  Payload length:', payload.length);
   console.log('  Secret length:', secret.length);
   
@@ -79,7 +86,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify webhook signature for real webhooks
-      const isValidSignature = verifySignature(body, signature, process.env.POLAR_WEBHOOK_SECRET, timestamp);
+      const isValidSignature = verifySignature(body, signature, process.env.POLAR_WEBHOOK_SECRET, timestamp, headersList);
       if (!isValidSignature) {
         console.error('Invalid webhook signature');
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
