@@ -265,10 +265,10 @@ export default function AccountPage() {
       setCurrentAvatarUrl(null);
       setSuccess("Profile picture removed successfully!");
       
-      // Clear success message after a delay
+      // Reload page to refresh session data globally after showing success
       setTimeout(() => {
-        setSuccess(null);
-      }, 3000);
+        window.location.reload();
+      }, 1500);
     } catch (error) {
       console.error("Failed to remove avatar:", error);
       alert("Failed to remove avatar. Please try again.");
