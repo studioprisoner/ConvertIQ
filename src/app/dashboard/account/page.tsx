@@ -25,11 +25,11 @@ import { Divider } from "@/components/divider";
 import { Field, Label, Description } from "@/components/fieldset";
 import {
   UserIcon,
-  CameraIcon,
   CreditCardIcon,
   ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { Badge } from "@/components/badge";
+import { AvatarUpload } from "@/components/avatar-upload";
 
 // Subscription types
 type SubscriptionStatus =
@@ -222,38 +222,19 @@ export default function AccountPage() {
     }
   };
 
-  const handleAvatarChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append("avatar", file);
-
-      const response = await fetch("/api/profile/avatar", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to upload avatar");
-      }
-
-      const data = await response.json();
-      console.log("Avatar uploaded:", data);
-
-      // Refresh the session to get updated user data
+  const handleAvatarUploadComplete = (url: string) => {
+    console.log("Avatar uploaded successfully:", url);
+    setSuccess("Profile picture updated successfully!");
+    
+    // Refresh the session to get updated user data
+    setTimeout(() => {
       window.location.reload();
-    } catch (error) {
-      console.error("Failed to upload avatar:", error);
-      alert("Failed to upload avatar. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+    }, 1500);
+  };
+
+  const handleAvatarUploadError = (error: Error) => {
+    console.error("Failed to upload avatar:", error);
+    setError(`Failed to upload avatar: ${error.message}`);
   };
 
   const handleRemoveAvatar = async () => {
@@ -315,31 +296,15 @@ export default function AccountPage() {
           />
           <div className="space-y-2">
             <div className="flex gap-2">
-              <Button
-                color="white"
-                className="cursor-pointer"
-                onClick={() =>
-                  document.getElementById("avatar-upload")?.click()
-                }
+              <AvatarUpload 
+                onUploadComplete={handleAvatarUploadComplete}
+                onUploadError={handleAvatarUploadError}
                 disabled={isLoading}
-              >
-                <CameraIcon className="size-4" />
-                Change Photo
-              </Button>
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarChange}
               />
               <Button outline onClick={handleRemoveAvatar} disabled={isLoading}>
                 Remove
               </Button>
             </div>
-            <p className="text-sm text-gray-500">
-              JPG, GIF or PNG. Max size of 5MB.
-            </p>
           </div>
         </div>
       </div>
