@@ -56,6 +56,75 @@ export const aiAnalysisRouter = createTRPCRouter({
             result
           );
           console.log('💾 Analysis saved with ID:', analysisId);
+          
+          // Automatically generate reports after successful analysis
+          try {
+            // Import report generation services directly 
+            const { marketingReportGenerator } = await import('@/lib/reports/generators/marketing-report');
+            const { conversionReportGenerator } = await import('@/lib/reports/generators/conversion-report');
+            const { db } = await import('@/db/connection');
+            const { reports } = await import('@/db/schema/reports');
+            
+            // Get the analysis data for report generation
+            const analysisData = await aiAnalysisDb.getAnalysisById(analysisId);
+            if (!analysisData) {
+              throw new Error('Analysis data not found for report generation');
+            }
+            
+            const reportGenerationInput = {
+              websiteUrl: input.crawlData.url,
+              businessType: 'general',
+              targetAudience: 'small business owners'
+            };
+            
+            // Generate marketing report
+            console.log('📊 Generating marketing report for analysis:', analysisId);
+            const marketingReportContent = await marketingReportGenerator.generateMarketingReport(
+              result,
+              reportGenerationInput
+            );
+            
+            const [marketingReport] = await db
+              .insert(reports)
+              .values({
+                analysisId,
+                title: `Marketing Analysis Report - ${input.crawlData.url}`,
+                type: 'marketing',
+                content: marketingReportContent,
+                summary: marketingReportContent.executiveSummary?.keyFindings?.join('. ') || 'Marketing report generated successfully',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning();
+            
+            console.log('📊 Marketing report generated with ID:', marketingReport.id);
+            
+            // Generate conversion report
+            console.log('📊 Generating conversion report for analysis:', analysisId);
+            const conversionReportContent = await conversionReportGenerator.generateConversionReport(
+              result,
+              reportGenerationInput
+            );
+            
+            const [conversionReport] = await db
+              .insert(reports)
+              .values({
+                analysisId,
+                title: `Conversion Analysis Report - ${input.crawlData.url}`,
+                type: 'conversion',
+                content: conversionReportContent,
+                summary: conversionReportContent.executiveSummary?.keyFindings?.join('. ') || 'Conversion report generated successfully',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning();
+            
+            console.log('📊 Conversion report generated with ID:', conversionReport.id);
+            console.log('✅ All reports generated successfully for analysis:', analysisId);
+          } catch (reportError) {
+            console.error('❌ Failed to generate reports after analysis:', reportError);
+            // Don't throw - analysis was successful, report generation failure shouldn't fail the analysis
+          }
         }
         
         return result;

@@ -1,7 +1,7 @@
 import { createTRPCRouter } from './server';
 import { urlRouter } from './routers/urls';
 import { aiAnalysisRouter } from './routers/ai-analysis';
-import { reportsRouter } from './routers/reports-simple';
+import { reportsRouter } from './routers/reports';
 import { websitesRouter } from './routers/websites';
 import { userRouter } from './routers/user';
 

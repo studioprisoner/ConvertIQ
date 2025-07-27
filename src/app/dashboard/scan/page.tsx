@@ -226,11 +226,12 @@ export default function ScanPage() {
       console.log("🤖 AI analysis completed successfully:", result);
       setCurrentPhase("report-generation");
 
-      // Simulate report generation time then complete
+      // Reports are now generated automatically in the backend
+      // Show brief completion state then redirect
       setTimeout(() => {
         setCurrentPhase("complete");
 
-        // Automatically redirect to reports dashboard after showing completion
+        // Redirect to reports dashboard
         setTimeout(() => {
           if (currentWebsiteId) {
             router.push(`/dashboard/reports?websiteId=${currentWebsiteId}`);
@@ -238,8 +239,8 @@ export default function ScanPage() {
             console.warn("No websiteId available for redirect");
             router.push("/dashboard/reports");
           }
-        }, 2000);
-      }, 1500);
+        }, 1000); // Reduced from 2000ms to 1000ms since reports are real
+      }, 500); // Reduced from 1500ms to 500ms since no simulation needed
     },
     onError: (error) => {
       console.error("🤖 AI analysis failed:", error);
