@@ -8,6 +8,12 @@ import {
   checkFeatureAccess,
   getUserFeatureMap 
 } from '@/lib/feature-gate-client';
+import { 
+  isPostPayment, 
+  clearPaymentCompleted, 
+  getRetryDelay, 
+  MAX_RETRIES 
+} from '@/lib/payment-timing-utils';
 
 /**
  * Hook for checking access to a specific feature
@@ -20,6 +26,7 @@ export function useFeatureGate(featureKey: FeatureKey) {
     featureType: 'boolean',
   });
   const [loading, setLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     async function checkAccess() {
@@ -37,6 +44,24 @@ export function useFeatureGate(featureKey: FeatureKey) {
       try {
         const result = await checkFeatureAccess(featureKey);
         setFeatureAccess(result);
+        
+        // If access is denied and we're coming from payment success, retry with delay
+        if (!result.hasAccess && retryCount < MAX_RETRIES) {
+          const postPaymentState = isPostPayment();
+             
+          if (postPaymentState) {
+            console.log(`🔄 Post-payment feature check retry ${retryCount + 1}/${MAX_RETRIES} for ${featureKey}`);
+            setTimeout(() => {
+              setRetryCount(prev => prev + 1);
+            }, getRetryDelay(retryCount));
+            return;
+          }
+        }
+        
+        // Clear payment flag after successful access or max retries
+        if (result.hasAccess || retryCount >= MAX_RETRIES) {
+          clearPaymentCompleted();
+        }
       } catch (error) {
         console.error('Error checking feature access:', error);
         setFeatureAccess({
@@ -51,7 +76,7 @@ export function useFeatureGate(featureKey: FeatureKey) {
     }
 
     checkAccess();
-  }, [session?.user?.id, featureKey, session?.sessionId]);
+  }, [session?.user?.id, featureKey, session?.sessionId, retryCount]);
 
   return {
     ...featureAccess,

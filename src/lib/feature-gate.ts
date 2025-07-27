@@ -253,8 +253,15 @@ export async function checkFeatureAccess(
   sessionId?: string
 ): Promise<FeatureGateResult> {
   try {
+    console.log(`🔐 Checking feature access for ${featureKey} (user: ${userId})`);
+    
     // Get user's current subscription
     const subscription = await getUserSubscription(userId);
+    console.log(`📋 Subscription found:`, {
+      exists: !!subscription,
+      status: subscription?.status,
+      planSlug: subscription?.plan?.slug
+    });
     
     if (!subscription || !subscription.plan) {
       await logFeatureAccessAttempt(userId, featureKey, false, 'none', false, sessionId);

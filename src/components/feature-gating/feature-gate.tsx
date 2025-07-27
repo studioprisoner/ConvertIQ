@@ -4,6 +4,7 @@ import { useFeatureGate } from '@/hooks/use-feature-gate';
 import { UpgradePrompt, FeaturePreview } from './upgrade-prompt';
 import { FeatureKey } from '@/lib/feature-gate-client';
 import { Skeleton } from '@/components/skeleton';
+import { isPostPayment } from '@/lib/payment-timing-utils';
 
 interface FeatureGateProps {
   featureKey: FeatureKey;
@@ -27,8 +28,26 @@ export function FeatureGate({
 }: FeatureGateProps) {
   const { hasAccess, loading } = useFeatureGate(featureKey);
 
+  // Check if we're in post-payment state
+  const postPaymentState = isPostPayment();
+
   // Show loading state
   if (loading) {
+    // Better loading message for post-payment users
+    if (postPaymentState) {
+      return loadingComponent || (
+        <div className="space-y-4 text-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-medium">Setting up your account...</h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Processing your subscription and enabling features
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
     return loadingComponent || (
       <div className="space-y-3">
         <Skeleton className="h-4 w-3/4" />
