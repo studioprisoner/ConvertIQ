@@ -30,7 +30,7 @@ describe('Websites API - User Data Isolation Security Tests', () => {
 
       vi.doMock('@/db/connection', () => ({ db: mockDb }));
       vi.doMock('@/lib/api-middleware', () => ({
-        withAuthHandler: (handler: Function) => handler,
+        withAuthHandler: (handler: (...args: unknown[]) => unknown) => handler,
       }));
 
       const request = new NextRequest('http://localhost:3000/api/websites');

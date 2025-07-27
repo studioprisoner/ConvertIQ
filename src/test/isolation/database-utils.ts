@@ -22,7 +22,7 @@ export interface UserDataStats {
 export interface IsolationTestResult {
   passed: boolean;
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 /**

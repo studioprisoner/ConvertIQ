@@ -151,7 +151,15 @@ export const reportsRouter = createTRPCRouter({
             'Analysis completed - detailed insights will be available once processing is complete.',
           ],
           
-          recommendations: (aiAnalysis?.recommendations || []).map((rec: any) => ({
+          recommendations: (aiAnalysis?.recommendations || []).map((rec: {
+            id: string;
+            title: string;
+            description: string;
+            category: string;
+            priority: string;
+            impact: string;
+            effort: string;
+          }) => ({
             id: rec.id,
             title: rec.title,
             description: rec.description,
@@ -224,7 +232,18 @@ export const reportsRouter = createTRPCRouter({
           }
         });
 
-        const reports = Array.from(websiteMap.values()).map((row: any) => {
+        interface ReportRow {
+          websiteId: string;
+          analysisId: string;
+          websiteName: string;
+          websiteUrl: string;
+          analysisStatus: string;
+          aiAnalysis: string | null;
+          analysisCreatedAt: Date | null;
+          errorMessage: string | null;
+        }
+        
+        const reports = Array.from(websiteMap.values()).map((row: ReportRow) => {
           const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
           
           return {
@@ -388,7 +407,7 @@ export const reportsRouter = createTRPCRouter({
 
         const archivedReports = archivedData
           .filter(row => row.errorMessage && row.errorMessage.includes('ARCHIVED_BY_USER'))
-          .map((row: any) => {
+          .map((row: ReportRow) => {
             const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
             
             return {

@@ -462,7 +462,7 @@ export default function BillingPage() {
               When will I be charged?
             </dt>
             <dd className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              You'll be charged immediately when you select a plan. Your
+              You&apos;ll be charged immediately when you select a plan. Your
               subscription starts right away, giving you instant access to all
               features.
             </dd>

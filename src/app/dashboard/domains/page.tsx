@@ -364,7 +364,7 @@ export default function DomainsPage() {
         <Dialog open={isDeleteDialogOpen} onClose={setIsDeleteDialogOpen}>
           <DialogTitle>Delete Domain</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete "{selectedDomain?.name}"? This action cannot be undone.
+            Are you sure you want to delete &ldquo;{selectedDomain?.name}&rdquo;? This action cannot be undone.
             All associated reports and data will be permanently removed.
           </DialogDescription>
           <DialogActions>

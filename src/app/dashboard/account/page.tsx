@@ -582,7 +582,7 @@ export default function AccountPage() {
                 No Active Subscription
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Choose a plan to start optimizing your website's conversion rate.
+                Choose a plan to start optimizing your website&apos;s conversion rate.
               </p>
               <Button 
                 color="blue"
