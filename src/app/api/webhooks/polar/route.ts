@@ -110,7 +110,35 @@ export async function POST(request: NextRequest) {
       
       case 'subscription.uncanceled':
       case 'subscription.revoked':
+      case 'subscription.active':
         await handleSubscriptionStatusChange(data as any, type);
+        break;
+      
+      case 'customer.deleted':
+      case 'customer.state_changed':
+        await handleCustomerEvent(data as any, type);
+        break;
+      
+      case 'order.updated':
+      case 'order.refunded':
+        await handleOrderEvent(data as any, type);
+        break;
+      
+      case 'refund.created':
+      case 'refund.updated':
+        await handleRefundEvent(data as any, type);
+        break;
+      
+      case 'product.created':
+      case 'product.updated':
+      case 'benefit.created':
+      case 'benefit.updated':
+      case 'benefit_grant.created':
+      case 'benefit_grant.cycled':
+      case 'benefit_grant.updated':
+      case 'benefit_grant.revoked':
+      case 'organization.updated':
+        await handleInformationalEvent(data as any, type);
         break;
       
       default:
@@ -375,7 +403,12 @@ async function handleSubscriptionStatusChange(data: any, eventType: string) {
   try {
     console.log(`🔄 Processing ${eventType} webhook:`, data.id);
     
-    const newStatus = eventType === 'subscription.uncanceled' ? 'active' : 'canceled';
+    let newStatus = data.status || 'active';
+    if (eventType === 'subscription.uncanceled' || eventType === 'subscription.active') {
+      newStatus = 'active';
+    } else if (eventType === 'subscription.revoked') {
+      newStatus = 'canceled';
+    }
     
     await db
       .update(subscriptions)
@@ -391,4 +424,22 @@ async function handleSubscriptionStatusChange(data: any, eventType: string) {
     console.error(`❌ Error handling ${eventType}:`, error);
     throw error;
   }
+}
+
+async function handleOrderEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Order event ${eventType}:`, data.id);
+  // We don't need to do anything special for order updates/refunds currently
+  // Just log and acknowledge
+}
+
+async function handleRefundEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Refund event ${eventType}:`, data.id);
+  // TODO: In the future, we might want to handle refunds by updating subscription status
+  // For now, just log and acknowledge
+}
+
+async function handleInformationalEvent(data: any, eventType: string) {
+  console.log(`ℹ️ Informational event ${eventType}:`, data.id || 'N/A');
+  // These are informational events that don't require action
+  // Just log and acknowledge
 }
