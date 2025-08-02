@@ -194,6 +194,7 @@ export const reportsRouter = createTRPCRouter({
       const { user } = ctx;
       
       try {
+        // Get all websites for this user with their latest non-archived analysis
         const reportsData = await ctx.db
           .select({
             websiteId: websites.id,
@@ -210,20 +211,19 @@ export const reportsRouter = createTRPCRouter({
           .from(websites)
           .innerJoin(analyses, eq(analyses.websiteId, websites.id))
           .where(eq(websites.userId, user.id))
-          .orderBy(desc(analyses.createdAt))
-          .limit(input.limit)
-          .offset(input.offset);
+          .orderBy(desc(analyses.createdAt));
 
-        // Group by website and get the latest analysis for each (excluding archived)
-        const websiteMap = new Map();
-        reportsData.forEach(row => {
-          const key = row.websiteId;
-          
+        // Filter out archived reports and get the latest analysis for each website
+        const validReports = reportsData.filter(row => {
           // Skip archived reports
           const isArchived = row.errorMessage && row.errorMessage.includes('ARCHIVED_BY_USER');
-          if (isArchived) {
-            return;
-          }
+          return !isArchived;
+        });
+
+        // Group by website and get the latest analysis for each
+        const websiteMap = new Map();
+        validReports.forEach(row => {
+          const key = row.websiteId;
           
           if (!websiteMap.has(key) || 
               (row.analysisCreatedAt && websiteMap.get(key).analysisCreatedAt && 
@@ -232,18 +232,25 @@ export const reportsRouter = createTRPCRouter({
           }
         });
 
+        // Convert to array and apply pagination
+        const allReports = Array.from(websiteMap.values());
+        const paginatedReports = allReports
+          .slice(input.offset, input.offset + input.limit);
+
         interface ReportRow {
           websiteId: string;
           analysisId: string;
           websiteName: string;
           websiteUrl: string;
+          pageType: string;
           analysisStatus: string;
           aiAnalysis: string | null;
           analysisCreatedAt: Date | null;
+          websiteCreatedAt: Date | null;
           errorMessage: string | null;
         }
         
-        const reports = Array.from(websiteMap.values()).map((row: ReportRow) => {
+        const reports = paginatedReports.map((row: ReportRow) => {
           const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
           
           return {
@@ -263,8 +270,8 @@ export const reportsRouter = createTRPCRouter({
 
         return {
           reports,
-          total: reports.length,
-          hasMore: reports.length === input.limit,
+          total: allReports.length,
+          hasMore: (input.offset + input.limit) < allReports.length,
         };
 
       } catch (error) {
@@ -405,9 +412,22 @@ export const reportsRouter = createTRPCRouter({
           .limit(input.limit)
           .offset(input.offset);
 
+        interface ArchivedReportRow {
+          websiteId: string;
+          analysisId: string;
+          websiteName: string;
+          websiteUrl: string;
+          pageType: string;
+          analysisStatus: string;
+          aiAnalysis: string | null;
+          analysisCreatedAt: Date | null;
+          websiteCreatedAt: Date | null;
+          errorMessage: string | null;
+        }
+
         const archivedReports = archivedData
           .filter(row => row.errorMessage && row.errorMessage.includes('ARCHIVED_BY_USER'))
-          .map((row: ReportRow) => {
+          .map((row: ArchivedReportRow) => {
             const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
             
             return {

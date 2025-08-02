@@ -314,79 +314,68 @@ export const websitesRouter = createTRPCRouter({
       scanUrl: string;
     }> => {
       try {
-        console.log('🚀 createOrGet mutation started for URL:', input.url);
         const userId = ctx.session.user.id;
-        console.log('👤 User ID:', userId);
         
         // Extract domain from URL for validation (do this first)
         const urlObj = new URL(input.url);
         const scanDomain = urlObj.hostname.toLowerCase();
         const normalizedScanDomain = normalizeDomain(scanDomain);
-        console.log('🌐 Extracted scan domain:', scanDomain);
-        console.log('🌐 Normalized scan domain:', normalizedScanDomain);
 
         // Get user's existing domains first
-        console.log('📊 Querying user domains...');
         const userDomains = await db
           .select()
           .from(websites)
           .where(eq(websites.userId, userId));
-        console.log('📊 Found user domains:', userDomains.length);
 
         // Check if the domain is already in user's allowed domains (ignoring www)
+        // Look at the hostname of existing website URLs
         const isDomainAllowed = userDomains.some(domain => {
           const domainHost = new URL(domain.url).hostname.toLowerCase();
           const normalizedDomainHost = normalizeDomain(domainHost);
-          console.log(`🔍 Comparing normalized domains: ${normalizedScanDomain} vs ${normalizedDomainHost}`);
           return normalizedScanDomain === normalizedDomainHost;
         });
 
         if (!isDomainAllowed) {
-          console.log('❌ Domain not in allowed domains, checking if user can add new domains...');
-          
           // Only check multiple_websites feature if user is trying to scan a NEW domain
-          console.log('🔐 Checking feature access for multiple_websites...');
           const featureAccess = await checkFeatureAccess(userId, 'multiple_websites');
-          console.log('🔐 Feature access result:', featureAccess);
           
           if (!featureAccess.hasAccess) {
-            console.log('❌ User cannot add multiple domains - Basic plan restriction');
             throw new Error('DOMAIN_VALIDATION_REQUIRED');
           }
 
-          // User has Pro plan, check domain limits
+          // User has Pro plan, check domain limits (count unique domains, not URLs)
           const DOMAIN_LIMIT = 10;
           
-          if (userDomains.length >= DOMAIN_LIMIT) {
+          // Count unique domains from user's websites
+          const uniqueDomains = new Set();
+          userDomains.forEach(domain => {
+            const domainHost = new URL(domain.url).hostname.toLowerCase();
+            const normalizedDomainHost = normalizeDomain(domainHost);
+            uniqueDomains.add(normalizedDomainHost);
+          });
+          
+          if (uniqueDomains.size >= DOMAIN_LIMIT) {
             throw new Error(`DOMAIN_LIMIT_REACHED:This domain is not in your allowed domains list. Pro plan allows up to ${DOMAIN_LIMIT} domains. Please add this domain to your domains list first or scan a URL from your existing domains.`);
           } else {
             // User has space - offer to add domain
-            throw new Error(`DOMAIN_NOT_ALLOWED:This domain is not in your allowed domains list. Would you like to add "${normalizedScanDomain}" to your domains? You are using ${userDomains.length} of ${DOMAIN_LIMIT} domains.`);
+            throw new Error(`DOMAIN_NOT_ALLOWED:This domain is not in your allowed domains list. Would you like to add "${normalizedScanDomain}" to your domains? You are using ${uniqueDomains.size} of ${DOMAIN_LIMIT} domains.`);
           }
         }
 
-        console.log('✅ Domain is allowed - user can scan this domain');
-
         // Only validate URL if domain is allowed (to avoid timeout blocking domain validation)
-        console.log('✅ Domain allowed, starting URL validation...');
         // Skip accessibility check to avoid timeouts during testing/development
         const validation = await validateUrl(input.url, input.pageType, undefined, undefined, true);
-        console.log('✅ URL validation result:', validation);
         if (!validation.isValid) {
-          console.log('❌ URL validation failed:', validation.error);
           throw new Error(validation.error || 'Invalid URL');
         }
 
-        // For domain management, we want to check/create based on parent domain
-        // but for scanning, we still want to use the specific URL
-        const parentDomainUrl = `${urlObj.protocol}//${urlObj.hostname}`;
-        
-        // Check if website already exists for the parent domain
+        // Check if website already exists for this specific URL
+        // This allows multiple reports for different pages of the same domain
         const existing = await db
           .select()
           .from(websites)
           .where(and(
-            eq(websites.url, parentDomainUrl),
+            eq(websites.url, input.url),
             eq(websites.userId, userId)
           ))
           .limit(1);
@@ -406,20 +395,20 @@ export const websitesRouter = createTRPCRouter({
             .where(eq(websites.id, existing[0].id))
             .returning();
 
-          // Return the existing record but with the original scan URL for crawling
+          // Return the existing record with the same URL for crawling
           return {
             ...updated[0],
-            scanUrl: input.url // Add the original URL for crawling purposes
+            scanUrl: input.url
           };
         }
 
-        // Create new website record for the parent domain
+        // Create new website record for this specific URL
         const newWebsite = await db
           .insert(websites)
           .values({
             userId,
-            url: parentDomainUrl, // Store parent domain for domain management
-            name: urlObj.hostname,
+            url: input.url, // Store the specific URL to allow multiple pages per domain
+            name: `${urlObj.hostname}${urlObj.pathname !== '/' ? urlObj.pathname : ''}`,
             pageType: input.pageType || 'homepage',
             isValidated: true,
             validationStatus: 'valid',
@@ -428,10 +417,10 @@ export const websitesRouter = createTRPCRouter({
           })
           .returning();
 
-        // Return the new record but with the original scan URL for crawling
+        // Return the new record with the same URL for crawling
         return {
           ...newWebsite[0],
-          scanUrl: input.url // Add the original URL for crawling purposes
+          scanUrl: input.url
         };
       } catch (error) {
         // Don't log domain validation errors as they are expected user flow
