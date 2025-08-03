@@ -199,7 +199,7 @@ export class PostgresVectorSearchService implements VectorSearchService {
     filters: SearchFilters
   ): Promise<SearchResult[]> {
     try {
-      let whereConditions = [
+      const whereConditions = [
         eq(analyses.status, 'completed'),
       ];
 

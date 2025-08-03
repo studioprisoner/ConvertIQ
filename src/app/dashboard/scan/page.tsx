@@ -560,6 +560,7 @@ export default function ScanPage() {
                       <AiChat className="text-slate-400" />
                       <Input
                         type="url"
+                        variant="minimal"
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         placeholder="Enter a website URL to analyze for conversion optimisation opportunities"

@@ -195,7 +195,7 @@ class AIUsageTracker {
    */
   private updateDailyReport(metrics: UsageMetrics): void {
     const date = metrics.timestamp.split('T')[0];
-    let report = this.dailyReports.get(date) || this.createEmptyDailyReport(date);
+    const report = this.dailyReports.get(date) || this.createEmptyDailyReport(date);
 
     if (metrics.provider === 'anthropic') {
       report.anthropic.totalRequests++;

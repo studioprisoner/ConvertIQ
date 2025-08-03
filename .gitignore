@@ -44,12 +44,15 @@ next-env.d.ts
 /_product
 
 #ClaudeCode
-CLAUDE.md
 /.claude
-CLAUDE-activeContext.md
+CLAUDE-*.md
+CLAUDE.md
 
 #Uploads
 /public/uploads/avatars
 
 #Development Scripts
+/scripts/
 /src/scripts/
+
+/src/app/demo/
