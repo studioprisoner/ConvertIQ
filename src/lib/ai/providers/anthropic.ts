@@ -109,8 +109,22 @@ export class AnthropicAnalysisProvider {
 
       const processingTime = Date.now() - startTime;
 
+      // Handle the case where AI wraps response in uxAnalysis
+      let analysis = result.object;
+      if (analysis.uxAnalysis) {
+        analysis = {
+          type: 'ux_ui_analysis',
+          ...analysis.uxAnalysis,
+        };
+      }
+      
+      // Ensure type field is always present
+      if (!analysis.type) {
+        analysis.type = 'ux_ui_analysis';
+      }
+
       return {
-        analysis: result.object,
+        analysis,
         metadata: {
           processingTime,
           modelUsed: 'claude-3-5-sonnet-20241022',
@@ -143,8 +157,22 @@ export class AnthropicAnalysisProvider {
 
       const processingTime = Date.now() - startTime;
 
+      // Handle the case where AI wraps response in technicalSeoAnalysis
+      let analysis = result.object;
+      if (analysis.technicalSeoAnalysis) {
+        analysis = {
+          type: 'technical_seo',
+          ...analysis.technicalSeoAnalysis,
+        };
+      }
+      
+      // Ensure type field is always present
+      if (!analysis.type) {
+        analysis.type = 'technical_seo';
+      }
+
       return {
-        analysis: result.object,
+        analysis,
         metadata: {
           processingTime,
           modelUsed: 'claude-3-5-sonnet-20241022',
