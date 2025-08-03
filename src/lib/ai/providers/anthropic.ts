@@ -34,6 +34,7 @@ export class AnthropicAnalysisProvider {
     const startTime = Date.now();
 
     try {
+      console.log('🤖 Generating conversion psychology analysis...');
       const result = await Promise.race([
         generateObject({
           model: this.model,
@@ -43,14 +44,35 @@ export class AnthropicAnalysisProvider {
           temperature: 0.3, // Lower temperature for more consistent analysis
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Conversion analysis timeout after 20s')), 20000)
+          setTimeout(() => reject(new Error('Conversion analysis timeout after 35s')), 35000)
         )
       ]) as any;
 
       const processingTime = Date.now() - startTime;
 
+      // Handle the case where AI wraps response in conversionPsychologyAnalysis
+      let analysis = result.object;
+      if (analysis.conversionPsychologyAnalysis) {
+        analysis = {
+          type: 'conversion_psychology',
+          ...analysis.conversionPsychologyAnalysis,
+          // Add missing legacy fields for backward compatibility
+          overallScore: analysis.conversionPsychologyAnalysis.websiteOverview?.overallScore || 5,
+          keyFindings: analysis.conversionPsychologyAnalysis.topRecommendations?.map((r: any) => r.title) || [],
+          priorityRecommendations: analysis.conversionPsychologyAnalysis.immediateActions ? 
+            [analysis.conversionPsychologyAnalysis.immediateActions.priority1,
+             analysis.conversionPsychologyAnalysis.immediateActions.priority2,
+             analysis.conversionPsychologyAnalysis.immediateActions.priority3].filter(Boolean) : [],
+        };
+      }
+      
+      // Ensure type field is always present
+      if (!analysis.type) {
+        analysis.type = 'conversion_psychology';
+      }
+
       return {
-        analysis: result.object,
+        analysis,
         metadata: {
           processingTime,
           modelUsed: 'claude-3-5-sonnet-20241022',
@@ -59,7 +81,11 @@ export class AnthropicAnalysisProvider {
         },
       };
     } catch (error) {
-      console.error('Conversion psychology analysis failed:', error);
+      console.error('❌ Conversion psychology analysis failed:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        crawlUrl: crawlData.url,
+      });
       throw new Error(`Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -77,7 +103,7 @@ export class AnthropicAnalysisProvider {
           temperature: 0.3,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('UX analysis timeout after 20s')), 20000)
+          setTimeout(() => reject(new Error('UX analysis timeout after 35s')), 35000)
         )
       ]) as any;
 
@@ -111,7 +137,7 @@ export class AnthropicAnalysisProvider {
           temperature: 0.3,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SEO analysis timeout after 20s')), 20000)
+          setTimeout(() => reject(new Error('SEO analysis timeout after 35s')), 35000)
         )
       ]) as any;
 
@@ -139,60 +165,76 @@ export class AnthropicAnalysisProvider {
 
   async generateComprehensiveAnalysis(crawlData: CrawlResult): Promise<any> {
     const startTime = Date.now();
-    const TOTAL_TIMEOUT = 55000; // 55 seconds - leaving 5s buffer under Vercel 60s limit
+    const TOTAL_TIMEOUT = 90000; // 90 seconds - increased for better success rate
+    
+    // Enhanced timeout monitoring
+    const timeoutMonitor = {
+      totalStartTime: startTime,
+      totalTimeout: TOTAL_TIMEOUT,
+      url: crawlData.url,
+      sectionTimeouts: [] as Array<{section: string, startTime: number, endTime?: number, timedOut: boolean}>
+    };
 
     try {
-      console.log('🤖 Starting comprehensive analysis with graceful degradation...');
-      console.log(`⏱️ Total timeout set to ${TOTAL_TIMEOUT}ms`);
+      console.log('🤖 Starting comprehensive analysis with enhanced timeout monitoring...');
+      console.log(`⏱️ Total timeout increased to ${TOTAL_TIMEOUT}ms for URL: ${crawlData.url}`);
+      console.log(`📊 Content size: ${JSON.stringify(crawlData).length} characters`);
       
       // Create a promise that will timeout the entire analysis if it takes too long
-      const analysisPromise = this.performComprehensiveAnalysisInternal(crawlData, startTime, TOTAL_TIMEOUT);
+      const analysisPromise = this.performComprehensiveAnalysisInternal(crawlData, startTime, TOTAL_TIMEOUT, timeoutMonitor);
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Total comprehensive analysis timeout after 55s')), TOTAL_TIMEOUT)
+        setTimeout(() => {
+          console.error(`❌ TOTAL TIMEOUT: Analysis exceeded ${TOTAL_TIMEOUT}ms for ${crawlData.url}`);
+          this.logTimeoutAnalysis(timeoutMonitor);
+          reject(new Error(`Total comprehensive analysis timeout after ${TOTAL_TIMEOUT/1000}s`));
+        }, TOTAL_TIMEOUT)
       );
       
-      return await Promise.race([analysisPromise, timeoutPromise]);
+      const result = await Promise.race([analysisPromise, timeoutPromise]);
+      
+      // Log successful completion
+      const totalTime = Date.now() - startTime;
+      console.log(`✅ Analysis completed successfully in ${totalTime}ms for ${crawlData.url}`);
+      this.logSuccessfulAnalysis(timeoutMonitor, totalTime);
+      
+      return result;
     } catch (error) {
-      console.error('Comprehensive analysis failed completely:', error);
+      const totalTime = Date.now() - startTime;
+      console.error(`💥 Comprehensive analysis failed after ${totalTime}ms:`, error);
+      this.logFailedAnalysis(timeoutMonitor, totalTime, error);
       throw new Error(`Comprehensive analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  private async performComprehensiveAnalysisInternal(crawlData: CrawlResult, startTime: number, totalTimeout: number): Promise<any> {
+  private async performComprehensiveAnalysisInternal(crawlData: CrawlResult, startTime: number, totalTimeout: number, timeoutMonitor: any): Promise<any> {
     try {
       // Calculate individual timeout based on total timeout - leave time for summary generation
-      const individualTimeout = Math.min(18000, Math.floor((totalTimeout - 5000) / 3)); // Max 18s each, or 1/3 of remaining time
-      console.log(`⏱️ Individual analysis timeout set to ${individualTimeout}ms`);
+      const individualTimeout = Math.min(30000, Math.floor((totalTimeout - 10000) / 3)); // Max 30s each, or 1/3 of remaining time
+      console.log(`⏱️ Individual analysis timeout increased to ${individualTimeout}ms`);
       
-      // Run all analyses in parallel with individual error handling and appropriate timeouts
+      // Run all analyses in parallel with enhanced monitoring and timeout handling
       const analysisPromises = [
-        Promise.race([
-          this.analyzeConversionPsychology(crawlData),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(`Individual conversion analysis timeout after ${individualTimeout}ms`)), individualTimeout)
-          )
-        ]).catch(error => {
-          console.warn('Conversion analysis failed, using fallback:', error.message);
-          return this.createFallbackConversionAnalysis();
-        }),
-        Promise.race([
-          this.analyzeUX(crawlData),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(`Individual UX analysis timeout after ${individualTimeout}ms`)), individualTimeout)
-          )
-        ]).catch(error => {
-          console.warn('UX analysis failed, using fallback:', error.message);
-          return this.createFallbackUXAnalysis();
-        }),
-        Promise.race([
-          this.analyzeTechnicalSEO(crawlData),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(`Individual SEO analysis timeout after ${individualTimeout}ms`)), individualTimeout)
-          )
-        ]).catch(error => {
-          console.warn('SEO analysis failed, using fallback:', error.message);
-          return this.createFallbackSEOAnalysis();
-        }),
+        this.createMonitoredAnalysisPromise(
+          'Conversion Psychology',
+          () => this.analyzeConversionPsychology(crawlData),
+          () => this.createFallbackConversionAnalysis(),
+          individualTimeout,
+          timeoutMonitor
+        ),
+        this.createMonitoredAnalysisPromise(
+          'UX Analysis',
+          () => this.analyzeUX(crawlData),
+          () => this.createFallbackUXAnalysis(),
+          individualTimeout,
+          timeoutMonitor
+        ),
+        this.createMonitoredAnalysisPromise(
+          'Technical SEO',
+          () => this.analyzeTechnicalSEO(crawlData),
+          () => this.createFallbackSEOAnalysis(),
+          individualTimeout,
+          timeoutMonitor
+        ),
       ];
 
       const analysisResults = await Promise.allSettled(analysisPromises);
@@ -487,6 +529,199 @@ Keep recommendations specific and actionable for small business owners.`;
       console.error('Optimized executive summary failed:', error);
       throw error;
     }
+  }
+
+  // Enhanced monitoring methods
+  private createMonitoredAnalysisPromise(
+    sectionName: string,
+    analysisFunction: () => Promise<any>,
+    fallbackFunction: () => any,
+    timeout: number,
+    timeoutMonitor: any
+  ): Promise<any> {
+    const sectionStartTime = Date.now();
+    
+    timeoutMonitor.sectionTimeouts.push({
+      section: sectionName,
+      startTime: sectionStartTime,
+      timedOut: false,
+      retryAttempts: 0
+    });
+
+    return this.retryAnalysisWithBackoff(
+      sectionName,
+      analysisFunction,
+      fallbackFunction,
+      timeout,
+      timeoutMonitor,
+      sectionStartTime,
+      3 // maxRetries
+    );
+  }
+
+  private async retryAnalysisWithBackoff(
+    sectionName: string,
+    analysisFunction: () => Promise<any>,
+    fallbackFunction: () => any,
+    timeout: number,
+    timeoutMonitor: any,
+    originalStartTime: number,
+    maxRetries: number,
+    currentAttempt: number = 1
+  ): Promise<any> {
+    const attemptStartTime = Date.now();
+    
+    // Update section info
+    const sectionIndex = timeoutMonitor.sectionTimeouts.findIndex(s => s.section === sectionName);
+    if (sectionIndex >= 0) {
+      timeoutMonitor.sectionTimeouts[sectionIndex].retryAttempts = currentAttempt - 1;
+    }
+
+    console.log(`🔄 ${sectionName} attempt ${currentAttempt}/${maxRetries + 1} starting...`);
+
+    try {
+      const result = await Promise.race([
+        analysisFunction().then(result => {
+          if (sectionIndex >= 0) {
+            timeoutMonitor.sectionTimeouts[sectionIndex].endTime = Date.now();
+          }
+          
+          const totalDuration = Date.now() - originalStartTime;
+          const attemptDuration = Date.now() - attemptStartTime;
+          console.log(`✅ ${sectionName} completed on attempt ${currentAttempt} in ${attemptDuration}ms (total: ${totalDuration}ms)`);
+          
+          // Mark successful retry in metadata
+          if (result.metadata) {
+            result.metadata.retryAttempt = currentAttempt;
+            result.metadata.totalAttempts = currentAttempt;
+          }
+          
+          return result;
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => {
+            console.error(`⏰ ${sectionName} attempt ${currentAttempt} timeout after ${timeout}ms`);
+            reject(new Error(`${sectionName} timeout after ${timeout}ms on attempt ${currentAttempt}`));
+          }, timeout)
+        )
+      ]);
+
+      return result;
+    } catch (error) {
+      const attemptDuration = Date.now() - attemptStartTime;
+      const totalDuration = Date.now() - originalStartTime;
+      
+      console.warn(`⚠️ ${sectionName} attempt ${currentAttempt} failed after ${attemptDuration}ms:`, error.message);
+
+      // Check if we should retry
+      if (currentAttempt <= maxRetries && this.shouldRetryError(error)) {
+        const backoffDelay = this.calculateBackoffDelay(currentAttempt);
+        console.log(`🔄 ${sectionName} retrying in ${backoffDelay}ms (attempt ${currentAttempt + 1}/${maxRetries + 1})`);
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        
+        // Retry with exponential backoff
+        return this.retryAnalysisWithBackoff(
+          sectionName,
+          analysisFunction,
+          fallbackFunction,
+          timeout,
+          timeoutMonitor,
+          originalStartTime,
+          maxRetries,
+          currentAttempt + 1
+        );
+      }
+
+      // All retries exhausted, use fallback
+      console.error(`💥 ${sectionName} failed after ${maxRetries + 1} attempts (total: ${totalDuration}ms), using fallback`);
+      
+      if (sectionIndex >= 0) {
+        timeoutMonitor.sectionTimeouts[sectionIndex].timedOut = true;
+        timeoutMonitor.sectionTimeouts[sectionIndex].endTime = Date.now();
+        timeoutMonitor.sectionTimeouts[sectionIndex].retryAttempts = currentAttempt - 1;
+      }
+      
+      // Create enhanced fallback with retry information
+      const fallbackResult = fallbackFunction();
+      fallbackResult.metadata = fallbackResult.metadata || {};
+      fallbackResult.metadata.fallbackReason = error.message;
+      fallbackResult.metadata.totalAttempts = currentAttempt;
+      fallbackResult.metadata.totalDuration = totalDuration;
+      fallbackResult.metadata.retriesExhausted = true;
+      
+      return fallbackResult;
+    }
+  }
+
+  private shouldRetryError(error: Error): boolean {
+    const retryableErrors = [
+      'timeout',
+      'network',
+      'rate limit',
+      'server error',
+      'internal error',
+      'service unavailable',
+      'connection',
+      'ECONNRESET',
+      'ETIMEDOUT'
+    ];
+
+    const errorMessage = error.message.toLowerCase();
+    return retryableErrors.some(retryableError => 
+      errorMessage.includes(retryableError)
+    );
+  }
+
+  private calculateBackoffDelay(attempt: number): number {
+    // Exponential backoff with jitter: base * 2^attempt + random(0, 1000)
+    const baseDelay = 1000; // 1 second
+    const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
+    const jitter = Math.random() * 1000; // Add randomness to prevent thundering herd
+    
+    return Math.min(exponentialDelay + jitter, 10000); // Cap at 10 seconds
+  }
+
+  private logTimeoutAnalysis(timeoutMonitor: any): void {
+    console.error('🔍 TIMEOUT ANALYSIS REPORT:');
+    console.error(`📋 URL: ${timeoutMonitor.url}`);
+    console.error(`⏱️ Total timeout: ${timeoutMonitor.totalTimeout}ms`);
+    console.error(`🔄 Section breakdown:`);
+    
+    timeoutMonitor.sectionTimeouts.forEach((section: any) => {
+      const duration = section.endTime ? section.endTime - section.startTime : Date.now() - section.startTime;
+      const retryInfo = section.retryAttempts > 0 ? ` (${section.retryAttempts} retries)` : '';
+      console.error(`  • ${section.section}: ${duration}ms ${section.timedOut ? '❌ TIMED OUT' : '✅ COMPLETED'}${retryInfo}`);
+    });
+  }
+
+  private logSuccessfulAnalysis(timeoutMonitor: any, totalTime: number): void {
+    console.log('📊 SUCCESSFUL ANALYSIS REPORT:');
+    console.log(`📋 URL: ${timeoutMonitor.url}`);
+    console.log(`⏱️ Total time: ${totalTime}ms`);
+    console.log(`🔄 Section breakdown:`);
+    
+    timeoutMonitor.sectionTimeouts.forEach((section: any) => {
+      const duration = section.endTime ? section.endTime - section.startTime : totalTime;
+      const retryInfo = section.retryAttempts > 0 ? ` (succeeded after ${section.retryAttempts} retries)` : '';
+      console.log(`  • ${section.section}: ${duration}ms${retryInfo}`);
+    });
+  }
+
+  private logFailedAnalysis(timeoutMonitor: any, totalTime: number, error: any): void {
+    console.error('💥 FAILED ANALYSIS REPORT:');
+    console.error(`📋 URL: ${timeoutMonitor.url}`);
+    console.error(`⏱️ Total time: ${totalTime}ms`);
+    console.error(`❌ Error: ${error.message}`);
+    console.error(`🔄 Section breakdown:`);
+    
+    timeoutMonitor.sectionTimeouts.forEach((section: any) => {
+      const duration = section.endTime ? section.endTime - section.startTime : totalTime;
+      const status = section.timedOut ? '❌ TIMED OUT' : section.endTime ? '✅ COMPLETED' : '🔄 IN PROGRESS';
+      const retryInfo = section.retryAttempts > 0 ? ` (${section.retryAttempts} retries)` : '';
+      console.error(`  • ${section.section}: ${duration}ms ${status}${retryInfo}`);
+    });
   }
 
   // Health check method

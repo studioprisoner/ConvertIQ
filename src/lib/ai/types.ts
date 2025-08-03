@@ -29,51 +29,76 @@ export const effortScoreSchema = z.object({
 export const conversionPsychologyAnalysisSchema = z.object({
   type: z.literal('conversion_psychology'),
   
+  // Website overview
+  websiteOverview: z.object({
+    businessType: z.string(),
+    targetAudience: z.string(),
+    overallScore: z.number().min(1).max(10),
+    summary: z.string(),
+  }),
+  
   // Psychological triggers analysis
   psychologicalTriggers: z.object({
     scarcity: z.object({
-      present: z.boolean(),
-      effectiveness: z.number().min(1).max(10).optional(),
-      recommendations: z.array(z.string()),
+      score: z.number().min(1).max(10),
+      currentImplementation: z.string(),
+      opportunities: z.string(),
     }),
     socialProof: z.object({
-      present: z.boolean(),
-      types: z.array(z.enum(['testimonials', 'reviews', 'trust_badges', 'user_counts', 'social_media'])),
-      effectiveness: z.number().min(1).max(10).optional(),
-      recommendations: z.array(z.string()),
+      score: z.number().min(1).max(10),
+      currentImplementation: z.string(),
+      opportunities: z.string(),
     }),
     authority: z.object({
-      present: z.boolean(),
-      indicators: z.array(z.enum(['credentials', 'awards', 'certifications', 'expert_content', 'media_mentions'])),
-      effectiveness: z.number().min(1).max(10).optional(),
-      recommendations: z.array(z.string()),
+      score: z.number().min(1).max(10),
+      currentImplementation: z.string(),
+      opportunities: z.string(),
     }),
     reciprocity: z.object({
-      present: z.boolean(),
-      methods: z.array(z.enum(['free_content', 'trials', 'samples', 'helpful_resources'])),
-      effectiveness: z.number().min(1).max(10).optional(),
-      recommendations: z.array(z.string()),
+      score: z.number().min(1).max(10),
+      currentImplementation: z.string(),
+      opportunities: z.string(),
     }),
     commitment: z.object({
-      present: z.boolean(),
-      methods: z.array(z.enum(['guarantees', 'warranties', 'return_policies', 'clear_expectations'])),
-      effectiveness: z.number().min(1).max(10).optional(),
-      recommendations: z.array(z.string()),
+      score: z.number().min(1).max(10),
+      currentImplementation: z.string(),
+      opportunities: z.string(),
     }),
   }),
   
   // Trust indicators
   trustIndicators: z.object({
-    securityBadges: z.boolean(),
-    contactInformation: z.boolean(),
-    aboutSection: z.boolean(),
-    privacyPolicy: z.boolean(),
-    termsOfService: z.boolean(),
-    professionalDesign: z.number().min(1).max(10),
+    score: z.number().min(1).max(10),
+    strengths: z.array(z.string()),
+    weaknesses: z.array(z.string()),
+  }),
+  
+  // Top recommendations
+  topRecommendations: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    implementation: z.array(z.string()),
+    impact: z.number().min(1).max(10),
+    effort: z.number().min(1).max(10),
+    priority: z.number().min(1).max(10),
+    whyItMatters: z.string(),
+  })),
+  
+  // Ethical compliance
+  ethicalCompliance: z.object({
+    status: z.string(),
+    concerns: z.string(),
     recommendations: z.array(z.string()),
   }),
   
-  // Overall analysis
+  // Immediate actions
+  immediateActions: z.object({
+    priority1: z.string(),
+    priority2: z.string(),
+    priority3: z.string(),
+  }),
+  
+  // Legacy fields for backward compatibility
   overallScore: z.number().min(1).max(10),
   keyFindings: z.array(z.string()),
   priorityRecommendations: z.array(z.string()),
