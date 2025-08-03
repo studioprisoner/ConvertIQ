@@ -112,7 +112,21 @@ Analyze this data for conversion psychology opportunities and provide:
    - Summarize key findings and opportunities
    - Prioritize top 3 recommendations for immediate implementation
 
-Format your response as a structured JSON object matching the ConversionPsychologyAnalysis schema. Be specific, actionable, and focused on ethical conversion optimization for small businesses.
+Format your response as a structured JSON object matching the ConversionPsychologyAnalysis schema. 
+
+REQUIRED FIELDS:
+- type: "conversion_psychology" (ALWAYS include this literal value)
+- websiteOverview: Business analysis and overall score
+- psychologicalTriggers: Score each trigger (scarcity, socialProof, authority, reciprocity, commitment)  
+- trustIndicators: Trust assessment with score, strengths, and weaknesses
+- topRecommendations: Array of specific recommendations with impact/effort scores
+- ethicalCompliance: Compliance status and recommendations
+- immediateActions: Priority 1, 2, and 3 actions
+- overallScore: Overall website score (1-10)
+- keyFindings: Array of key insights
+- priorityRecommendations: Array of top priority recommendations
+
+Be specific, actionable, and focused on ethical conversion optimization for small businesses.
 
 REMEMBER: Only recommend ethical, transparent, and user-focused improvements. Never suggest deceptive or manipulative practices.
 `;
