@@ -375,4 +375,307 @@ export const aiAnalysisRouter = createTRPCRouter({
         throw new Error(`Failed to queue embedding: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }),
+
+  // Re-trigger individual analysis sections
+  retriggerConversionAnalysis: publicProcedure
+    .input(z.object({
+      analysisId: z.string().uuid(),
+      websiteId: z.string().uuid(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log('🔄 Re-triggering conversion analysis for:', input.analysisId);
+      
+      try {
+        // Get original crawl data
+        const analysisData = await aiAnalysisDb.getAnalysisById(input.analysisId);
+        if (!analysisData) {
+          throw new Error('Original analysis not found');
+        }
+
+        // Import provider directly to avoid circular imports
+        const { AnthropicAnalysisProvider } = await import('@/lib/ai/providers/anthropic');
+        const provider = new AnthropicAnalysisProvider();
+        
+        // Re-run only conversion psychology analysis
+        const conversionResult = await provider.analyzeConversionPsychology(analysisData.crawlData);
+        
+        // Update the existing analysis with new conversion data
+        const updatedAnalysis = {
+          ...analysisData.analysis,
+          conversionPsychology: conversionResult.analysis,
+          metadata: {
+            ...analysisData.analysis.metadata,
+            lastRetriggered: new Date().toISOString(),
+            retriggeredSections: ['conversion_psychology'],
+          }
+        };
+        
+        // Save updated analysis
+        await aiAnalysisDb.updateAnalysisWithAI(input.analysisId, updatedAnalysis);
+        
+        console.log('✅ Conversion analysis re-triggered successfully');
+        return {
+          success: true,
+          analysisId: input.analysisId,
+          section: 'conversion_psychology',
+          newScore: conversionResult.analysis.overallScore,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        console.error('🔄 Failed to re-trigger conversion analysis:', error);
+        throw new Error(`Failed to re-trigger conversion analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
+
+  retriggerUXAnalysis: publicProcedure
+    .input(z.object({
+      analysisId: z.string().uuid(),
+      websiteId: z.string().uuid(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log('🔄 Re-triggering UX analysis for:', input.analysisId);
+      
+      try {
+        // Get original crawl data
+        const analysisData = await aiAnalysisDb.getAnalysisById(input.analysisId);
+        if (!analysisData) {
+          throw new Error('Original analysis not found');
+        }
+
+        // Import provider directly to avoid circular imports
+        const { AnthropicAnalysisProvider } = await import('@/lib/ai/providers/anthropic');
+        const provider = new AnthropicAnalysisProvider();
+        
+        // Re-run only UX analysis
+        const uxResult = await provider.analyzeUX(analysisData.crawlData);
+        
+        // Update the existing analysis with new UX data
+        const updatedAnalysis = {
+          ...analysisData.analysis,
+          uxAnalysis: uxResult.analysis,
+          metadata: {
+            ...analysisData.analysis.metadata,
+            lastRetriggered: new Date().toISOString(),
+            retriggeredSections: [...(analysisData.analysis.metadata?.retriggeredSections || []), 'ux_analysis'],
+          }
+        };
+        
+        // Save updated analysis
+        await aiAnalysisDb.updateAnalysisWithAI(input.analysisId, updatedAnalysis);
+        
+        console.log('✅ UX analysis re-triggered successfully');
+        return {
+          success: true,
+          analysisId: input.analysisId,
+          section: 'ux_analysis',
+          newScore: uxResult.analysis.overallScore,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        console.error('🔄 Failed to re-trigger UX analysis:', error);
+        throw new Error(`Failed to re-trigger UX analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
+
+  retriggerSEOAnalysis: publicProcedure
+    .input(z.object({
+      analysisId: z.string().uuid(),
+      websiteId: z.string().uuid(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log('🔄 Re-triggering SEO analysis for:', input.analysisId);
+      
+      try {
+        // Get original crawl data
+        const analysisData = await aiAnalysisDb.getAnalysisById(input.analysisId);
+        if (!analysisData) {
+          throw new Error('Original analysis not found');
+        }
+
+        // Import provider directly to avoid circular imports
+        const { AnthropicAnalysisProvider } = await import('@/lib/ai/providers/anthropic');
+        const provider = new AnthropicAnalysisProvider();
+        
+        // Re-run only SEO analysis
+        const seoResult = await provider.analyzeTechnicalSEO(analysisData.crawlData);
+        
+        // Update the existing analysis with new SEO data
+        const updatedAnalysis = {
+          ...analysisData.analysis,
+          technicalSeo: seoResult.analysis,
+          metadata: {
+            ...analysisData.analysis.metadata,
+            lastRetriggered: new Date().toISOString(),
+            retriggeredSections: [...(analysisData.analysis.metadata?.retriggeredSections || []), 'technical_seo'],
+          }
+        };
+        
+        // Save updated analysis
+        await aiAnalysisDb.updateAnalysisWithAI(input.analysisId, updatedAnalysis);
+        
+        console.log('✅ SEO analysis re-triggered successfully');
+        return {
+          success: true,
+          analysisId: input.analysisId,
+          section: 'technical_seo',
+          newScore: seoResult.analysis.overallScore,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        console.error('🔄 Failed to re-trigger SEO analysis:', error);
+        throw new Error(`Failed to re-trigger SEO analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
+
+  // Re-trigger all failed sections of an analysis
+  retriggerFailedSections: publicProcedure
+    .input(z.object({
+      analysisId: z.string().uuid(),
+      websiteId: z.string().uuid(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log('🔄 Re-triggering all failed sections for:', input.analysisId);
+      
+      try {
+        // Get original analysis
+        const analysisData = await aiAnalysisDb.getAnalysisById(input.analysisId);
+        if (!analysisData) {
+          throw new Error('Original analysis not found');
+        }
+
+        // Import provider directly to avoid circular imports
+        const { AnthropicAnalysisProvider } = await import('@/lib/ai/providers/anthropic');
+        const provider = new AnthropicAnalysisProvider();
+        
+        // Check which sections used fallbacks
+        const failedSections = [];
+        const sectionsToRetrigger = [];
+        
+        if (analysisData.analysis.conversionPsychology?.metadata?.isFallback) {
+          failedSections.push('conversion_psychology');
+          sectionsToRetrigger.push(() => provider.analyzeConversionPsychology(analysisData.crawlData));
+        }
+        
+        if (analysisData.analysis.uxAnalysis?.metadata?.isFallback) {
+          failedSections.push('ux_analysis');
+          sectionsToRetrigger.push(() => provider.analyzeUX(analysisData.crawlData));
+        }
+        
+        if (analysisData.analysis.technicalSeo?.metadata?.isFallback) {
+          failedSections.push('technical_seo');
+          sectionsToRetrigger.push(() => provider.analyzeTechnicalSEO(analysisData.crawlData));
+        }
+
+        if (failedSections.length === 0) {
+          return {
+            success: true,
+            message: 'No failed sections found to re-trigger',
+            analysisId: input.analysisId,
+            timestamp: new Date().toISOString(),
+          };
+        }
+
+        console.log(`🔄 Re-triggering ${failedSections.length} failed sections:`, failedSections.join(', '));
+        
+        // Run all failed sections in parallel
+        const results = await Promise.allSettled(
+          sectionsToRetrigger.map(fn => fn())
+        );
+        
+        // Update analysis with successful results
+        const updatedAnalysis = { ...analysisData.analysis };
+        const successfulSections = [];
+        
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            const sectionName = failedSections[index];
+            successfulSections.push(sectionName);
+            
+            switch (sectionName) {
+              case 'conversion_psychology':
+                updatedAnalysis.conversionPsychology = result.value.analysis;
+                break;
+              case 'ux_analysis':
+                updatedAnalysis.uxAnalysis = result.value.analysis;
+                break;
+              case 'technical_seo':
+                updatedAnalysis.technicalSeo = result.value.analysis;
+                break;
+            }
+          }
+        });
+        
+        // Update metadata
+        updatedAnalysis.metadata = {
+          ...updatedAnalysis.metadata,
+          lastRetriggered: new Date().toISOString(),
+          retriggeredSections: [...(updatedAnalysis.metadata?.retriggeredSections || []), ...successfulSections],
+        };
+        
+        // Save updated analysis
+        await aiAnalysisDb.updateAnalysisWithAI(input.analysisId, updatedAnalysis);
+        
+        console.log(`✅ Re-triggered ${successfulSections.length}/${failedSections.length} sections successfully`);
+        return {
+          success: true,
+          analysisId: input.analysisId,
+          attemptedSections: failedSections,
+          successfulSections,
+          failedSections: failedSections.filter(s => !successfulSections.includes(s)),
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        console.error('🔄 Failed to re-trigger failed sections:', error);
+        throw new Error(`Failed to re-trigger failed sections: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
+
+  // Check analysis metadata for fallback indicators
+  getAnalysisMetadata: publicProcedure
+    .input(z.object({
+      analysisId: z.string().uuid(),
+    }))
+    .query(async ({ input }) => {
+      console.log('📊 Getting analysis metadata for:', input.analysisId);
+      
+      try {
+        const analysisData = await aiAnalysisDb.getAnalysisById(input.analysisId);
+        if (!analysisData) {
+          throw new Error('Analysis not found');
+        }
+
+        // Extract metadata from all sections
+        const metadata = {
+          analysisId: input.analysisId,
+          createdAt: analysisData.analysis.metadata?.createdAt,
+          lastRetriggered: analysisData.analysis.metadata?.lastRetriggered,
+          retriggeredSections: analysisData.analysis.metadata?.retriggeredSections || [],
+          sections: {
+            conversionPsychology: {
+              hasFallback: analysisData.analysis.conversionPsychology?.metadata?.isFallback || false,
+              fallbackReason: analysisData.analysis.conversionPsychology?.metadata?.fallbackReason,
+              score: analysisData.analysis.conversionPsychology?.overallScore,
+              confidence: analysisData.analysis.conversionPsychology?.metadata?.confidence,
+            },
+            uxAnalysis: {
+              hasFallback: analysisData.analysis.uxAnalysis?.metadata?.isFallback || false,
+              fallbackReason: analysisData.analysis.uxAnalysis?.metadata?.fallbackReason,
+              score: analysisData.analysis.uxAnalysis?.overallScore,
+              confidence: analysisData.analysis.uxAnalysis?.metadata?.confidence,
+            },
+            technicalSeo: {
+              hasFallback: analysisData.analysis.technicalSeo?.metadata?.isFallback || false,
+              fallbackReason: analysisData.analysis.technicalSeo?.metadata?.fallbackReason,
+              score: analysisData.analysis.technicalSeo?.overallScore,
+              confidence: analysisData.analysis.technicalSeo?.metadata?.confidence,
+            }
+          }
+        };
+
+        return metadata;
+      } catch (error) {
+        console.error('📊 Failed to get analysis metadata:', error);
+        throw new Error(`Failed to retrieve metadata: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
 });
