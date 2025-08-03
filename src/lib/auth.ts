@@ -10,10 +10,6 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: true,
-  },
   user: {
     additionalFields: {
       name: {
@@ -48,34 +44,43 @@ export const auth = betterAuth({
       disableSignUp: false, // Allow signup through Email OTP
       autoSignIn: true, // Automatically sign in after OTP verification
       async sendVerificationOTP({ email, otp, type }) {
-        const subject =
-          type === "sign-in"
-            ? "Sign in to ConvertIQ"
-            : type === "email-verification"
-              ? "Verify your email"
-              : "Reset your password";
+        try {
+          console.log(`Sending OTP to ${email}, type: ${type}`);
+          
+          const subject =
+            type === "sign-in"
+              ? "Sign in to ConvertIQ"
+              : type === "email-verification"
+                ? "Verify your email"
+                : "Reset your password";
 
-        const htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2563eb;">ConvertIQ</h2>
-            <p>Hello!</p>
-            <p>Your verification code is:</p>
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-              <h1 style="color: #1f2937; font-size: 32px; margin: 0; letter-spacing: 4px;">${otp}</h1>
+          const htmlContent = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2563eb;">ConvertIQ</h2>
+              <p>Hello!</p>
+              <p>Your verification code is:</p>
+              <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                <h1 style="color: #1f2937; font-size: 32px; margin: 0; letter-spacing: 4px;">${otp}</h1>
+              </div>
+              <p>This code will expire in 5 minutes.</p>
+              <p>If you didn't request this code, please ignore this email.</p>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+              <p style="color: #6b7280; font-size: 14px;">ConvertIQ - AI-Powered Conversion Optimisation</p>
             </div>
-            <p>This code will expire in 5 minutes.</p>
-            <p>If you didn't request this code, please ignore this email.</p>
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-            <p style="color: #6b7280; font-size: 14px;">ConvertIQ - AI-Powered Conversion Optimisation</p>
-          </div>
-        `;
+          `;
 
-        await resend.emails.send({
-          from: "ConvertIQ <noreply@convertiq.cloud>", // Using your verified domain
-          to: email,
-          subject,
-          html: htmlContent,
-        });
+          const result = await resend.emails.send({
+            from: "ConvertIQ <noreply@convertiq.cloud>", // Using your verified domain
+            to: email,
+            subject,
+            html: htmlContent,
+          });
+          
+          console.log('Email sent successfully:', result.data?.id);
+        } catch (error) {
+          console.error('Failed to send OTP email:', error);
+          throw error;
+        }
       },
       otpLength: 6,
       expiresIn: 300, // 5 minutes
