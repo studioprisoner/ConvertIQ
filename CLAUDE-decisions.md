@@ -1,5 +1,37 @@
 # Architecture Decisions Record (ADR)
 
+## Development Strategy Architecture Decisions (August 2, 2025)
+
+### ADR-007: Dev Branch Reset Strategy
+
+**Status**: ✅ Implemented  
+**Date**: 2025-08-02  
+**Context**: Experimental features not working, need stable foundation
+
+**Decision**: Reset dev branch to main branch state:
+- Use `git reset --hard origin/main` to match main exactly
+- Remove all experimental files with `git clean -fd`
+- Start fresh development from proven stable foundation
+- Preserve main branch architecture and patterns
+
+**Rationale**:
+- Recent experimental work on visual analysis and enhanced features wasn't functioning
+- Main branch represents stable, working state with proven architecture
+- Clean slate approach prevents technical debt accumulation
+- Faster to restart than debug complex experimental integrations
+
+**Implementation**:
+- Reset dev branch pointer to main commit (59edf0e)
+- Cleaned all untracked experimental files and directories
+- Restored stable working tree state
+- Maintained all core features from main branch
+
+**Consequences**:
+- ✅ Clean development environment ready for new features
+- ✅ Stable foundation with proven architecture patterns
+- ✅ No technical debt from experimental work
+- ⚠️ Lost recent experimental work (acceptable trade-off)
+
 ## Security & Performance Architecture Decisions (July 26, 2025)
 
 ### ADR-001: Dual Runtime Architecture for Security Middleware
@@ -151,12 +183,20 @@
 2. **Security Gaps** - Comprehensive security hardening implemented
 3. **Input Validation** - Systematic validation across all inputs
 4. **Rate Limiting** - Production-ready rate limiting with memory management
+5. **Development Environment** - Clean dev branch reset to stable foundation
+
+### Current Development Strategy
+1. **Stable Foundation First** - Build on proven main branch architecture
+2. **Incremental Enhancement** - Add features one at a time with testing
+3. **Architecture Preservation** - Maintain security and performance patterns
+4. **Clean Development** - Avoid experimental accumulation without validation
 
 ### Future Architecture Considerations
 1. **Redis Integration** - For distributed rate limiting in multi-instance deployments
 2. **Advanced Security** - Consider WAF integration for enhanced protection
 3. **Performance Monitoring** - Implement detailed performance metrics
 4. **Security Automation** - Integration with CI/CD security scanning
+5. **Feature Testing** - Implement staging environment for experimental features
 
 ## Migration & Rollback Strategy
 

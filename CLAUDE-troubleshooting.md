@@ -2,6 +2,47 @@
 
 ## Recently Resolved Issues ✅
 
+### Dev Branch Reset Issue - RESOLVED
+
+**Problem**: Experimental features not working, development environment unstable
+
+**Symptoms**:
+- Complex experimental analysis features failing
+- Multiple new migrations and schema changes
+- Untracked files accumulating without validation
+- Development workflow becoming difficult
+
+**Root Cause**: 
+Too many experimental features added simultaneously without proper testing and validation
+
+**Solution Applied**:
+```bash
+# Reset dev branch to stable main state
+git fetch origin main
+git reset --hard origin/main
+git clean -fd
+```
+
+**Files Affected**:
+- Removed: All experimental analysis components and APIs
+- Removed: Migrations 0013-0016 (experimental schema changes)
+- Removed: Vision, performance, and hybrid analysis libraries
+- Restored: Clean working tree matching main branch
+
+**Prevention**:
+- Build features incrementally from stable foundation
+- Test each feature before adding the next
+- Use feature branches for experimental work
+- Reset to stable state when experiments accumulate
+
+**Verification**:
+- Working tree is clean
+- Development server starts successfully
+- Build process works without errors
+- All core features from main are available
+
+## Previously Resolved Issues ✅
+
 ### Edge Runtime Compatibility (CON-18) - RESOLVED
 
 **Error**: `The edge runtime does not support Node.js 'crypto' module`
@@ -298,7 +339,51 @@ if (false && !rateLimit(ip, maxRequests, windowMs)) {
 3. Monitor Edge Runtime logs
 4. Consider reverting to Node.js middleware temporarily
 
+## Development Strategy Issues
+
+### Experimental Feature Accumulation
+
+**Problem**: Multiple experimental features added without validation
+
+**Symptoms**:
+- Complex interdependencies between experimental features
+- Difficulty isolating and fixing individual issues
+- Development environment becoming unstable
+- Build and runtime errors increasing
+
+**Prevention Strategies**:
+1. **One Feature at a Time**: Complete and test each feature before starting next
+2. **Feature Branches**: Use separate branches for experimental work
+3. **Validation Gates**: Test features before merging to dev
+4. **Regular Resets**: Reset to stable state when experiments fail
+
+**Recovery Process**:
+```bash
+# When experimental work becomes unmanageable
+git stash                       # Save any valuable work
+git reset --hard origin/main    # Reset to stable state
+git clean -fd                   # Remove experimental files
+git stash pop                   # Optionally restore valuable work
+```
+
+### Development Environment Stability
+
+**Maintaining Stable Environment**:
+1. Keep main branch as stable foundation
+2. Use incremental development approach
+3. Test features individually before combining
+4. Regular cleanup of experimental work
+5. Document proven patterns and stick to them
+
+**Early Warning Signs**:
+- Multiple failing tests
+- Build process becoming slow or failing
+- Complex error messages
+- Difficulty running development server
+- Too many untracked files
+
 **Contact & Support**:
 - Linear issues for bug reports
 - GitHub Issues for urgent problems
 - Security issues: immediate priority
+- Development strategy questions: team discussion

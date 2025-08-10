@@ -149,11 +149,18 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     }
 
     if (!isPending && !session) {
-      // Add a small delay to allow for session establishment during registration flow
+      // Check if we might be in an OAuth callback scenario
+      const isOAuthCallback = window.location.search.includes('code=') || 
+                             window.location.search.includes('state=') ||
+                             document.referrer.includes('accounts.google.com');
+      
+      // Use slightly longer delay for OAuth scenarios to allow session establishment
+      const delay = isOAuthCallback ? 2000 : 1000;
+      
       redirectTimeoutRef.current = setTimeout(() => {
-        console.log("🚪 Redirecting to login - no session found after delay");
+        console.log("🚪 Redirecting to login - no session found after delay", { isOAuthCallback, delay });
         router.push("/login");
-      }, 1000); // 1 second delay
+      }, delay);
     }
 
     // Cleanup timeout on unmount or session change

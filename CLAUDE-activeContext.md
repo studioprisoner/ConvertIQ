@@ -1,32 +1,27 @@
 # CLAUDE-activeContext.md
 
-## Current Session State - COMPLETED ✅
+## Current Session State - DEV RESET ✅
 
-**Date**: 2025-07-26  
-**Branch**: dev → main (PR #41 ready)  
-**Session Goal**: Security Hardening & Edge Runtime Compatibility  
-**Status**: All tasks completed successfully
+**Date**: 2025-08-02  
+**Branch**: dev (reset to main)  
+**Session Goal**: Branch reset and environment stabilization  
+**Status**: Dev branch successfully reset to main state
 
-## Recently Completed Major Updates
+## Recent Major Action - Dev Branch Reset
 
-### 🔒 Security Hardening Implementation (CON-16) - COMPLETED
-- **Security Headers**: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy
-- **Input Validation**: Comprehensive sanitization utilities with XSS/SQL injection protection
-- **Environment Validation**: Strict schema validation with startup checks
-- **Enhanced Rate Limiting**: Memory-managed rate limiting with automatic cleanup
-- **Security Middleware**: Bot protection, suspicious pattern blocking, CORS handling
-- **Security Audit**: Automated comprehensive security scanning script
-- **File Permissions**: Automated sensitive file permission management
+### 🔄 Branch Reset Operation - COMPLETED
+- **Action**: Reset dev branch to match main branch exactly
+- **Reason**: Recent experimental changes weren't working and needed clean slate
+- **Method**: Used `git reset --hard origin/main` + `git clean -fd`
+- **Result**: Dev environment restored to stable main branch state
+- **Files Removed**: All experimental analysis enhancements, visual analysis features, and related migrations
 
-### ⚡ Edge Runtime Compatibility Fix (CON-18) - COMPLETED
-- **Problem**: "The edge runtime does not support Node.js 'crypto' module"
-- **Solution**: Edge-compatible middleware with 92% bundle size reduction (495kB → 40.9kB)
-- **Result**: All security features preserved with enhanced performance
-
-### 🔧 Neon Workflow Fix - COMPLETED
-- **Problem**: "Multiple roles found for the branch" error in GitHub Actions
-- **Solution**: Updated create-branch-action v5→v6 with proper role specification
-- **Result**: Workflow now properly specifies 'neondb_owner' role
+### 🧹 Cleanup Summary
+- **Database Migrations**: Removed migrations 0013-0016 (experimental features)
+- **API Routes**: Removed performance/, vision/, debug/ experimental endpoints
+- **Components**: Removed experimental analysis components and dialogs
+- **Libraries**: Removed experimental vectorization and analysis engines
+- **Working Tree**: Now clean and matches main branch exactly
 
 ## Current Project Status
 
@@ -49,12 +44,12 @@
 - **Tests**: Comprehensive test coverage for security features
 - **Deployment**: PR #41 ready for merge to main branch
 
-### 📋 Recent File Changes
-Based on git status, there are pending changes in:
-- `src/app/dashboard/reports/page.tsx` - Reports dashboard updates
-- `src/db/migrations/` - Database schema changes
-- `src/lib/trpc/routers/reports-simple.ts` - Report routing updates
-- `src/app/dashboard/reports/archived/` - New archived reports functionality
+### 📋 Current State
+Working tree is clean after reset:
+- All files now match main branch exactly
+- No pending changes or uncommitted work
+- Dev branch is ready for new development
+- All experimental features cleanly removed
 
 ## Technical Architecture Status
 
@@ -76,10 +71,11 @@ Based on git status, there are pending changes in:
 - Report archiving uses soft-delete pattern for data preservation
 
 ## Next Development Priorities
-1. **Integration Capabilities** - GA4 and e-commerce platform APIs (planned)
-2. **Performance Optimization** - Caching layer with Redis (planned)
-3. **Learning Resources** - Knowledge base and tutorials (planned)
-4. **Analytics Enhancement** - Advanced tracking and metrics (planned)
+1. **Stable Feature Development** - Build on proven foundation from main
+2. **Integration Capabilities** - GA4 and e-commerce platform APIs (planned)
+3. **Performance Optimization** - Caching layer with Redis (planned)
+4. **Learning Resources** - Knowledge base and tutorials (planned)
+5. **Analytics Enhancement** - Advanced tracking and metrics (planned)
 
 ## Development Guidelines
 - Use `bun run dev` for development with Turbopack
