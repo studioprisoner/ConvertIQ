@@ -34,16 +34,39 @@ export const aiAnalysisRouter = createTRPCRouter({
       websiteId: z.string().uuid(),
       analysisType: analysisTypeSchema.default('comprehensive'),
       saveToDb: z.boolean().default(true),
+      // Enhanced v2 fields
+      extractionResults: z.record(z.any()).optional(),
+      firecrawlVersion: z.enum(['v1', 'v2']).default('v1'),
+      useEnhancedAnalysis: z.boolean().default(false),
     }))
     .mutation(async ({ input }) => {
-      console.log('🤖 AI analysis starting for:', input.crawlData.url, 'Type:', input.analysisType);
+      console.log('🤖 AI analysis starting for:', input.crawlData.url, 'Type:', input.analysisType, 'Firecrawl Version:', input.firecrawlVersion);
       
       try {
-        const result = await aiAnalysisEngine.analyze(
-          input.crawlData,
-          input.websiteId,
-          input.analysisType
-        );
+        let result;
+        
+        // Use enhanced analysis if requested and extraction results are available
+        if (input.useEnhancedAnalysis && input.extractionResults && input.firecrawlVersion === 'v2') {
+          console.log('🚀 Using enhanced Firecrawl v2 analysis with structured data');
+          
+          // Import enhanced analysis provider
+          const { anthropic } = await import('@/lib/ai/providers/anthropic');
+          
+          // Use enhanced analysis with structured data
+          result = await anthropic.analyzeConversionPsychologyEnhanced({
+            crawlData: input.crawlData,
+            extractionResults: input.extractionResults,
+            websiteId: input.websiteId,
+            analysisType: input.analysisType,
+          });
+        } else {
+          // Use standard analysis
+          result = await aiAnalysisEngine.analyze(
+            input.crawlData,
+            input.websiteId,
+            input.analysisType
+          );
+        }
         
         console.log('🤖 AI analysis completed for:', input.crawlData.url);
         console.log('🤖 Overall score:', result.overallScore);
@@ -54,9 +77,14 @@ export const aiAnalysisRouter = createTRPCRouter({
           const analysisId = await aiAnalysisDb.saveAnalysis(
             input.websiteId,
             input.crawlData,
-            result
+            result,
+            {
+              extractionResults: input.extractionResults,
+              firecrawlVersion: input.firecrawlVersion,
+              isEnhancedAnalysis: input.useEnhancedAnalysis,
+            }
           );
-          console.log('💾 Analysis saved with ID:', analysisId);
+          console.log('💾 Analysis saved with ID:', analysisId, 'Version:', input.firecrawlVersion);
           
           // Automatically generate reports after successful analysis
           try {

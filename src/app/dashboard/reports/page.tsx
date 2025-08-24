@@ -309,9 +309,6 @@ export default function ReportsPage() {
                   <Text className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
                     {report.websiteUrl}
                   </Text>
-                  <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
-                    {report.summary}
-                  </Text>
                 </div>
                 <div className="flex items-start space-x-3 ml-4">
                   <div className="text-right">

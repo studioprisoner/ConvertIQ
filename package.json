@@ -27,6 +27,7 @@
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
     "@linear/sdk": "^53.0.0",
+    "@mendable/firecrawl-js": "3.2.0",
     "@polar-sh/sdk": "^0.34.5",
     "@radix-ui/react-progress": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
