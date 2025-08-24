@@ -1,11 +1,12 @@
-import { pgTable, uuid, varchar, timestamp, text, pgEnum, vector, index, jsonb } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { pgTable, uuid, varchar, timestamp, text, pgEnum, vector, index, jsonb, decimal, boolean, integer } from 'drizzle-orm/pg-core';
+import { relations, sql } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { websites } from './websites';
+// Note: Extraction relations are defined in extractions.ts to avoid circular imports
 
-export const analysisStatusEnum = pgEnum('analysis_status', ['pending', 'processing', 'completed', 'failed', 'archived']);
-export const analysisActionsEnum = pgEnum('analysis_actions', ['none', 'rescan', 'retry']);
+export const analysisStatusEnum = pgEnum('analysis_status', ['pending', 'processing', 'completed', 'failed', 'archived', 'extracting', 'analyzing']);
+export const analysisActionsEnum = pgEnum('analysis_actions', ['none', 'rescan', 'retry', 'extract', 'crawl', 'batch']);
 
 export const analyses = pgTable('analyses', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -20,30 +21,74 @@ export const analyses = pgTable('analyses', {
   errorMessage: text('error_message'),
   
   // Firecrawl v2 capabilities
-  extractionResults: jsonb('extraction_results'), // Store structured data extraction results
   firecrawlVersion: varchar('firecrawl_version', { length: 20 }).default('v2'),
-  extractionPrompts: jsonb('extraction_prompts'), // Store prompts used for extraction
-  batchJobId: varchar('batch_job_id', { length: 255 }), // Track batch processing jobs
-  crawlJobId: varchar('crawl_job_id', { length: 255 }), // Track website crawling jobs
+  extractionResults: jsonb('extraction_results'),
+  extractionConfidence: decimal('extraction_confidence', { precision: 3, scale: 2 }),
+  dataRichness: decimal('data_richness', { precision: 3, scale: 2 }),
+  extractionPrompts: jsonb('extraction_prompts'),
+  
+  // Batch processing support
+  batchJobId: varchar('batch_job_id', { length: 255 }),
+  parentAnalysisId: uuid('parent_analysis_id').references(() => analyses.id),
+  isBatchChild: boolean('is_batch_child').default(false),
+  
+  // Crawl processing support
+  crawlJobId: varchar('crawl_job_id', { length: 255 }),
+  crawlDepth: integer('crawl_depth'),
+  crawlPageCount: integer('crawl_page_count'),
+  
+  // Enhanced metadata
+  aiProcessingTime: integer('ai_processing_time'), // milliseconds
+  tokenUsage: jsonb('token_usage'),
+  extractionVersion: varchar('extraction_version', { length: 50 }).default('1.0.0'),
+  
+  // Processing metrics (moved from websites table)
+  loadTime: integer('load_time'),
+  pageSize: integer('page_size'),
+  resourceCount: integer('resource_count'),
+  
+  // Phase 3: Enhanced Analytics Support
+  extractionDataUsed: boolean('extraction_data_used').default(false),
+  dataRichnessScore: decimal('data_richness_score', { precision: 3, scale: 2 }),
+  analysisVersion: varchar('analysis_version', { length: 50 }).default('2.0.0'),
   
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => [
   // HNSW index for optimal performance on Neon PostgreSQL
   index('analyses_embedding_hnsw_idx').using('hnsw', table.embedding.op('vector_cosine_ops')),
-  // Indexes for v2 performance optimization
+  // Core performance indexes for analyses table
   index('analyses_firecrawl_version_idx').on(table.firecrawlVersion),
+  index('analyses_extraction_confidence_idx').on(table.extractionConfidence),
+  index('analyses_data_richness_idx').on(table.dataRichness),
+  index('analyses_batch_job_idx').on(table.batchJobId).where(sql`${table.batchJobId} IS NOT NULL`),
+  index('analyses_crawl_job_idx').on(table.crawlJobId).where(sql`${table.crawlJobId} IS NOT NULL`),
+  index('analyses_parent_analysis_idx').on(table.parentAnalysisId).where(sql`${table.parentAnalysisId} IS NOT NULL`),
+  // JSONB indexes for extraction results
   index('analyses_extraction_results_gin_idx').using('gin', table.extractionResults),
-  index('analyses_batch_job_id_idx').on(table.batchJobId),
-  index('analyses_crawl_job_id_idx').on(table.crawlJobId),
+  index('analyses_token_usage_gin_idx').using('gin', table.tokenUsage),
+  index('analyses_extraction_prompts_gin_idx').using('gin', table.extractionPrompts),
+  // Phase 3: Enhanced Analytics indexes
+  index('analyses_extraction_enhanced_idx').on(table.extractionDataUsed),
+  index('analyses_data_richness_score_idx').on(table.dataRichnessScore),
+  // Composite indexes for common queries
+  index('analyses_status_version_idx').on(table.status, table.firecrawlVersion),
+  index('analyses_website_status_idx').on(table.websiteId, table.status),
 ]);
 
-// Relations
+// Relations - Note: Many-to-one relations to extraction tables are defined in extractions.ts
 export const analysesRelations = relations(analyses, ({ one, many }) => ({
   website: one(websites, {
     fields: [analyses.websiteId],
     references: [websites.id],
   }),
+  parentAnalysis: one(analyses, {
+    fields: [analyses.parentAnalysisId],
+    references: [analyses.id],
+  }),
+  childAnalyses: many(analyses),
+  // Note: One-to-many relations with extraction tables would be defined here,
+  // but we avoid circular imports by defining them in extractions.ts
 }));
 
 // Zod schemas

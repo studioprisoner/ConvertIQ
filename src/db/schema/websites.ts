@@ -1,8 +1,16 @@
-import { pgTable, uuid, varchar, timestamp, text, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, text, boolean, pgEnum, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { user } from './auth';
+
+export const pageTypeEnum = pgEnum('page_type_enum', [
+  'homepage', 'about', 'contact', 'pricing', 'blog-post', 'blog-category',
+  'ecommerce-product', 'ecommerce-category', 'ecommerce-cart', 'ecommerce-checkout',
+  'service-landing', 'service-detail', 'case-study', 'testimonials', 'portfolio',
+  'landing-page', 'lead-magnet', 'thank-you', '404-error', 'legal', 'faq',
+  'search-results', 'unknown'
+]);
 
 export const websites = pgTable('websites', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -10,14 +18,17 @@ export const websites = pgTable('websites', {
   url: varchar('url', { length: 500 }).notNull(),
   name: varchar('name', { length: 255 }),
   description: text('description'),
-  pageType: varchar('page_type', { length: 50 }), // homepage, product, service, landing
+  pageType: pageTypeEnum('page_type'),
   isValidated: boolean('is_validated').default(false),
   validationStatus: varchar('validation_status', { length: 50 }), // pending, valid, invalid, error
   validationMessage: text('validation_message'),
   lastValidatedAt: timestamp('last_validated_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (table) => [
+  // Website page type index
+  index('websites_page_type_idx').on(table.pageType),
+]);
 
 // Relations
 export const websitesRelations = relations(websites, ({ one, many }) => ({

@@ -2,6 +2,7 @@
 export * from './auth';
 export * from './websites';
 export * from './analyses';
+export * from './extractions';
 export * from './reports';
 export * from './recommendations';
 export * from './subscriptions';
