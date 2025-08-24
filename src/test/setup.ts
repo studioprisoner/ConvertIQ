@@ -52,6 +52,18 @@ vi.mock('@/lib/polar', () => ({
   },
 }));
 
+// Mock AI SDK for testing
+vi.mock('ai', () => ({
+  generateObject: vi.fn(),
+  generateText: vi.fn(),
+  streamText: vi.fn(),
+}));
+
+// Mock Anthropic SDK
+vi.mock('@ai-sdk/anthropic', () => ({
+  createAnthropic: vi.fn(() => vi.fn(() => 'claude-3-5-sonnet-20241022')),
+}));
+
 // Mock AI services
 vi.mock('@/lib/ai/analysis-engine', () => ({
   analysisEngine: {

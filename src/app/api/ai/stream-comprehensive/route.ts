@@ -182,7 +182,7 @@ Return ONLY the JSON, no other text.
 
     console.log(`🔄 Comprehensive streaming analysis started for ${crawlData.url}`);
 
-    return result.toDataStreamResponse({
+    return result.toUIMessageStreamResponse({
       headers,
     });
 

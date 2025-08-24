@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod';
-import { createTRPCRouter, protectedProcedure } from '@/lib/trpc/trpc';
+import { createTRPCRouter, protectedProcedure } from '@/lib/trpc/server';
 import { featureFlagService } from '@/lib/feature-flags/service';
 import { firecrawlMonitor } from '@/lib/monitoring/firecrawl-monitor';
 import { costTracker } from '@/lib/monitoring/cost-tracker';
