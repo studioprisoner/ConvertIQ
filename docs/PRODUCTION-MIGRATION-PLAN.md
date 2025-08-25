@@ -25,6 +25,72 @@ This document outlines the comprehensive plan for migrating ConvertIQ's producti
 - [ ] **Index Usage**: Analyze current index usage patterns
 - [ ] **Connection Pool**: Verify connection pool configuration for migration load
 
+## Critical Schema Fixes Required (Aug 2025 Debug Session)
+
+**DISCOVERED ISSUES**: During August 2025 debugging, we found critical mismatches between TypeScript schema definitions and actual database state across environments.
+
+### Required Schema Synchronization Steps
+
+#### Step 1: Verify Current Schema State
+```sql
+-- Check existing analyses table columns
+SELECT column_name, data_type, is_nullable, column_default 
+FROM information_schema.columns 
+WHERE table_name = 'analyses' 
+ORDER BY ordinal_position;
+
+-- Expected: 33+ columns including all v2 enhancements
+-- If missing columns found, proceed to Step 2
+```
+
+#### Step 2: Add Missing Columns (if any)
+```sql
+-- Execute these ADD COLUMN statements for any missing columns
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS extraction_confidence DECIMAL(3,2);
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS data_richness DECIMAL(3,2);
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS parent_analysis_id UUID REFERENCES analyses(id);
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS is_batch_child BOOLEAN DEFAULT false;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS crawl_depth INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS crawl_page_count INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS ai_processing_time INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS token_usage JSONB;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS extraction_version VARCHAR(50) DEFAULT '1.0.0';
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS load_time INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS page_size INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS resource_count INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS data_richness_score DECIMAL(3,2);
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS analysis_version VARCHAR(50) DEFAULT '2.0.0';
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS extraction_data_used BOOLEAN DEFAULT false;
+```
+
+#### Step 3: Validate Data Compression Implementation
+```sql
+-- Test insertion with large data to verify compression works
+INSERT INTO analyses (
+  website_id, status, raw_data, ai_analysis, 
+  firecrawl_version, extraction_data_used
+) VALUES (
+  (SELECT id FROM websites LIMIT 1),
+  'completed',
+  '{"test": "large_data_test", "compressed": true}',
+  '{"test": "analysis", "compressed": true}',
+  'v2',
+  true
+) RETURNING id;
+
+-- Clean up test record
+DELETE FROM analyses WHERE raw_data LIKE '%large_data_test%';
+```
+
+### Data Size Management Implementation
+Based on debugging, large JSON payloads (35KB+ crawl data) cause insertion failures. The following compression strategy is implemented in `src/lib/ai/database.ts`:
+
+- **Crawl Data**: Compressed to <5KB (metadata + summary counts only)
+- **Analysis Data**: Limited to top 5 recommendations and key scores
+- **Extraction Data**: Essential structured data only
+- **Size Limits**: 100KB per JSON field maximum
+- **Fallback**: Summary metadata if data still exceeds limits
+
 ## Migration Phases
 
 ### Phase 1: Non-Breaking Schema Changes (Zero Downtime)
@@ -48,18 +114,55 @@ psql $PRODUCTION_DATABASE_URL -f migrations/001_firecrawl_v2_core.sql
 - Add `analysis_quality_metrics` table
 - Create all necessary indexes (conditional and regular)
 
+**CRITICAL: Missing Columns Identified in Dev Environment**
+Based on debugging sessions (Aug 2025), the following columns must be added to the `analyses` table:
+
+```sql
+-- Core new columns for Firecrawl v2 (already in some environments)
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS extraction_confidence DECIMAL(3,2);
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS data_richness DECIMAL(3,2);
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS parent_analysis_id UUID REFERENCES analyses(id);
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS is_batch_child BOOLEAN DEFAULT false;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS crawl_depth INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS crawl_page_count INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS ai_processing_time INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS token_usage JSONB;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS extraction_version VARCHAR(50) DEFAULT '1.0.0';
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS load_time INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS page_size INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS resource_count INTEGER;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS data_richness_score DECIMAL(3,2);
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS analysis_version VARCHAR(50) DEFAULT '2.0.0';
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS extraction_data_used BOOLEAN DEFAULT false;
+```
+
+**Schema Sync Issues Discovered:**
+- Dev environment was missing 15+ columns from TypeScript schema definition
+- Drizzle migrations may not reflect actual database state
+- **Mandatory**: Verify column existence before production migration
+
 #### 1.2 Validation Checkpoints
 ```sql
 -- Verify enum updates
 SELECT enumlabel FROM pg_enum WHERE enumtypid = 'analysis_status'::regtype;
 
--- Verify new columns exist
+-- Verify ALL new columns exist (CRITICAL - check all 15+ columns)
 SELECT column_name FROM information_schema.columns 
-WHERE table_name = 'analyses' AND column_name IN ('firecrawl_version', 'extraction_results');
+WHERE table_name = 'analyses' AND column_name IN (
+  'firecrawl_version', 'extraction_results', 'extraction_confidence', 
+  'data_richness', 'parent_analysis_id', 'is_batch_child', 'crawl_depth',
+  'crawl_page_count', 'ai_processing_time', 'token_usage', 'extraction_version',
+  'load_time', 'page_size', 'resource_count', 'data_richness_score',
+  'analysis_version', 'extraction_data_used'
+);
 
 -- Verify extraction tables
 SELECT table_name FROM information_schema.tables 
 WHERE table_name LIKE 'extracted_%';
+
+-- Test foreign key constraints work correctly
+SELECT COUNT(*) FROM analyses a 
+JOIN websites w ON a.website_id = w.id;
 ```
 
 ### Phase 2: Application Deployment (Zero Downtime)
@@ -150,6 +253,21 @@ GROUP BY extraction_type;
 - Comprehensive data validation queries
 - Point-in-time recovery capability
 - Checksums for critical data integrity
+
+**Risk**: Foreign key constraint violations (DISCOVERED IN DEBUG)
+**Mitigation**:
+- Verify website records exist before analysis insertion
+- Add pre-insertion validation in AIAnalysisDatabase.saveAnalysis()
+- Implement proper error handling for missing references
+- Test website creation flow to ensure proper record persistence
+
+**Risk**: Large JSON data exceeding database limits (DISCOVERED IN DEBUG)
+**Mitigation**:
+- Implement aggressive data compression in database layer
+- Limit JSON fields to 100KB maximum per field
+- Compress crawl data to essential metadata only
+- Store large arrays as summary counts instead of full data
+- Add fallback storage for oversized data
 
 ### 2. Application Risks
 **Risk**: API compatibility breaks

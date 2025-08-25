@@ -39,6 +39,10 @@ import {
 } from '../types';
 
 // Initialize Anthropic client
+if (!process.env.ANTHROPIC_API_KEY) {
+  throw new Error('ANTHROPIC_API_KEY environment variable is required');
+}
+
 const anthropicClient = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
@@ -582,14 +586,34 @@ export class AnthropicAnalysisProvider {
    */
   async analyzeConversionPsychologyEnhanced(
     crawlData: CrawlResult, 
-    extractionResults: ExtractionResults
+    extractionResults: ExtractionResults | null
   ): Promise<any> {
     const startTime = Date.now();
 
     try {
       console.log('🤖 Generating enhanced conversion psychology analysis with structured data...');
+      console.log('🔍 Debug - crawlData structure:', {
+        url: crawlData.url,
+        hasHtmlAnalysis: !!crawlData.htmlAnalysis,
+        hasPerformance: !!crawlData.performance,
+        hasCssAnalysis: !!crawlData.cssAnalysis,
+        crawlDataKeys: Object.keys(crawlData)
+      });
+      console.log('🔍 Debug - extractionResults:', {
+        isNull: extractionResults === null,
+        isUndefined: extractionResults === undefined,
+        type: typeof extractionResults,
+        hasBusinessInfo: extractionResults ? !!extractionResults.businessInfo : false
+      });
       
-      const enhancedPrompt = this.generateEnhancedConversionPrompt(crawlData, extractionResults);
+      let enhancedPrompt;
+      try {
+        enhancedPrompt = this.generateEnhancedConversionPrompt(crawlData, extractionResults);
+        console.log('✅ Enhanced prompt generated successfully');
+      } catch (promptError) {
+        console.error('❌ Error generating enhanced prompt:', promptError);
+        throw new Error(`Prompt generation failed: ${promptError instanceof Error ? promptError.message : 'Unknown prompt error'}`);
+      }
       
       const result = await Promise.race([
         generateObject({
@@ -637,7 +661,7 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
       }
 
       // Add structured data insights to the analysis
-      analysis.structuredDataInsights = this.generateStructuredDataInsights(extractionResults);
+      analysis.structuredDataInsights = extractionResults ? this.generateStructuredDataInsights(extractionResults) : null;
 
       return {
         analysis,
@@ -1303,7 +1327,7 @@ Keep recommendations specific and actionable for small business owners.`;
   /**
    * Enhanced UX analysis using structured data
    */
-  private async analyzeUXEnhanced(crawlData: CrawlResult, extractionResults: ExtractionResults): Promise<any> {
+  private async analyzeUXEnhanced(crawlData: CrawlResult, extractionResults: ExtractionResults | null): Promise<any> {
     const enhancedPrompt = this.generateEnhancedUXPrompt(crawlData, extractionResults);
     
     const result = await Promise.race([
@@ -1350,7 +1374,7 @@ Focus on UX gaps and opportunities based on the extracted data.`,
   /**
    * Enhanced Technical SEO analysis using structured data
    */
-  private async analyzeTechnicalSEOEnhanced(crawlData: CrawlResult, extractionResults: ExtractionResults): Promise<any> {
+  private async analyzeTechnicalSEOEnhanced(crawlData: CrawlResult, extractionResults: ExtractionResults | null): Promise<any> {
     const enhancedPrompt = this.generateEnhancedSEOPrompt(crawlData, extractionResults);
     
     const result = await Promise.race([
@@ -1397,15 +1421,22 @@ Provide more specific recommendations based on the actual extracted SEO elements
   /**
    * Generate enhanced prompts that include structured extraction data
    */
-  private generateEnhancedConversionPrompt(crawlData: CrawlResult, extractionResults: ExtractionResults): string {
+  private generateEnhancedConversionPrompt(crawlData: CrawlResult, extractionResults: ExtractionResults | null): string {
     const basePrompt = generateConversionAnalysisPrompt(crawlData);
+    
+    // If extractionResults is null/undefined, return base prompt with a note
+    if (!extractionResults) {
+      return basePrompt + `
+
+NOTE: Enhanced extraction data not available - using standard crawl data only.`;
+    }
     
     const structuredDataSection = `
 
 STRUCTURED DATA EXTRACTED FROM ${crawlData.url}:
 
 BUSINESS INFORMATION:
-${JSON.stringify(extractionResults.businessInfo, null, 2)}
+${JSON.stringify(extractionResults.businessInfo || {}, null, 2)}
 
 CALLS TO ACTION FOUND (${extractionResults.callsToAction?.length || 0}):
 ${extractionResults.callsToAction?.map((cta, index) => 
@@ -1435,8 +1466,15 @@ Focus particularly on gaps where best practices are missing or could be enhanced
     return basePrompt + structuredDataSection;
   }
 
-  private generateEnhancedUXPrompt(crawlData: CrawlResult, extractionResults: ExtractionResults): string {
+  private generateEnhancedUXPrompt(crawlData: CrawlResult, extractionResults: ExtractionResults | null): string {
     const basePrompt = generateUxAnalysisPrompt(crawlData);
+    
+    // If extractionResults is null/undefined, return base prompt with a note
+    if (!extractionResults) {
+      return basePrompt + `
+
+NOTE: Enhanced extraction data not available - using standard crawl data only.`;
+    }
     
     const ctaAnalysis = extractionResults.callsToAction?.length 
       ? `CTAs identified: ${extractionResults.callsToAction.map(cta => 
@@ -1462,8 +1500,15 @@ Based on this structural analysis, focus on specific UX improvements.`;
     return basePrompt + structuredDataSection;
   }
 
-  private generateEnhancedSEOPrompt(crawlData: CrawlResult, extractionResults: ExtractionResults): string {
+  private generateEnhancedSEOPrompt(crawlData: CrawlResult, extractionResults: ExtractionResults | null): string {
     const basePrompt = generateSeoAnalysisPrompt(crawlData);
+    
+    // If extractionResults is null/undefined, return base prompt with a note
+    if (!extractionResults) {
+      return basePrompt + `
+
+NOTE: Enhanced extraction data not available - using standard crawl data only.`;
+    }
     
     const seoDataSection = `
 
@@ -1534,7 +1579,18 @@ Provide specific SEO recommendations based on this extracted technical data.`;
     };
   }
 
-  private generateExtractionSummary(extractionResults: ExtractionResults): any {
+  private generateExtractionSummary(extractionResults: ExtractionResults | null): any {
+    if (!extractionResults) {
+      return {
+        businessDetected: false,
+        ctasFound: 0,
+        socialProofElements: 0,
+        psychologyTriggersDetected: 0,
+        productsIdentified: 0,
+        technicalSeoDataAvailable: false,
+      };
+    }
+    
     return {
       businessDetected: !!extractionResults.businessInfo?.name,
       ctasFound: extractionResults.callsToAction?.length || 0,
@@ -1549,7 +1605,7 @@ Provide specific SEO recommendations based on this extracted technical data.`;
 
   private async generateEnhancedExecutiveSummary(
     crawlData: CrawlResult,
-    extractionResults: ExtractionResults, 
+    extractionResults: ExtractionResults | null, 
     conversionAnalysis: any,
     uxAnalysis: any,
     seoAnalysis: any,
@@ -1597,7 +1653,7 @@ Provide a comprehensive executive summary focusing on data-driven insights and s
         summary: result.text,
         overallScore,
         priorityAreas: this.identifyPriorityAreasWithFallback(conversionAnalysis, uxAnalysis, seoAnalysis),
-        structuredDataInsights: this.generateStructuredDataInsights(extractionResults),
+        structuredDataInsights: extractionResults ? this.generateStructuredDataInsights(extractionResults) : null,
         isEnhanced: true,
         dataQuality: this.assessDataQuality(extractionResults),
       };
@@ -1607,7 +1663,17 @@ Provide a comprehensive executive summary focusing on data-driven insights and s
     }
   }
 
-  private assessDataQuality(extractionResults: ExtractionResults): any {
+  private assessDataQuality(extractionResults: ExtractionResults | null): any {
+    if (!extractionResults) {
+      return {
+        score: 0,
+        maxScore: 100,
+        percentage: 0,
+        gaps: ['No extraction data available'],
+        strengths: []
+      };
+    }
+    
     let score = 0;
     let maxScore = 0;
     
@@ -1654,7 +1720,9 @@ Provide a comprehensive executive summary focusing on data-driven insights and s
     };
   }
 
-  private identifyDataStrengths(extractionResults: ExtractionResults): string[] {
+  private identifyDataStrengths(extractionResults: ExtractionResults | null): string[] {
+    if (!extractionResults) return [];
+    
     const strengths = [];
     
     if (extractionResults.businessInfo?.name) strengths.push('Business clearly identified');
@@ -1668,7 +1736,9 @@ Provide a comprehensive executive summary focusing on data-driven insights and s
     return strengths;
   }
 
-  private identifyDataGaps(extractionResults: ExtractionResults): string[] {
+  private identifyDataGaps(extractionResults: ExtractionResults | null): string[] {
+    if (!extractionResults) return ['No extraction data available'];
+    
     const gaps = [];
     
     if (!extractionResults.businessInfo?.name) gaps.push('Business identity unclear');
@@ -1686,7 +1756,7 @@ Provide a comprehensive executive summary focusing on data-driven insights and s
    */
   async analyzeConversionPsychologyEnhanced(
     crawlData: CrawlResult, 
-    extractionResults: ExtractionResults
+    extractionResults: ExtractionResults | null
   ): Promise<any> {
     const enhancedPrompt = this.generateEnhancedConversionPrompt(crawlData, extractionResults);
     
@@ -1728,7 +1798,7 @@ Provide specific recommendations based on the actual extracted elements and iden
         confidence: 0.95,
         isEnhanced: true,
         dataQuality: this.assessDataQuality(extractionResults),
-        structuredDataInsights: this.generateStructuredDataInsights(extractionResults),
+        structuredDataInsights: extractionResults ? this.generateStructuredDataInsights(extractionResults) : null,
       },
     };
   }
@@ -1820,7 +1890,17 @@ Provide specific recommendations based on the actual extracted elements and iden
   /**
    * Assess data quality of extraction results
    */
-  assessDataQuality(extractionResults: ExtractionResults): any {
+  assessDataQuality(extractionResults: ExtractionResults | null): any {
+    if (!extractionResults) {
+      return {
+        score: 0,
+        maxScore: 100,
+        percentage: 0,
+        missingFields: ['All extraction data'],
+        dataRichness: []
+      };
+    }
+    
     let score = 0;
     let maxScore = 100;
     const missingFields = [];
@@ -1933,7 +2013,17 @@ Provide specific recommendations based on the actual extracted elements and iden
   /**
    * Generate structured data insights for analysis enhancement
    */
-  generateStructuredDataInsights(extractionResults: ExtractionResults): any {
+  generateStructuredDataInsights(extractionResults: ExtractionResults | null): any {
+    if (!extractionResults) {
+      return {
+        businessInsights: [],
+        ctaInsights: [],
+        socialProofInsights: [],
+        psychologyInsights: [],
+        totalInsights: 0
+      };
+    }
+    
     const businessInsights = [];
     const ctaInsights = [];
     const socialProofInsights = [];

@@ -22,6 +22,7 @@ export const analyses = pgTable('analyses', {
   
   // Firecrawl v2 capabilities
   firecrawlVersion: varchar('firecrawl_version', { length: 20 }).default('v2'),
+  pageType: varchar('page_type', { length: 50 }),
   extractionResults: jsonb('extraction_results'),
   extractionConfidence: decimal('extraction_confidence', { precision: 3, scale: 2 }),
   dataRichness: decimal('data_richness', { precision: 3, scale: 2 }),
@@ -59,6 +60,7 @@ export const analyses = pgTable('analyses', {
   index('analyses_embedding_hnsw_idx').using('hnsw', table.embedding.op('vector_cosine_ops')),
   // Core performance indexes for analyses table
   index('analyses_firecrawl_version_idx').on(table.firecrawlVersion),
+  index('analyses_page_type_idx').on(table.pageType),
   index('analyses_extraction_confidence_idx').on(table.extractionConfidence),
   index('analyses_data_richness_idx').on(table.dataRichness),
   index('analyses_batch_job_idx').on(table.batchJobId).where(sql`${table.batchJobId} IS NOT NULL`),

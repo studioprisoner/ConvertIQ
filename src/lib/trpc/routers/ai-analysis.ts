@@ -5,6 +5,7 @@ import { analysisTypeSchema, aiAnalysisResultSchema } from '@/lib/ai/types';
 import { crawlResultSchema } from '@/lib/crawler/types';
 import { aiAnalysisDb } from '@/lib/ai/database';
 import { embeddingQueue } from '@/lib/embeddings';
+import type { ExtractedData } from '@/lib/extraction/types';
 
 export const aiAnalysisRouter = createTRPCRouter({
   // Test AI connection
@@ -35,7 +36,7 @@ export const aiAnalysisRouter = createTRPCRouter({
       analysisType: analysisTypeSchema.default('comprehensive'),
       saveToDb: z.boolean().default(true),
       // Enhanced v2 fields
-      extractionResults: z.record(z.any()).optional(),
+      extractionResults: z.record(z.any()).nullable().optional(),
       firecrawlVersion: z.enum(['v1', 'v2']).default('v1'),
       useEnhancedAnalysis: z.boolean().default(false),
     }))
@@ -53,12 +54,10 @@ export const aiAnalysisRouter = createTRPCRouter({
           const { anthropic } = await import('@/lib/ai/providers/anthropic');
           
           // Use enhanced analysis with structured data
-          result = await anthropic.analyzeConversionPsychologyEnhanced({
-            crawlData: input.crawlData,
-            extractionResults: input.extractionResults,
-            websiteId: input.websiteId,
-            analysisType: input.analysisType,
-          });
+          result = await anthropic.analyzeConversionPsychologyEnhanced(
+            input.crawlData,
+            input.extractionResults
+          );
         } else {
           // Use standard analysis
           result = await aiAnalysisEngine.analyze(
@@ -70,7 +69,12 @@ export const aiAnalysisRouter = createTRPCRouter({
         
         console.log('🤖 AI analysis completed for:', input.crawlData.url);
         console.log('🤖 Overall score:', result.overallScore);
-        console.log('🤖 Recommendations count:', result.recommendations.length);
+        console.log('🤖 Analysis result structure:', {
+          hasRecommendations: !!result.recommendations,
+          recommendationsType: typeof result.recommendations,
+          resultKeys: Object.keys(result),
+        });
+        console.log('🤖 Recommendations count:', result.recommendations?.length || 0);
         
         // Save to database if requested
         if (input.saveToDb) {
@@ -159,7 +163,164 @@ export const aiAnalysisRouter = createTRPCRouter({
         return result;
       } catch (error) {
         console.error('🤖 AI analysis failed:', error);
+        console.error('🤖 Error stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+        console.error('🤖 Input data structure:', {
+          hasCrawlData: !!input.crawlData,
+          hasExtractionResults: !!input.extractionResults,
+          extractionResultsType: typeof input.extractionResults,
+          useEnhancedAnalysis: input.useEnhancedAnalysis,
+          firecrawlVersion: input.firecrawlVersion
+        });
         throw new Error(`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }),
+
+  // Enhanced analysis using v2 extraction data
+  analyzeEnhanced: publicProcedure
+    .input(z.object({
+      crawlData: crawlResultSchema,
+      extractedData: z.record(z.any()), // ExtractedData type
+      websiteId: z.string().uuid(),
+      analysisType: analysisTypeSchema.default('comprehensive'),
+      saveToDb: z.boolean().default(true),
+      userId: z.string().optional(),
+      userEmail: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log('🚀 Enhanced AI analysis starting for:', input.crawlData.url, 'Type:', input.analysisType);
+      console.log('📊 Enhanced extraction data available:', !!input.extractedData);
+      
+      try {
+        // Create enhanced analysis engine (to be implemented)
+        const { EnhancedAIAnalysisEngine } = await import('@/lib/ai/enhanced-analysis-engine');
+        const enhancedEngine = new EnhancedAIAnalysisEngine();
+        
+        // Perform enhanced analysis with structured data
+        const result = await enhancedEngine.analyzeWithEnhancedData(
+          input.crawlData,
+          input.extractedData as ExtractedData,
+          input.websiteId,
+          input.analysisType
+        );
+        
+        console.log('🚀 Enhanced AI analysis completed for:', input.crawlData.url);
+        console.log('🎯 Overall score:', result.overallScore);
+        console.log('📈 Enhanced recommendations count:', result.recommendations.length);
+        
+        // Save to database if requested
+        if (input.saveToDb) {
+          const analysisId = await aiAnalysisDb.saveAnalysis(
+            input.websiteId,
+            input.crawlData,
+            result,
+            {
+              extractionResults: input.extractedData,
+              firecrawlVersion: 'v2',
+              isEnhancedAnalysis: true,
+            }
+          );
+          console.log('💾 Enhanced analysis saved with ID:', analysisId);
+          
+          // Generate enhanced reports using existing generators with enriched data
+          try {
+            const { marketingReportGenerator } = await import('@/lib/reports/generators/marketing-report');
+            const { conversionReportGenerator } = await import('@/lib/reports/generators/conversion-report');
+            const { db } = await import('@/db/connection');
+            const { reports } = await import('@/db/schema/reports');
+            
+            // Get the analysis data for report generation
+            const analysisData = await aiAnalysisDb.getAnalysisById(analysisId);
+            if (!analysisData) {
+              throw new Error('Analysis data not found for report generation');
+            }
+            
+            const reportGenerationInput = {
+              websiteUrl: input.crawlData.url,
+              businessType: 'general',
+              targetAudience: 'small business owners'
+            };
+            
+            // Generate marketing report with enhanced context
+            console.log('📊 Generating enhanced marketing report for analysis:', analysisId);
+            const marketingReportContent = await marketingReportGenerator.generateMarketingReport(
+              result,
+              reportGenerationInput
+            );
+            
+            const [marketingReport] = await db
+              .insert(reports)
+              .values({
+                analysisId,
+                title: `Enhanced Marketing Analysis Report - ${input.crawlData.url}`,
+                type: 'marketing',
+                content: marketingReportContent,
+                summary: marketingReportContent.executiveSummary?.keyFindings?.join('. ') || 'Enhanced marketing report generated successfully',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning();
+            
+            console.log('📊 Enhanced marketing report generated with ID:', marketingReport.id);
+            
+            // Generate conversion report with enhanced context
+            console.log('📊 Generating enhanced conversion report for analysis:', analysisId);
+            const conversionReportContent = await conversionReportGenerator.generateConversionReport(
+              result,
+              reportGenerationInput
+            );
+            
+            const [conversionReport] = await db
+              .insert(reports)
+              .values({
+                analysisId,
+                title: `Enhanced Conversion Analysis Report - ${input.crawlData.url}`,
+                type: 'conversion',
+                content: conversionReportContent,
+                summary: conversionReportContent.executiveSummary?.keyFindings?.join('. ') || 'Enhanced conversion report generated successfully',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              .returning();
+            
+            console.log('📊 Enhanced conversion report generated with ID:', conversionReport.id);
+            console.log('✅ All enhanced reports generated successfully for analysis:', analysisId);
+            
+          } catch (reportError) {
+            console.error('❌ Failed to generate enhanced reports after analysis:', reportError);
+            // Don't throw - analysis was successful, report generation failure shouldn't fail the analysis
+          }
+        }
+        
+        return {
+          ...result,
+          metadata: {
+            ...result.metadata,
+            extractionVersion: 'v2',
+            enhancedAnalysis: true,
+            dataRichness: (input.extractedData as ExtractedData)?.extractionMetrics?.dataQualityScore,
+          },
+        };
+        
+      } catch (error) {
+        console.error('🚀 Enhanced AI analysis failed:', error);
+        
+        // Fallback to standard analysis
+        console.log('⚠️ Falling back to standard v1 analysis');
+        const result = await aiAnalysisEngine.analyze(
+          input.crawlData,
+          input.websiteId,
+          input.analysisType
+        );
+        
+        return {
+          ...result,
+          metadata: {
+            ...result.metadata,
+            extractionVersion: 'v1',
+            enhancedAnalysis: false,
+            fallbackReason: 'Enhanced analysis failed',
+          },
+        };
       }
     }),
 

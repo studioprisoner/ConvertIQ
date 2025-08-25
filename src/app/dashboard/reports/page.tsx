@@ -17,6 +17,10 @@ import { Badge } from "@/components/badge";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { lazy, Suspense } from "react";
+import PageTypeIndicator from "@/components/analysis/page-type-indicator";
+import DataRichnessIndicator from "@/components/analysis/data-richness-indicator";
+import StructuredDataPreview from "@/components/analysis/structured-data-preview";
+import EnhancedRecommendationCard from "@/components/analysis/enhanced-recommendation-card";
 
 // Lazy load ReactMarkdown to reduce initial bundle size
 const ReactMarkdown = lazy(() => import("react-markdown"));
@@ -305,6 +309,9 @@ export default function ReportsPage() {
                       {report.status}
                     </Badge>
                     <Badge color="zinc">{report.pageType}</Badge>
+                    {report.extractionVersion === "v2" && (
+                      <Badge color="blue">Enhanced</Badge>
+                    )}
                   </div>
                   <Text className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
                     {report.websiteUrl}
@@ -630,6 +637,47 @@ export default function ReportsPage() {
           </Text>
         </div>
       </div>
+
+      {/* Enhanced Extraction Information */}
+      {mockScanResults.extractionMetadata && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Page Type and Data Quality */}
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
+              Page Analysis
+            </h3>
+            
+            <div className="space-y-4">
+              <PageTypeIndicator
+                pageType={mockScanResults.extractionMetadata.pageType || "other"}
+                confidence={mockScanResults.extractionMetadata.confidence || 0}
+                showDetails={true}
+              />
+              
+              <DataRichnessIndicator
+                dataRichness={mockScanResults.extractionMetadata.dataRichness || 0}
+                extractedFields={mockScanResults.extractionMetadata.extractedFields}
+                totalFields={mockScanResults.extractionMetadata.totalFields}
+                extractionVersion={mockScanResults.extractionMetadata.extractionVersion || "v1"}
+                showDetails={true}
+              />
+            </div>
+          </div>
+
+          {/* Structured Data Preview */}
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
+              Extracted Data
+            </h3>
+            
+            <StructuredDataPreview
+              structuredData={mockScanResults.extractionMetadata.structuredData || {}}
+              pageType={mockScanResults.extractionMetadata.pageType || "other"}
+              maxPreviewItems={2}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Overall Score & Summary */}
       <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">

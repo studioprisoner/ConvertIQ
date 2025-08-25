@@ -135,15 +135,21 @@ export default function ScanPage() {
       const urlToCrawl = "scanUrl" in website ? website.scanUrl : website.url;
       console.log("🕷️ Target URL:", urlToCrawl);
 
-      // Check if we should use Firecrawl v2 extraction first
-      if (useFirecrawlV2) {
-        console.log("🔍 Using Firecrawl v2 extraction before crawling");
-        setCurrentPhase("webcrawler"); // We'll update the phase within the extraction
+      // Choose appropriate crawl method based on v2 features
+      if (useFirecrawlV2 && featureFlags?.firecrawl_extraction_enabled) {
+        console.log("🚀 Using enhanced crawl with v2 extraction");
+        setCurrentPhase("webcrawler");
         
-        firecrawlExtractionMutation.mutate({
-          websiteId: website.id,
-          urls: [urlToCrawl],
-          extractionType: "conversionAudit", // Default to conversion analysis
+        crawlEnhancedMutation.mutate({
+          url: urlToCrawl,
+          options: {
+            timeout: 30000,
+            followRedirects: true,
+            respectRobots: true,
+            includeRawHtml: false,
+          },
+          userId: session?.user?.id,
+          userEmail: session?.user?.email,
         });
       } else {
         console.log("🕷️ Using standard crawling");
@@ -375,7 +381,15 @@ export default function ScanPage() {
       
       // Proceed with standard crawling after extraction
       setCurrentPhase("webcrawler");
-      crawlMutation.mutate({ url: url });
+      crawlMutation.mutate({ 
+        url: url,
+        options: {
+          timeout: 30000,
+          followRedirects: true,
+          respectRobots: true,
+          includeRawHtml: false,
+        },
+      });
     },
     onError: (error) => {
       console.error("🔍 Firecrawl v2 extraction failed:", error);
@@ -383,7 +397,15 @@ export default function ScanPage() {
       console.log("Falling back to standard crawling without extraction data");
       setUseFirecrawlV2(false);
       setCurrentPhase("webcrawler");
-      crawlMutation.mutate({ url: url });
+      crawlMutation.mutate({ 
+        url: url,
+        options: {
+          timeout: 30000,
+          followRedirects: true,
+          respectRobots: true,
+          includeRawHtml: false,
+        },
+      });
     },
   });
 
@@ -405,14 +427,49 @@ export default function ScanPage() {
         analysisType: "comprehensive",
         saveToDb: true, // Enable DB save with real website ID
         // Enhanced v2 fields
-        firecrawlVersion: useFirecrawlV2 ? "v2" : "v1",
-        useEnhancedAnalysis: useFirecrawlV2 && extractionResults !== null,
-        extractionResults: extractionResults,
+        firecrawlVersion: "v1",
+        useEnhancedAnalysis: false,
+        extractionResults: undefined,
       });
     },
     onError: (error) => {
       console.error("🕷️ Crawl failed:", error);
       setError(`Crawling failed: ${error.message}`);
+      setIsProcessing(false);
+    },
+  });
+
+  const crawlEnhancedMutation = trpc.url.crawlEnhanced.useMutation({
+    onSuccess: (result) => {
+      console.log("🚀 Enhanced crawl completed successfully:", result);
+      setCurrentPhase("ai-analysis");
+
+      // Use the actual website ID and enable database saving
+      if (!currentWebsiteId) {
+        setError("Website ID not found. Please try again.");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Set extraction results from enhanced crawl
+      if (result.extractedData) {
+        setExtractionResults(result.extractedData);
+      }
+
+      aiAnalysisMutation.mutate({
+        crawlData: result.crawlResult,
+        websiteId: currentWebsiteId,
+        analysisType: "comprehensive",
+        saveToDb: true, // Enable DB save with real website ID
+        // Enhanced v2 fields
+        firecrawlVersion: result.extractionMetadata.extractionVersion,
+        useEnhancedAnalysis: result.extractionMetadata.useEnhancedExtraction,
+        extractionResults: result.extractedData || undefined,
+      });
+    },
+    onError: (error) => {
+      console.error("🚀 Enhanced crawl failed:", error);
+      setError(`Enhanced crawling failed: ${error.message}`);
       setIsProcessing(false);
     },
   });

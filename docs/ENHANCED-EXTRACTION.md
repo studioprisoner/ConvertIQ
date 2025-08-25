@@ -665,3 +665,326 @@ interface EnhancedScanResult {
 - **Conversion Focus**: Specifically designed to identify revenue optimization opportunities
 
 This enhanced extraction system will transform ConvertIQ from a basic website analyzer to an intelligent business optimization platform.
+
+## Implementation Plan
+
+### Phase 1: Foundation & Infrastructure (Week 1-2)
+
+#### 1.1 Update Dependencies
+```bash
+# Update Firecrawl to v2
+bun add @mendable/firecrawl-js@^2.0.0
+
+# Verify current version
+bun list | grep firecrawl
+```
+
+#### 1.2 Database Schema Updates
+```sql
+-- Migration: Add extraction results columns
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS extraction_results JSONB;
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS page_type VARCHAR(50);
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS extraction_confidence DECIMAL(3,2);
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS data_richness DECIMAL(3,2);
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS extraction_version VARCHAR(20) DEFAULT 'v2';
+
+-- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_scans_page_type ON scans(page_type);
+CREATE INDEX IF NOT EXISTS idx_scans_extraction_results ON scans USING GIN(extraction_results);
+CREATE INDEX IF NOT EXISTS idx_scans_extraction_confidence ON scans(extraction_confidence);
+
+-- Enhanced metadata tracking
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS processing_metrics JSONB;
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS extraction_errors JSONB;
+```
+
+#### 1.3 Core Type Definitions
+Create `src/lib/extraction/types.ts`:
+```typescript
+export type PageType = 
+  | 'ecommerce-product'
+  | 'ecommerce-category' 
+  | 'service-landing'
+  | 'corporate-homepage'
+  | 'about-us'
+  | 'contact'
+  | 'blog-post'
+  | 'landing-page'
+  | 'pricing'
+  | 'case-study'
+  | 'product-comparison';
+
+export interface StructuredPageData {
+  pageType: PageType;
+  confidence: number;
+  data: any; // Type will vary based on pageType
+}
+
+export interface ExtractionConfig {
+  schema: object;
+  prompt: string;
+}
+
+export interface EnhancedScanResult {
+  // ... interface from document
+}
+```
+
+### Phase 2: Page Type Detection (Week 2)
+
+#### 2.1 Create Page Type Detector
+File: `src/lib/extraction/page-type-detector.ts`
+```typescript
+export class IntelligentPageTypeDetector {
+  private firecrawl: Firecrawl;
+  
+  constructor(firecrawl: Firecrawl) {
+    this.firecrawl = firecrawl;
+  }
+  
+  async detectPageType(url: string): Promise<PageTypeResult> {
+    // Implementation from document
+  }
+}
+```
+
+#### 2.2 Testing & Validation
+- Create test suite for page type detection
+- Test with 20+ representative URLs across different page types
+- Validate confidence scoring accuracy
+- Tune detection prompts based on test results
+
+### Phase 3: Extraction Schemas & Prompts (Week 3)
+
+#### 3.1 Create Schema Definitions
+File: `src/lib/extraction/schemas/index.ts`
+```typescript
+export const ecommerceProductSchema = { /* from document */ };
+export const servicePageSchema = { /* from document */ };
+export const homepageSchema = { /* from document */ };
+export const contentPageSchema = { /* from document */ };
+```
+
+#### 3.2 Create Extraction Prompts
+File: `src/lib/extraction/prompts/index.ts`
+```typescript
+export const ecommercePrompt = `/* from document */`;
+export const servicePrompt = `/* create based on schema */`;
+export const homepagePrompt = `/* create based on schema */`;
+export const contentPrompt = `/* create based on schema */`;
+```
+
+#### 3.3 Schema Validation
+- Implement JSON schema validation for extraction results
+- Create fallback handling for incomplete extractions
+- Add data quality scoring
+
+### Phase 4: Enhanced Extraction Engine (Week 4)
+
+#### 4.1 Core Extraction Engine
+File: `src/lib/extraction/enhanced-extraction-engine.ts`
+```typescript
+export class EnhancedExtractionEngine {
+  // Implementation from document
+  async extractStructuredData(url: string): Promise<StructuredPageData>
+  private getExtractionConfig(pageType: PageType): ExtractionConfig
+  private processExtractionResult(extractResult: any, pageType: PageType, content: any)
+}
+```
+
+#### 4.2 Error Handling & Retry Logic
+- Implement retry mechanism for failed extractions
+- Fallback to v1 extraction if v2 fails
+- Comprehensive error logging and monitoring
+
+#### 4.3 Performance Optimization
+- Add caching layer for extraction results
+- Implement extraction result expiration (24-48 hours)
+- Rate limiting for Firecrawl API calls
+
+### Phase 5: AI Analysis Enhancement (Week 5)
+
+#### 5.1 Enhanced AI Analysis Engine
+File: `src/lib/analysis/enhanced-ai-analysis-engine.ts`
+```typescript
+export class EnhancedAIAnalysisEngine {
+  async analyzeWithEnhancedData(url: string): Promise<EnhancedAnalysisResult>
+  private calculateDataRichness(data: StructuredPageData): number
+}
+```
+
+#### 5.2 Updated Analysis Prompts
+Update existing analysis prompts in:
+- `src/lib/ai/providers/anthropic/conversion-psychology-provider.ts`
+- `src/lib/ai/providers/anthropic/ux-analysis-provider.ts`
+- `src/lib/ai/providers/anthropic/seo-analysis-provider.ts`
+
+#### 5.3 Enhanced Analysis Types
+Add new analysis capabilities:
+- Structured data-driven recommendations
+- Page-type-specific optimization suggestions
+- Business intelligence insights
+
+### Phase 6: Integration & Migration (Week 6)
+
+#### 6.1 Update Crawler Integration
+Modify `src/lib/crawler/crawler.ts`:
+- Replace manual extraction methods with enhanced extraction
+- Maintain backward compatibility during transition
+- Add feature flag for v1/v2 extraction switching
+
+#### 6.2 Update Analysis Workflow
+File: `src/lib/vectorization/analysis-engine.ts`
+- Integrate enhanced extraction results
+- Update analysis prompts to use structured data
+- Enhance scoring and recommendation generation
+
+#### 6.3 Database Migration Script
+```typescript
+// src/scripts/migrate-to-enhanced-extraction.ts
+async function migrateExistingScans() {
+  // Re-process existing scans with enhanced extraction
+  // Update analysis results with enhanced data
+  // Maintain historical data integrity
+}
+```
+
+### Phase 7: UI/UX Updates (Week 7)
+
+#### 7.1 Enhanced Results Display
+Update report components:
+- `src/components/analysis/analysis-results.tsx`
+- `src/app/dashboard/reports/[reportId]/page.tsx`
+
+#### 7.2 New Visualization Components
+Create components for:
+- Page type indicators
+- Data richness visualizations
+- Structured data previews
+- Enhanced recommendation displays
+
+#### 7.3 Admin Dashboard
+Create admin interface for:
+- Extraction monitoring
+- Performance metrics
+- Error tracking
+- Configuration management
+
+### Phase 8: Testing & Quality Assurance (Week 8)
+
+#### 8.1 Comprehensive Testing
+- Unit tests for all extraction components
+- Integration tests with Firecrawl v2
+- End-to-end testing of analysis workflow
+- Performance testing with various page types
+
+#### 8.2 Quality Validation
+- Test with 100+ diverse websites
+- Validate extraction accuracy across page types
+- Compare v1 vs v2 analysis quality
+- Performance benchmarking
+
+#### 8.3 Error Monitoring
+- Implement Sentry error tracking for extraction pipeline
+- Add performance monitoring
+- Create extraction success rate dashboards
+
+### Phase 9: Deployment & Monitoring (Week 9)
+
+#### 9.1 Gradual Rollout Strategy
+1. **Internal Testing**: Deploy to dev environment
+2. **Beta Users**: Limited rollout to select customers
+3. **Feature Flag**: A/B test v1 vs v2 extraction
+4. **Full Rollout**: Complete migration to v2
+
+#### 9.2 Monitoring & Alerting
+- Set up extraction success rate monitoring
+- Alert on extraction failures or quality degradation
+- Track token usage and cost implications
+- Monitor user satisfaction metrics
+
+#### 9.3 Documentation & Training
+- Update internal documentation
+- Create user-facing feature announcements
+- Update help center with new capabilities
+- Train customer support on new features
+
+### Phase 10: Optimization & Iteration (Week 10+)
+
+#### 10.1 Performance Optimization
+- Optimize extraction prompts based on real usage
+- Fine-tune schemas based on extraction results
+- Implement caching strategies
+- Reduce token usage through prompt optimization
+
+#### 10.2 Feature Enhancement
+- Add new page types based on user requests
+- Implement extraction result confidence scoring
+- Add extraction result manual review interface
+- Create extraction analytics dashboard
+
+#### 10.3 Continuous Improvement
+- Regular schema updates based on extraction patterns
+- Prompt optimization using A/B testing
+- Integration with customer feedback
+- Expansion to new website types and industries
+
+## Implementation Checklist
+
+### Prerequisites
+- [ ] Verify Firecrawl v2 API access and quota
+- [ ] Update development database with new schema
+- [ ] Set up testing environment with diverse test URLs
+- [ ] Create feature flag system for gradual rollout
+
+### Week 1-2: Foundation
+- [ ] Update Firecrawl dependency to v2
+- [ ] Run database migration for new columns
+- [ ] Create core type definitions
+- [ ] Set up basic project structure for extraction system
+
+### Week 3-4: Core Implementation
+- [ ] Implement page type detection system
+- [ ] Create extraction schemas for all page types
+- [ ] Develop enhanced extraction engine
+- [ ] Add comprehensive error handling
+
+### Week 5-6: Integration
+- [ ] Update AI analysis to use structured data
+- [ ] Enhance analysis prompts with structured inputs
+- [ ] Migrate existing crawler integration
+- [ ] Create migration script for existing data
+
+### Week 7-8: UI & Testing
+- [ ] Update report display components
+- [ ] Create new visualization components
+- [ ] Implement comprehensive testing suite
+- [ ] Validate extraction accuracy
+
+### Week 9-10: Deployment & Optimization
+- [ ] Deploy with feature flag system
+- [ ] Monitor extraction performance
+- [ ] Optimize based on real usage patterns
+- [ ] Plan continuous improvement roadmap
+
+## Success Metrics
+
+### Technical Metrics
+- **Extraction Success Rate**: >95% successful extractions
+- **Data Richness**: Average >80% field completion
+- **Processing Time**: <30 seconds per page extraction
+- **Cost Efficiency**: <20% increase in token usage vs v1
+
+### Business Metrics
+- **Analysis Quality**: User satisfaction score >4.5/5
+- **Recommendation Accuracy**: >85% relevance rating
+- **User Engagement**: 30% increase in recommendation implementation
+- **Revenue Impact**: Measurable improvement in user conversion tracking
+
+### Quality Metrics
+- **False Positive Rate**: <5% incorrect page type detection
+- **Data Accuracy**: >90% extraction accuracy validation
+- **Error Rate**: <2% system errors in extraction pipeline
+- **Performance**: 99.9% uptime for extraction services
+
+This implementation plan provides a structured approach to upgrading ConvertIQ's extraction capabilities while maintaining system stability and ensuring high-quality results.

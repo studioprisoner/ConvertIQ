@@ -54,58 +54,58 @@ URL: ${crawlData.url}
 Content Type: ${crawlData.contentType}
 
 META TAGS ANALYSIS:
-- Title Tag: ${crawlData.htmlAnalysis.meta.title || 'MISSING'}
-- Title Length: ${crawlData.htmlAnalysis.meta.title?.length || 0} characters
-- Meta Description: ${crawlData.htmlAnalysis.meta.description || 'MISSING'}
-- Description Length: ${crawlData.htmlAnalysis.meta.description?.length || 0} characters
-- Meta Keywords: ${crawlData.htmlAnalysis.meta.keywords || 'Not present'}
-- Viewport: ${crawlData.htmlAnalysis.meta.viewport || 'MISSING'}
-- Charset: ${crawlData.htmlAnalysis.meta.charset || 'Not specified'}
-- Robots: ${crawlData.htmlAnalysis.meta.robots || 'Not specified'}
+- Title Tag: ${crawlData.htmlAnalysis?.meta?.title || 'MISSING'}
+- Title Length: ${crawlData.htmlAnalysis?.meta?.title?.length || 0} characters
+- Meta Description: ${crawlData.htmlAnalysis?.meta?.description || 'MISSING'}
+- Description Length: ${crawlData.htmlAnalysis?.meta?.description?.length || 0} characters
+- Meta Keywords: ${crawlData.htmlAnalysis?.meta?.keywords || 'Not present'}
+- Viewport: ${crawlData.htmlAnalysis?.meta?.viewport || 'MISSING'}
+- Charset: ${crawlData.htmlAnalysis?.meta?.charset || 'Not specified'}
+- Robots: ${crawlData.htmlAnalysis?.meta?.robots || 'Not specified'}
 
 OPEN GRAPH & SOCIAL:
-- OG Title: ${crawlData.htmlAnalysis.meta.ogTitle || 'Not present'}
-- OG Description: ${crawlData.htmlAnalysis.meta.ogDescription || 'Not present'}  
-- OG Image: ${crawlData.htmlAnalysis.meta.ogImage || 'Not present'}
-- Twitter Card: ${crawlData.htmlAnalysis.meta.twitterCard || 'Not present'}
+- OG Title: ${crawlData.htmlAnalysis?.meta?.ogTitle || 'Not present'}
+- OG Description: ${crawlData.htmlAnalysis?.meta?.ogDescription || 'Not present'}  
+- OG Image: ${crawlData.htmlAnalysis?.meta?.ogImage || 'Not present'}
+- Twitter Card: ${crawlData.htmlAnalysis?.meta?.twitterCard || 'Not present'}
 
 HEADING STRUCTURE:
-${JSON.stringify(crawlData.htmlAnalysis.headings.map(h => ({ 
+${JSON.stringify(crawlData.htmlAnalysis?.headings?.map(h => ({ 
   level: h.level, 
   text: h.text.substring(0, 100) + (h.text.length > 100 ? '...' : '') 
-})), null, 2)}
+})) || [], null, 2)}
 
 IMAGE SEO ANALYSIS:
-- Total Images: ${crawlData.htmlAnalysis.images.length}
-- Images with Alt Text: ${crawlData.htmlAnalysis.images.filter(img => img.alt).length}
-- Images without Alt Text: ${crawlData.performance.imagesWithoutAlt}
-- Images with Size Attributes: ${crawlData.htmlAnalysis.images.filter(img => img.width && img.height).length}
-- Logo Images: ${crawlData.htmlAnalysis.images.filter(img => img.isLogo).length}
+- Total Images: ${crawlData.htmlAnalysis?.images?.length || 0}
+- Images with Alt Text: ${crawlData.htmlAnalysis?.images?.filter(img => img.alt)?.length || 0}
+- Images without Alt Text: ${crawlData.performance?.imagesWithoutAlt || 0}
+- Images with Size Attributes: ${crawlData.htmlAnalysis?.images?.filter(img => img.width && img.height)?.length || 0}
+- Logo Images: ${crawlData.htmlAnalysis?.images?.filter(img => img.isLogo)?.length || 0}
 
 SAMPLE IMAGES (First 5):
-${JSON.stringify(crawlData.htmlAnalysis.images.slice(0, 5).map(img => ({
+${JSON.stringify(crawlData.htmlAnalysis?.images?.slice(0, 5)?.map(img => ({
   src: img.src,
   alt: img.alt || 'NO ALT TEXT',
   isLogo: img.isLogo,
   isHero: img.isHero
-})), null, 2)}
+})) || [], null, 2)}
 
 CONTENT STRUCTURE:
-- Word Count: ${crawlData.htmlAnalysis.structure.wordCount}
-- Sections: ${crawlData.htmlAnalysis.structure.sectionsCount}
-- Has Header: ${crawlData.htmlAnalysis.structure.hasHeader}
-- Has Footer: ${crawlData.htmlAnalysis.structure.hasFooter}
+- Word Count: ${crawlData.htmlAnalysis?.structure?.wordCount || 0}
+- Sections: ${crawlData.htmlAnalysis?.structure?.sectionsCount || 0}
+- Has Header: ${crawlData.htmlAnalysis?.structure?.hasHeader || false}
+- Has Footer: ${crawlData.htmlAnalysis?.structure?.hasFooter || false}
 
 LINKS ANALYSIS:
-- Total Links: ${crawlData.htmlAnalysis.links.length}
-- Internal Links: ${crawlData.htmlAnalysis.links.filter(link => link.isInternal).length}
-- External Links: ${crawlData.htmlAnalysis.links.filter(link => !link.isInternal).length}
-- Navigation Links: ${crawlData.htmlAnalysis.links.filter(link => link.isNavigation).length}
+- Total Links: ${crawlData.htmlAnalysis?.links?.length || 0}
+- Internal Links: ${crawlData.htmlAnalysis?.links?.filter(link => link.isInternal)?.length || 0}
+- External Links: ${crawlData.htmlAnalysis?.links?.filter(link => !link.isInternal)?.length || 0}
+- Navigation Links: ${crawlData.htmlAnalysis?.links?.filter(link => link.isNavigation)?.length || 0}
 
 PERFORMANCE FACTORS:
-- Load Time: ${crawlData.performance.loadTime}ms
-- HTML Size: ${(crawlData.performance.htmlSize / 1024).toFixed(1)}KB
-- External Resources: ${crawlData.performance.externalResourcesCount}
+- Load Time: ${crawlData.performance?.loadTime || 0}ms
+- HTML Size: ${((crawlData.performance?.htmlSize || 0) / 1024).toFixed(1)}KB
+- External Resources: ${crawlData.performance?.externalResourcesCount || 0}
 
 Analyze this data for technical SEO optimization opportunities and provide:
 

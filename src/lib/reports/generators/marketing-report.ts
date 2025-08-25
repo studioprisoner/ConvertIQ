@@ -71,8 +71,10 @@ export class MarketingReportGenerator {
       findings.push(...aiAnalysis.technicalSeo.keyFindings);
     }
     
-    // Extract general findings
-    findings.push(...aiAnalysis.keyInsights.slice(0, 3));
+    // Extract general findings (with safety check)
+    if (aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights)) {
+      findings.push(...aiAnalysis.keyInsights.slice(0, 3));
+    }
     
     // Add specific SEO-focused findings
     if (aiAnalysis.technicalSeo?.metaTags?.titleTag?.present === false) {
@@ -227,11 +229,12 @@ export class MarketingReportGenerator {
     let score = aiAnalysis.overallScore;
     
     // Check for content quality indicators
-    const hasGoodContent = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('content') && 
-      !insight.toLowerCase().includes('missing') &&
-      !insight.toLowerCase().includes('poor')
-    );
+    const hasGoodContent = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) && 
+      aiAnalysis.keyInsights.some(insight => 
+        insight.toLowerCase().includes('content') && 
+        !insight.toLowerCase().includes('missing') &&
+        !insight.toLowerCase().includes('poor')
+      );
     
     if (hasGoodContent) {
       score = Math.min(score + 1, 10);
@@ -248,12 +251,13 @@ export class MarketingReportGenerator {
 
   private calculateLocalSeoScore(aiAnalysis: AIAnalysisResult): number {
     // Check for local business indicators
-    const hasLocalIndicators = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('local') || 
-      insight.toLowerCase().includes('location') ||
-      insight.toLowerCase().includes('address') ||
-      insight.toLowerCase().includes('business')
-    );
+    const hasLocalIndicators = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) &&
+      aiAnalysis.keyInsights.some(insight => 
+        insight.toLowerCase().includes('local') || 
+        insight.toLowerCase().includes('location') ||
+        insight.toLowerCase().includes('address') ||
+        insight.toLowerCase().includes('business')
+      );
     
     if (hasLocalIndicators) {
       return Math.min(aiAnalysis.overallScore + 1, 10);
@@ -285,12 +289,13 @@ export class MarketingReportGenerator {
 
   private assessSocialPresence(aiAnalysis: AIAnalysisResult): string {
     // Check for social media integration indicators
-    const hasSocial = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('social') ||
-      insight.toLowerCase().includes('facebook') ||
-      insight.toLowerCase().includes('instagram') ||
-      insight.toLowerCase().includes('twitter')
-    );
+    const hasSocial = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) &&
+      aiAnalysis.keyInsights.some(insight => 
+        insight.toLowerCase().includes('social') ||
+        insight.toLowerCase().includes('facebook') ||
+        insight.toLowerCase().includes('instagram') ||
+        insight.toLowerCase().includes('twitter')
+      );
     
     if (hasSocial) {
       return 'Social media integration present but may need optimization';

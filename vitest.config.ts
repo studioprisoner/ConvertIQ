@@ -13,6 +13,9 @@ export default defineConfig({
       '.next/**',
       'src/test/isolation/**'
     ],
+    deps: {
+      inline: ['@testing-library/react'],
+    },
   },
   resolve: {
     alias: {
