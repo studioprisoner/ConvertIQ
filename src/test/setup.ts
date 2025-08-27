@@ -88,16 +88,16 @@ vi.mock('@/lib/reports/generators/conversion-report', () => ({
 
 // Mock Heroicons
 vi.mock('@heroicons/react/24/outline', () => ({
-  ShoppingCartIcon: vi.fn(({ className }) => <div className={className} aria-label="E-commerce Product icon" />),
-  BuildingStorefrontIcon: vi.fn(({ className }) => <div className={className} aria-label="E-commerce Category icon" />),
-  HomeIcon: vi.fn(({ className }) => <div className={className} aria-label="Homepage icon" />),
-  DocumentTextIcon: vi.fn(({ className }) => <div className={className} aria-label="Blog Post icon" />),
-  PhoneIcon: vi.fn(({ className }) => <div className={className} aria-label="Contact icon" />),
-  CurrencyDollarIcon: vi.fn(({ className }) => <div className={className} aria-label="Pricing icon" />),
-  ChartBarIcon: vi.fn(({ className }) => <div className={className} aria-label="Chart icon" />),
-  TagIcon: vi.fn(({ className }) => <div className={className} aria-label="Tag icon" />),
-  ChevronDownIcon: vi.fn(({ className }) => <div className={className} aria-label="Expand details" />),
-  ChevronUpIcon: vi.fn(({ className }) => <div className={className} aria-label="Collapse details" />),
+  ShoppingCartIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'E-commerce Product icon' })),
+  BuildingStorefrontIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'E-commerce Category icon' })),
+  HomeIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Homepage icon' })),
+  DocumentTextIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Blog Post icon' })),
+  PhoneIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Contact icon' })),
+  CurrencyDollarIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Pricing icon' })),
+  ChartBarIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Chart icon' })),
+  TagIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Tag icon' })),
+  ChevronDownIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Expand details' })),
+  ChevronUpIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Collapse details' })),
 }));
 
 // Reset all mocks before each test
