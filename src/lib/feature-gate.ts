@@ -255,6 +255,17 @@ export async function checkFeatureAccess(
   try {
     console.log(`🔐 Checking feature access for ${featureKey} (user: ${userId})`);
     
+    // PRODUCTION BYPASS: Grant access to all features in production
+    if (process.env.NODE_ENV === 'production' && process.env.BYPASS_FEATURE_GATES === 'true') {
+      console.log(`🚀 PRODUCTION: Bypassing feature gate for ${featureKey}`);
+      return {
+        hasAccess: true,
+        upgradeRequired: false,
+        featureType: 'boolean',
+        reason: 'Production bypass enabled'
+      };
+    }
+    
     // Get user's current subscription
     const subscription = await getUserSubscription(userId);
     console.log(`📋 Subscription found:`, {
@@ -400,6 +411,22 @@ export async function getUserFeatureMap(userId: string): Promise<Record<FeatureK
     'api_access',
     'white_label'
   ];
+  
+  // PRODUCTION BYPASS: Grant access to all features in production
+  if (process.env.NODE_ENV === 'production' && process.env.BYPASS_FEATURE_GATES === 'true') {
+    const featureMap: Record<FeatureKey, FeatureGateResult> = {} as Record<FeatureKey, FeatureGateResult>;
+    
+    for (const feature of features) {
+      featureMap[feature] = {
+        hasAccess: true,
+        upgradeRequired: false,
+        featureType: 'boolean',
+        reason: 'Production bypass enabled'
+      };
+    }
+    
+    return featureMap;
+  }
   
   const featureMap: Record<FeatureKey, FeatureGateResult> = {} as Record<FeatureKey, FeatureGateResult>;
   
