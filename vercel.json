@@ -129,13 +129,7 @@
       ]
     }
   ],
-  "redirects": [
-    {
-      "source": "/dashboard",
-      "destination": "/dashboard/scan",
-      "permanent": false
-    }
-  ],
+  "redirects": [],
   "rewrites": [
     {
       "source": "/api/auth/:path*",
