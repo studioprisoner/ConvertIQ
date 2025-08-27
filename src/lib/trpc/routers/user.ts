@@ -13,7 +13,7 @@ export const userRouter = createTRPCRouter({
       const [userProfile] = await db
         .select()
         .from(user)
-        .where(eq(user.id, ctx.user.id))
+        .where(eq(user.id, ctx.session.user.id))
         .limit(1);
 
       if (!userProfile) {
@@ -53,7 +53,7 @@ export const userRouter = createTRPCRouter({
         const [currentUser] = await db
           .select({ primaryDomain: user.primaryDomain })
           .from(user)
-          .where(eq(user.id, ctx.user.id))
+          .where(eq(user.id, ctx.session.user.id))
           .limit(1);
 
         if (currentUser?.primaryDomain && currentUser.primaryDomain !== input.primaryDomain) {
@@ -71,16 +71,16 @@ export const userRouter = createTRPCRouter({
           primaryDomain: input.primaryDomain,
           updatedAt: new Date(),
         })
-        .where(eq(user.id, ctx.user.id));
+        .where(eq(user.id, ctx.session.user.id));
 
       console.log('Primary domain update result:', updateResult);
-      console.log('Updated domain for user:', ctx.user.id, 'to:', input.primaryDomain);
+      console.log('Updated domain for user:', ctx.session.user.id, 'to:', input.primaryDomain);
 
       // Verify the update by fetching the user again
       const [updatedUser] = await db
         .select({ primaryDomain: user.primaryDomain })
         .from(user)
-        .where(eq(user.id, ctx.user.id))
+        .where(eq(user.id, ctx.session.user.id))
         .limit(1);
       
       console.log('Verified updated user domain:', updatedUser?.primaryDomain);
@@ -108,7 +108,7 @@ export const userRouter = createTRPCRouter({
           primaryDomain: null,
           updatedAt: new Date(),
         })
-        .where(eq(user.id, ctx.user.id));
+        .where(eq(user.id, ctx.session.user.id));
 
       return {
         success: true,

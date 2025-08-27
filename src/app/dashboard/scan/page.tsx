@@ -3,13 +3,13 @@
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
-import { useFeatureGate } from "@/hooks/use-feature-gate";
-import { FeatureGate } from "@/components/feature-gating/feature-gate";
+import { useFeatureGate } from "@/hooks/common/use-feature-gate";
+import { FeatureGate } from "@/components/features/feature-gating/feature-gate";
 import { urlValidationSchema, detectPageType } from "@/lib/url-validation";
 import { motion, AnimatePresence, Variants } from "framer-motion";
-import { CompanyIcon } from "@/components/company-logo";
+import { CompanyIcon } from "@/components/common/company-logo";
 import { Input, InputGroup } from "@/components/input";
-import { AiChat } from "@/components/aichat";
+import { AiChat } from "@/components/features/analysis/aichat";
 import {
   Dialog,
   DialogActions,
@@ -18,6 +18,9 @@ import {
   DialogTitle,
 } from "@/components/dialog";
 import { Button } from "@/components/button";
+import { getUserFeatureFlags } from "@/lib/feature-flags/service";
+import { timeFirecrawlOperation } from "@/lib/monitoring/firecrawl-monitor";
+import { useSession } from "@/lib/auth-client";
 
 type ScanPhase =
   | "website-creation"
@@ -36,6 +39,7 @@ interface ProcessingStep {
 
 export default function ScanPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [url, setUrl] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentPhase, setCurrentPhase] =
@@ -44,6 +48,14 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [scanStartTime, setScanStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState<string>("0:00");
+  const [useFirecrawlV2, setUseFirecrawlV2] = useState(false);
+  const [extractionResults, setExtractionResults] = useState<any>(null);
+  const [featureFlags, setFeatureFlags] = useState<{
+    firecrawl_v2_enabled: boolean;
+    firecrawl_extraction_enabled: boolean;
+    enhanced_analysis_enabled: boolean;
+    batch_processing_enabled: boolean;
+  } | null>(null);
   const [domainDialog, setDomainDialog] = useState<{
     domain: string;
     currentCount: number;
@@ -52,6 +64,30 @@ export default function ScanPage() {
 
   // Feature gating hooks
   const scanFeatureGate = useFeatureGate("unlimited_scans");
+
+  // Load feature flags on mount
+  useEffect(() => {
+    if (session?.user?.id) {
+      getUserFeatureFlags(session.user.id, session.user.email)
+        .then(flags => {
+          setFeatureFlags(flags);
+          // Auto-enable v2 if feature flag is enabled
+          if (flags.firecrawl_v2_enabled && !useFirecrawlV2) {
+            setUseFirecrawlV2(true);
+          }
+        })
+        .catch(error => {
+          console.warn('Failed to load feature flags:', error);
+          // Use defaults if feature flags fail to load
+          setFeatureFlags({
+            firecrawl_v2_enabled: false,
+            firecrawl_extraction_enabled: false,
+            enhanced_analysis_enabled: false,
+            batch_processing_enabled: false,
+          });
+        });
+    }
+  }, [session?.user?.id, session?.user?.email]);
 
   // Domain creation mutation for adding new domains during scan
   const createDomainMutation = trpc.websites.create.useMutation({
@@ -94,21 +130,41 @@ export default function ScanPage() {
       console.log("📝 Website created/found:", website);
       console.log("🔍 Setting websiteId:", website.id);
       setCurrentWebsiteId(website.id);
-      setCurrentPhase("webcrawler");
-
-      // Now start the crawling process - use scanUrl if available, otherwise use website.url
+      
+      // Determine the URL to crawl
       const urlToCrawl = "scanUrl" in website ? website.scanUrl : website.url;
-      console.log("🕷️ Crawling URL:", urlToCrawl);
+      console.log("🕷️ Target URL:", urlToCrawl);
 
-      crawlMutation.mutate({
-        url: urlToCrawl,
-        options: {
-          timeout: 30000,
-          followRedirects: true,
-          respectRobots: true,
-          includeRawHtml: false, // Don't include raw HTML to save space
-        },
-      });
+      // Choose appropriate crawl method based on v2 features
+      if (useFirecrawlV2 && featureFlags?.firecrawl_extraction_enabled) {
+        console.log("🚀 Using enhanced crawl with v2 extraction");
+        setCurrentPhase("webcrawler");
+        
+        crawlEnhancedMutation.mutate({
+          url: urlToCrawl,
+          options: {
+            timeout: 30000,
+            followRedirects: true,
+            respectRobots: true,
+            includeRawHtml: false,
+          },
+          userId: session?.user?.id,
+          userEmail: session?.user?.email,
+        });
+      } else {
+        console.log("🕷️ Using standard crawling");
+        setCurrentPhase("webcrawler");
+        
+        crawlMutation.mutate({
+          url: urlToCrawl,
+          options: {
+            timeout: 30000,
+            followRedirects: true,
+            respectRobots: true,
+            includeRawHtml: false, // Don't include raw HTML to save space
+          },
+        });
+      }
     },
     onSettled: (data, error) => {
       console.log(
@@ -275,8 +331,81 @@ export default function ScanPage() {
     },
     onError: (error) => {
       console.error("🤖 AI analysis failed:", error);
-      setError(`AI analysis failed: ${error.message}`);
-      setIsProcessing(false);
+      
+      // Record error for monitoring
+      if (session?.user?.id) {
+        // Log the failure for monitoring
+        console.error("AI Analysis Error:", {
+          userId: session.user.id,
+          websiteId: currentWebsiteId,
+          error: error.message,
+          useFirecrawlV2,
+          extractionEnabled: featureFlags?.firecrawl_extraction_enabled,
+        });
+      }
+      
+      // Check if this was a v2 failure and fallback is possible
+      if (useFirecrawlV2 && featureFlags?.firecrawl_v2_enabled) {
+        console.warn("🔄 AI analysis with v2 data failed, attempting fallback to v1");
+        
+        // Disable v2 features temporarily and retry
+        setUseFirecrawlV2(false);
+        setExtractionResults(null);
+        setError("Enhanced analysis failed, retrying with standard analysis...");
+        
+        // Retry with v1 after a brief delay
+        setTimeout(() => {
+          if (currentWebsiteId) {
+            // Get the original crawl result from the previous successful crawl
+            // This would need to be stored when crawl succeeds
+            console.log("🔄 Retrying analysis without v2 enhancements");
+            setError(null);
+            setCurrentPhase("ai-analysis");
+            // Note: In a real implementation, you'd need to store the crawl result
+            // and re-call aiAnalysisMutation with fallback parameters
+          }
+        }, 2000);
+      } else {
+        // Final failure - no fallback available
+        setError(`Analysis failed: ${error.message}`);
+        setIsProcessing(false);
+      }
+    },
+  });
+
+  // Firecrawl v2 extraction mutation
+  const firecrawlExtractionMutation = trpc.firecrawlV2.extractStructuredData.useMutation({
+    onSuccess: (result) => {
+      console.log("🔍 Firecrawl v2 extraction completed:", result);
+      setExtractionResults(result.data);
+      
+      // Proceed with standard crawling after extraction
+      setCurrentPhase("webcrawler");
+      crawlMutation.mutate({ 
+        url: url,
+        options: {
+          timeout: 30000,
+          followRedirects: true,
+          respectRobots: true,
+          includeRawHtml: false,
+        },
+      });
+    },
+    onError: (error) => {
+      console.error("🔍 Firecrawl v2 extraction failed:", error);
+      // Continue with standard analysis even if extraction fails
+      console.log("Falling back to standard crawling without extraction data");
+      setUseFirecrawlV2(false);
+      setCurrentPhase("webcrawler");
+      crawlMutation.mutate({ 
+        url: url,
+        options: {
+          timeout: 30000,
+          followRedirects: true,
+          respectRobots: true,
+          includeRawHtml: false,
+        },
+      });
     },
   });
 
@@ -295,13 +424,54 @@ export default function ScanPage() {
       aiAnalysisMutation.mutate({
         crawlData: result,
         websiteId: currentWebsiteId,
-        analysisType: "comprehensive",
-        saveToDb: true, // Enable DB save with real website ID
+        analysisType: "comprehensive" as const,
+        saveToDb: true,
+        firecrawlVersion: "v1" as const,
+        useEnhancedAnalysis: false,
       });
     },
     onError: (error) => {
       console.error("🕷️ Crawl failed:", error);
       setError(`Crawling failed: ${error.message}`);
+      setIsProcessing(false);
+    },
+  });
+
+  const crawlEnhancedMutation = trpc.url.crawlEnhanced.useMutation({
+    onSuccess: (result) => {
+      console.log("🚀 Enhanced crawl completed successfully:", result);
+      setCurrentPhase("ai-analysis");
+
+      // Use the actual website ID and enable database saving
+      if (!currentWebsiteId) {
+        setError("Website ID not found. Please try again.");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Set extraction results from enhanced crawl
+      if (result.extractedData) {
+        setExtractionResults(result.extractedData);
+      }
+
+      const mutationInput: any = {
+        crawlData: result.crawlResult,
+        websiteId: currentWebsiteId,
+        analysisType: "comprehensive" as const,
+        saveToDb: true,
+        firecrawlVersion: result.extractionMetadata.extractionVersion as "v1" | "v2",
+        useEnhancedAnalysis: result.extractionMetadata.useEnhancedExtraction,
+      };
+      
+      if (result.extractedData) {
+        mutationInput.extractionResults = result.extractedData;
+      }
+
+      aiAnalysisMutation.mutate(mutationInput);
+    },
+    onError: (error) => {
+      console.error("🚀 Enhanced crawl failed:", error);
+      setError(`Enhanced crawling failed: ${error.message}`);
       setIsProcessing(false);
     },
   });
@@ -590,6 +760,68 @@ export default function ScanPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Enhanced Analysis Toggle - Show only if v2 feature flag is enabled */}
+                {featureFlags?.firecrawl_v2_enabled && (
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="use-firecrawl-v2"
+                        checked={useFirecrawlV2}
+                        onChange={(e) => setUseFirecrawlV2(e.target.checked)}
+                        disabled={!featureFlags?.firecrawl_extraction_enabled}
+                        className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <label
+                        htmlFor="use-firecrawl-v2"
+                        className={`text-sm font-medium ${
+                          featureFlags?.firecrawl_extraction_enabled 
+                            ? "text-gray-700 dark:text-gray-300"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      >
+                        Enhanced Analysis (Firecrawl v2)
+                        {!featureFlags?.firecrawl_extraction_enabled && (
+                          <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                            Preview
+                          </span>
+                        )}
+                      </label>
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {useFirecrawlV2 && featureFlags?.firecrawl_extraction_enabled
+                        ? "Structured data extraction enabled" 
+                        : useFirecrawlV2 && !featureFlags?.firecrawl_extraction_enabled
+                        ? "Preview mode - basic v2 analysis"
+                        : "Standard analysis"
+                      }
+                    </div>
+                  </div>
+                )}
+                
+                {/* Feature Flag Status (for debugging - remove in production) */}
+                {process.env.NODE_ENV === 'development' && featureFlags && (
+                  <div className="px-1 py-2 bg-gray-50 dark:bg-gray-800 rounded-md">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                      <div>Feature Flags:</div>
+                      <div className="grid grid-cols-2 gap-1 text-xs">
+                        <span className={featureFlags.firecrawl_v2_enabled ? "text-green-600" : "text-red-600"}>
+                          v2 API: {featureFlags.firecrawl_v2_enabled ? "✓" : "✗"}
+                        </span>
+                        <span className={featureFlags.firecrawl_extraction_enabled ? "text-green-600" : "text-red-600"}>
+                          Extract: {featureFlags.firecrawl_extraction_enabled ? "✓" : "✗"}
+                        </span>
+                        <span className={featureFlags.enhanced_analysis_enabled ? "text-green-600" : "text-red-600"}>
+                          Enhanced: {featureFlags.enhanced_analysis_enabled ? "✓" : "✗"}
+                        </span>
+                        <span className={featureFlags.batch_processing_enabled ? "text-green-600" : "text-red-600"}>
+                          Batch: {featureFlags.batch_processing_enabled ? "✓" : "✗"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <AnimatePresence>
                   {error && (

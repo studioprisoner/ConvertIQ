@@ -1,5 +1,34 @@
 # Code Patterns & Conventions - ConvertIQ
 
+## Development Reset Patterns ✅
+
+### Branch Reset Pattern
+
+**Established Pattern**: Clean development environment restoration
+
+```bash
+# Pattern: Reset dev branch to main state
+git fetch origin main           # Get latest main
+git reset --hard origin/main    # Reset branch pointer and working tree
+git clean -fd                   # Remove all untracked files
+git status                      # Verify clean state
+```
+
+**Usage Guidelines**:
+- Use when experimental work isn't functioning
+- Preserves stable architecture patterns
+- Prevents technical debt accumulation
+- Maintains proven security and performance implementations
+
+**Post-Reset Checklist**:
+```bash
+# Verify environment
+bun install                     # Restore dependencies
+bun run dev                     # Test development server
+bun run build                   # Verify build works
+git status                      # Confirm clean working tree
+```
+
 ## Security Implementation Patterns ✅
 
 ### Input Validation Pattern
@@ -413,6 +442,32 @@ const report = auditor.generateReport(issues);
 ```
 
 ## Anti-Patterns to Avoid ❌
+
+### Development Anti-Patterns
+
+```bash
+# ❌ DON'T: Accumulate experimental features without validation
+git add .
+git commit -m "WIP: multiple experimental features"
+
+# ✅ DO: Reset to stable state when experiments fail
+git reset --hard origin/main
+git clean -fd
+```
+
+### Feature Development Anti-Patterns
+
+```typescript
+// ❌ DON'T: Build multiple complex integrations simultaneously
+import { VisionAPI } from './vision';
+import { PerformanceAPI } from './performance';
+import { SemanticAPI } from './semantic';
+// All experimental and untested
+
+// ✅ DO: Build one feature at a time from stable foundation
+import { ExistingAPI } from './proven-api';
+// Extend proven patterns incrementally
+```
 
 ### Edge Runtime Anti-Patterns
 

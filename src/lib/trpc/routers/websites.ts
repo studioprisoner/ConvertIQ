@@ -32,6 +32,18 @@ function isSameDomain(url1: string, url2: string): boolean {
   return domain1 === domain2;
 }
 
+// Helper function to map validation page types to database enum values
+function mapPageTypeToDbEnum(pageType: string): string {
+  switch (pageType) {
+    case 'homepage': return 'homepage';
+    case 'product': return 'ecommerce-product';
+    case 'service': return 'service-landing';
+    case 'landing': return 'landing-page';
+    case 'other': return 'unknown';
+    default: return 'unknown';
+  }
+}
+
 export const websitesRouter = createTRPCRouter({
   /**
    * List all domains for authenticated user (Pro feature)
@@ -155,7 +167,7 @@ export const websitesRouter = createTRPCRouter({
           name: input.name,
           url: input.url,
           description: input.description,
-          pageType: 'homepage',
+          pageType: mapPageTypeToDbEnum('homepage'),
           isValidated: true,
           validationStatus: 'valid',
           validationMessage: validation.message,
@@ -385,7 +397,7 @@ export const websitesRouter = createTRPCRouter({
           const updated = await db
             .update(websites)
             .set({
-              pageType: input.pageType || existing[0].pageType,
+              pageType: input.pageType ? mapPageTypeToDbEnum(input.pageType) : existing[0].pageType,
               isValidated: true,
               validationStatus: 'valid',
               validationMessage: validation.message,
@@ -409,7 +421,7 @@ export const websitesRouter = createTRPCRouter({
             userId,
             url: input.url, // Store the specific URL to allow multiple pages per domain
             name: `${urlObj.hostname}${urlObj.pathname !== '/' ? urlObj.pathname : ''}`,
-            pageType: input.pageType || 'homepage',
+            pageType: mapPageTypeToDbEnum(input.pageType || 'homepage'),
             isValidated: true,
             validationStatus: 'valid',
             validationMessage: validation.message,

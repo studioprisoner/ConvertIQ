@@ -51,57 +51,57 @@ Analyze this website for UX/UI optimization opportunities, focusing on mobile-fi
 
 WEBSITE DATA:
 URL: ${crawlData.url}
-Load Time: ${crawlData.performance.loadTime}ms
-HTML Size: ${(crawlData.performance.htmlSize / 1024).toFixed(1)}KB
+Load Time: ${crawlData.performance?.loadTime || 0}ms
+HTML Size: ${((crawlData.performance?.htmlSize || 0) / 1024).toFixed(1)}KB
 
 MOBILE RESPONSIVENESS:
-- Viewport Meta: ${crawlData.cssAnalysis.responsive.hasViewportMeta}
-- Media Queries: ${crawlData.cssAnalysis.responsive.hasMediaQueries}
+- Viewport Meta: ${crawlData.cssAnalysis?.responsive?.hasViewportMeta || false}
+- Media Queries: ${crawlData.cssAnalysis?.responsive?.hasMediaQueries || false}
 - Mobile-First Design: ${crawlData.cssAnalysis.responsive.hasMobileFirst || 'Unknown'}
 
 NAVIGATION STRUCTURE:
-- Has Navigation: ${crawlData.htmlAnalysis.structure.hasNavigation}
-- Navigation Links: ${crawlData.htmlAnalysis.links.filter(link => link.isNavigation)}
+- Has Navigation: ${crawlData.htmlAnalysis?.structure?.hasNavigation || false}
+- Navigation Links: ${crawlData.htmlAnalysis?.links?.filter(link => link.isNavigation)?.length || 0}
 
 PERFORMANCE INDICATORS:
-- Total Resources: ${crawlData.performance.totalResourcesCount}
-- External Resources: ${crawlData.performance.externalResourcesCount}
-- Images Without Alt: ${crawlData.performance.imagesWithoutAlt}
-- Images Without Size: ${crawlData.performance.imagesWithoutSize}
+- Total Resources: ${crawlData.performance?.totalResourcesCount || 0}
+- External Resources: ${crawlData.performance?.externalResourcesCount || 0}
+- Images Without Alt: ${crawlData.performance?.imagesWithoutAlt || 0}
+- Images Without Size: ${crawlData.performance?.imagesWithoutSize || 0}
 
 LAYOUT STRUCTURE:
-- Has Header: ${crawlData.htmlAnalysis.structure.hasHeader}
-- Has Footer: ${crawlData.htmlAnalysis.structure.hasFooter}
-- Has Hero Section: ${crawlData.htmlAnalysis.structure.hasHeroSection}
-- Has Sidebar: ${crawlData.htmlAnalysis.structure.hasSidebar}
-- Sections Count: ${crawlData.htmlAnalysis.structure.sectionsCount}
+- Has Header: ${crawlData.htmlAnalysis?.structure?.hasHeader || false}
+- Has Footer: ${crawlData.htmlAnalysis?.structure?.hasFooter || false}
+- Has Hero Section: ${crawlData.htmlAnalysis?.structure?.hasHeroSection || false}
+- Has Sidebar: ${crawlData.htmlAnalysis?.structure?.hasSidebar || false}
+- Sections Count: ${crawlData.htmlAnalysis?.structure?.sectionsCount || 0}
 
 CSS ANALYSIS:
-- Frameworks: ${crawlData.cssAnalysis.frameworks.join(', ') || 'None detected'}
-- Has Inline Styles: ${crawlData.cssAnalysis.hasInlineStyles}
-- External Stylesheets: ${crawlData.cssAnalysis.externalStylesheets.length}
+- Frameworks: ${crawlData.cssAnalysis?.frameworks?.join(', ') || 'None detected'}
+- Has Inline Styles: ${crawlData.cssAnalysis?.hasInlineStyles || false}
+- External Stylesheets: ${crawlData.cssAnalysis?.externalStylesheets?.length || 0}
 
 IMAGES ANALYSIS:
-Total Images: ${crawlData.htmlAnalysis.images.length}
-Images with Alt Text: ${crawlData.htmlAnalysis.images.filter(img => img.alt).length}
-Hero Images: ${crawlData.htmlAnalysis.images.filter(img => img.isHero).length}
-Logo Images: ${crawlData.htmlAnalysis.images.filter(img => img.isLogo).length}
+Total Images: ${crawlData.htmlAnalysis?.images?.length || 0}
+Images with Alt Text: ${crawlData.htmlAnalysis?.images?.filter(img => img.alt)?.length || 0}
+Hero Images: ${crawlData.htmlAnalysis?.images?.filter(img => img.isHero)?.length || 0}
+Logo Images: ${crawlData.htmlAnalysis?.images?.filter(img => img.isLogo)?.length || 0}
 
 CALLS-TO-ACTION:
-${JSON.stringify(crawlData.htmlAnalysis.ctas.map(cta => ({
+${JSON.stringify(crawlData.htmlAnalysis?.ctas?.map(cta => ({
   text: cta.text,
   type: cta.type,
   position: cta.position,
   prominence: cta.prominence
-})), null, 2)}
+})) || [], null, 2)}
 
 FORMS USABILITY:
-${JSON.stringify(crawlData.htmlAnalysis.forms.map(form => ({
-  fieldCount: form.fields.length,
-  hasRequiredFields: form.fields.some(field => field.required),
-  hasLabels: form.fields.some(field => field.label),
+${JSON.stringify(crawlData.htmlAnalysis?.forms?.map(form => ({
+  fieldCount: form.fields?.length || 0,
+  hasRequiredFields: form.fields?.some(field => field.required) || false,
+  hasLabels: form.fields?.some(field => field.label) || false,
   submitButtonText: form.submitButton?.text
-})), null, 2)}
+})) || [], null, 2)}
 
 Analyze this data for UX/UI optimization opportunities and provide:
 

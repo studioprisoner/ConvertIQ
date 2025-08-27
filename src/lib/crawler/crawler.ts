@@ -8,15 +8,24 @@ import {
   crawlerOptionsSchema,
   crawlResultSchema 
 } from './types';
+import { EnhancedExtractionEngine } from '../extraction/enhanced-extraction-engine';
+import { isFeatureEnabled } from '../feature-flags/service';
+import type { ExtractedData } from '../extraction/types';
 
 export class WebCrawler {
   private options: CrawlerOptions;
+  private enhancedExtractionEngine?: EnhancedExtractionEngine;
   
   constructor(options: Partial<CrawlerOptions> = {}) {
     this.options = crawlerOptionsSchema.parse(options);
+    
+    // Initialize enhanced extraction engine if API key is available
+    if (process.env.FIRECRAWL_API_KEY) {
+      this.enhancedExtractionEngine = new EnhancedExtractionEngine(process.env.FIRECRAWL_API_KEY);
+    }
   }
 
-  async crawl(url: string): Promise<CrawlResult> {
+  async crawl(url: string, userId?: string, userEmail?: string): Promise<CrawlResult> {
     const startTime = Date.now();
     
     try {
@@ -130,6 +139,100 @@ export class WebCrawler {
       };
       
       return errorResult;
+    }
+  }
+
+  /**
+   * Enhanced crawl method that integrates v1 (traditional) and v2 (enhanced) extraction
+   */
+  async crawlWithEnhancedExtraction(
+    url: string, 
+    userId?: string, 
+    userEmail?: string
+  ): Promise<{
+    crawlResult: CrawlResult;
+    extractedData?: ExtractedData;
+    extractionMetadata: {
+      useEnhancedExtraction: boolean;
+      extractionVersion: 'v1' | 'v2';
+      featureFlagsChecked: Record<string, boolean>;
+    };
+  }> {
+    const startTime = Date.now();
+    
+    try {
+      console.log(`🚀 Starting enhanced crawl of: ${url}`);
+      
+      // Check feature flags for enhanced extraction
+      const featureFlags = {
+        firecrawl_v2_enabled: await isFeatureEnabled('firecrawl_v2_enabled', userId, userEmail),
+        firecrawl_extraction_enabled: await isFeatureEnabled('firecrawl_extraction_enabled', userId, userEmail),
+        enhanced_analysis_enabled: await isFeatureEnabled('enhanced_analysis_enabled', userId, userEmail),
+      };
+      
+      console.log(`🏁 Feature flags for user ${userId}:`, featureFlags);
+      
+      // Determine if we should use enhanced extraction
+      const useEnhancedExtraction = 
+        featureFlags.firecrawl_v2_enabled && 
+        featureFlags.firecrawl_extraction_enabled && 
+        this.enhancedExtractionEngine !== undefined;
+      
+      const extractionVersion: 'v1' | 'v2' = useEnhancedExtraction ? 'v2' : 'v1';
+      
+      console.log(`📊 Using extraction version: ${extractionVersion}`);
+      
+      // Always perform traditional crawl for baseline data
+      const crawlResult = await this.crawl(url, userId, userEmail);
+      
+      let extractedData: ExtractedData | undefined;
+      
+      // Perform enhanced extraction if enabled
+      if (useEnhancedExtraction && this.enhancedExtractionEngine) {
+        try {
+          console.log(`🧠 Starting enhanced extraction for: ${url}`);
+          extractedData = await this.enhancedExtractionEngine.extractStructuredData(url);
+          console.log(`✅ Enhanced extraction completed for: ${url}`);
+          console.log(`📈 Page type: ${extractedData.structuredData.pageType} (confidence: ${extractedData.structuredData.confidence})`);
+          console.log(`⭐ Data quality: ${extractedData.extractionMetrics.dataQualityScore}`);
+        } catch (error) {
+          console.warn(`⚠️ Enhanced extraction failed for ${url}, falling back to v1:`, error);
+          // Continue with v1 data only
+        }
+      }
+      
+      const processingTime = Date.now() - startTime;
+      console.log(`🏁 Enhanced crawl completed in ${processingTime}ms`);
+      
+      return {
+        crawlResult,
+        extractedData,
+        extractionMetadata: {
+          useEnhancedExtraction,
+          extractionVersion,
+          featureFlagsChecked: featureFlags,
+        },
+      };
+      
+    } catch (error) {
+      console.error(`❌ Enhanced crawl failed for ${url}:`, error);
+      
+      // Fallback to standard crawl
+      const crawlResult = await this.crawl(url, userId, userEmail);
+      
+      return {
+        crawlResult,
+        extractedData: undefined,
+        extractionMetadata: {
+          useEnhancedExtraction: false,
+          extractionVersion: 'v1',
+          featureFlagsChecked: {
+            firecrawl_v2_enabled: false,
+            firecrawl_extraction_enabled: false,
+            enhanced_analysis_enabled: false,
+          },
+        },
+      };
     }
   }
 

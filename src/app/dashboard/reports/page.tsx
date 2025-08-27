@@ -17,6 +17,10 @@ import { Badge } from "@/components/badge";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { lazy, Suspense } from "react";
+import PageTypeIndicator from "@/components/features/analysis/page-type-indicator";
+import DataRichnessIndicator from "@/components/features/analysis/data-richness-indicator";
+import StructuredDataPreview from "@/components/features/analysis/structured-data-preview";
+import EnhancedRecommendationCard from "@/components/features/analysis/enhanced-recommendation-card";
 
 // Lazy load ReactMarkdown to reduce initial bundle size
 const ReactMarkdown = lazy(() => import("react-markdown"));
@@ -305,12 +309,12 @@ export default function ReportsPage() {
                       {report.status}
                     </Badge>
                     <Badge color="zinc">{report.pageType}</Badge>
+                    {report.extractionVersion === "v2" && (
+                      <Badge color="blue">Enhanced</Badge>
+                    )}
                   </div>
                   <Text className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
                     {report.websiteUrl}
-                  </Text>
-                  <Text className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
-                    {report.summary}
                   </Text>
                 </div>
                 <div className="flex items-start space-x-3 ml-4">
@@ -634,6 +638,47 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      {/* Enhanced Extraction Information */}
+      {mockScanResults.extractionMetadata && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Page Type and Data Quality */}
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
+              Page Analysis
+            </h3>
+            
+            <div className="space-y-4">
+              <PageTypeIndicator
+                pageType={mockScanResults.extractionMetadata.pageType || "other"}
+                confidence={mockScanResults.extractionMetadata.confidence || 0}
+                showDetails={true}
+              />
+              
+              <DataRichnessIndicator
+                dataRichness={mockScanResults.extractionMetadata.dataRichness || 0}
+                extractedFields={mockScanResults.extractionMetadata.extractedFields}
+                totalFields={mockScanResults.extractionMetadata.totalFields}
+                extractionVersion={mockScanResults.extractionMetadata.extractionVersion || "v1"}
+                showDetails={true}
+              />
+            </div>
+          </div>
+
+          {/* Structured Data Preview */}
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
+              Extracted Data
+            </h3>
+            
+            <StructuredDataPreview
+              structuredData={mockScanResults.extractionMetadata.structuredData || {}}
+              pageType={mockScanResults.extractionMetadata.pageType || "other"}
+              maxPreviewItems={2}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Overall Score & Summary */}
       <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
@@ -722,7 +767,7 @@ export default function ReportsPage() {
         </h3>
         <ul className="space-y-3">
           {mockScanResults.keyInsights.map((insight, index) => (
-            <li key={index} className="flex items-start">
+            <li key={`insight-${index}`} className="flex items-start">
               <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
               <Text className="text-zinc-600 dark:text-zinc-400">
                 {insight}

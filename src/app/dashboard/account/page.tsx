@@ -19,7 +19,7 @@ type ExtendedUser = {
 };
 import { Button } from "@/components/button";
 import { Input } from "@/components/input";
-import { Avatar } from "@/components/avatar";
+import { Avatar } from "@/components/common/avatar";
 import { Heading } from "@/components/heading";
 import { Divider } from "@/components/divider";
 import { Field, Label, Description } from "@/components/fieldset";
@@ -29,7 +29,7 @@ import {
   ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { Badge } from "@/components/badge";
-import { AvatarUpload } from "@/components/avatar-upload";
+import { AvatarUpload } from "@/components/common/avatar-upload";
 
 // Subscription types
 type SubscriptionStatus =

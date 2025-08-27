@@ -1,10 +1,16 @@
 import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { google } from "better-auth/social-providers";
 import { db } from "@/db/connection";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
+
+console.log("🔍 Better Auth Configuration Debug:");
+console.log("Google Provider imported:", typeof google);
+console.log("Google Client ID:", process.env.GOOGLE_CLIENT_ID ? "✓ Present" : "✗ Missing");
+console.log("Google Client Secret:", process.env.GOOGLE_CLIENT_SECRET ? "✓ Present" : "✗ Missing");
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -37,6 +43,12 @@ export const auth = betterAuth({
         type: "string",
         required: false,
       },
+    },
+  },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     },
   },
   plugins: [

@@ -85,7 +85,7 @@ export const urlRouter = createTRPCRouter({
       return result;
     }),
 
-  // Crawl a website and extract content
+  // Crawl a website and extract content (legacy v1 method)
   crawl: publicProcedure
     .input(z.object({
       url: z.string().url(),
@@ -103,6 +103,31 @@ export const urlRouter = createTRPCRouter({
       const result = await crawler.crawl(url);
       
       console.log('🕷️ tRPC url.crawl completed for:', url);
+      return result;
+    }),
+
+  // Enhanced crawl with v2 extraction capabilities
+  crawlEnhanced: publicProcedure
+    .input(z.object({
+      url: z.string().url(),
+      options: crawlerOptionsSchema.optional(),
+      userId: z.string().optional(),
+      userEmail: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log('🚀 tRPC url.crawlEnhanced received input:', JSON.stringify(input, null, 2));
+      
+      const { url, options = {}, userId, userEmail } = input;
+      
+      // Create crawler instance with options
+      const crawler = new WebCrawler(options);
+      
+      // Perform enhanced crawl with feature flag support
+      const result = await crawler.crawlWithEnhancedExtraction(url, userId, userEmail);
+      
+      console.log('🚀 tRPC url.crawlEnhanced completed for:', url);
+      console.log(`📊 Extraction version used: ${result.extractionMetadata.extractionVersion}`);
+      
       return result;
     }),
 });

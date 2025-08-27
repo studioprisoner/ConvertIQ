@@ -77,13 +77,15 @@ export class ConversionReportGenerator {
     }
     
     // Extract general findings related to conversion
-    findings.push(...aiAnalysis.keyInsights.filter(insight => 
-      insight.toLowerCase().includes('conversion') ||
-      insight.toLowerCase().includes('trust') ||
-      insight.toLowerCase().includes('mobile') ||
-      insight.toLowerCase().includes('cta') ||
-      insight.toLowerCase().includes('user')
-    ).slice(0, 3));
+    if (aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights)) {
+      findings.push(...aiAnalysis.keyInsights.filter(insight => 
+        insight.toLowerCase().includes('conversion') ||
+        insight.toLowerCase().includes('trust') ||
+        insight.toLowerCase().includes('mobile') ||
+        insight.toLowerCase().includes('cta') ||
+        insight.toLowerCase().includes('user')
+      ).slice(0, 3));
+    }
     
     // Add specific conversion-focused findings
     if (aiAnalysis.overallScore < 5) {
@@ -147,10 +149,12 @@ export class ConversionReportGenerator {
     }
     
     // Check for mobile indicators in insights
-    const hasMobileIssues = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('mobile') && 
-      (insight.toLowerCase().includes('issue') || insight.toLowerCase().includes('problem'))
-    );
+    const hasMobileIssues = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) 
+      ? aiAnalysis.keyInsights.some(insight => 
+          insight.toLowerCase().includes('mobile') && 
+          (insight.toLowerCase().includes('issue') || insight.toLowerCase().includes('problem'))
+        )
+      : false;
     
     return hasMobileIssues ? Math.max(aiAnalysis.overallScore - 2, 1) : aiAnalysis.overallScore;
   }
@@ -162,11 +166,13 @@ export class ConversionReportGenerator {
     }
     
     // Check for navigation clarity indicators
-    const hasNavigationIssues = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('navigation') ||
-      insight.toLowerCase().includes('menu') ||
-      insight.toLowerCase().includes('wayfinding')
-    );
+    const hasNavigationIssues = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) 
+      ? aiAnalysis.keyInsights.some(insight => 
+          insight.toLowerCase().includes('navigation') ||
+          insight.toLowerCase().includes('menu') ||
+          insight.toLowerCase().includes('wayfinding')
+        )
+      : false;
     
     return hasNavigationIssues ? Math.max(aiAnalysis.overallScore - 1, 1) : aiAnalysis.overallScore;
   }
@@ -178,11 +184,13 @@ export class ConversionReportGenerator {
     }
     
     // Check for performance indicators in insights
-    const hasPerformanceIssues = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('speed') ||
-      insight.toLowerCase().includes('performance') ||
-      insight.toLowerCase().includes('loading')
-    );
+    const hasPerformanceIssues = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) 
+      ? aiAnalysis.keyInsights.some(insight => 
+          insight.toLowerCase().includes('speed') ||
+          insight.toLowerCase().includes('performance') ||
+          insight.toLowerCase().includes('loading')
+        )
+      : false;
     
     return hasPerformanceIssues ? Math.max(aiAnalysis.overallScore - 1, 1) : aiAnalysis.overallScore;
   }
@@ -252,22 +260,26 @@ export class ConversionReportGenerator {
     }
     
     // Check for social proof indicators
-    const hasSocialProof = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('testimonial') ||
-      insight.toLowerCase().includes('review') ||
-      insight.toLowerCase().includes('social proof')
-    );
+    const hasSocialProof = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) 
+      ? aiAnalysis.keyInsights.some(insight => 
+          insight.toLowerCase().includes('testimonial') ||
+          insight.toLowerCase().includes('review') ||
+          insight.toLowerCase().includes('social proof')
+        )
+      : false;
     
     return hasSocialProof ? Math.min(aiAnalysis.overallScore + 1, 10) : Math.max(aiAnalysis.overallScore - 2, 1);
   }
 
   private calculateValuePropositionScore(aiAnalysis: AIAnalysisResult): number {
     // Check for value proposition clarity indicators
-    const hasValueProp = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('value') ||
-      insight.toLowerCase().includes('benefit') ||
-      insight.toLowerCase().includes('proposition')
-    );
+    const hasValueProp = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) 
+      ? aiAnalysis.keyInsights.some(insight => 
+          insight.toLowerCase().includes('value') ||
+          insight.toLowerCase().includes('benefit') ||
+          insight.toLowerCase().includes('proposition')
+        )
+      : false;
     
     const hasClearMessaging = aiAnalysis.summary.toLowerCase().includes('clear') ||
                              aiAnalysis.summary.toLowerCase().includes('compelling');
@@ -325,11 +337,13 @@ export class ConversionReportGenerator {
 
   private calculateCtaEffectiveness(aiAnalysis: AIAnalysisResult): number {
     // Check for CTA-related insights
-    const hasCtaIssues = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('cta') ||
-      insight.toLowerCase().includes('call to action') ||
-      insight.toLowerCase().includes('button')
-    );
+    const hasCtaIssues = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) 
+      ? aiAnalysis.keyInsights.some(insight => 
+          insight.toLowerCase().includes('cta') ||
+          insight.toLowerCase().includes('call to action') ||
+          insight.toLowerCase().includes('button')
+        )
+      : false;
     
     if (hasCtaIssues) {
       return Math.max(aiAnalysis.overallScore - 1, 1);
@@ -340,33 +354,39 @@ export class ConversionReportGenerator {
 
   private calculateCheckoutScore(aiAnalysis: AIAnalysisResult): number {
     // Check for e-commerce indicators
-    const hasEcommerce = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('checkout') ||
-      insight.toLowerCase().includes('cart') ||
-      insight.toLowerCase().includes('purchase')
-    );
+    const hasEcommerce = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) 
+      ? aiAnalysis.keyInsights.some(insight => 
+          insight.toLowerCase().includes('checkout') ||
+          insight.toLowerCase().includes('cart') ||
+          insight.toLowerCase().includes('purchase')
+        )
+      : false;
     
     return hasEcommerce ? aiAnalysis.overallScore : Math.max(aiAnalysis.overallScore - 1, 1);
   }
 
   private calculateLeadCaptureScore(aiAnalysis: AIAnalysisResult): number {
     // Check for lead capture forms
-    const hasLeadCapture = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('form') ||
-      insight.toLowerCase().includes('email') ||
-      insight.toLowerCase().includes('contact')
-    );
+    const hasLeadCapture = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) 
+      ? aiAnalysis.keyInsights.some(insight => 
+          insight.toLowerCase().includes('form') ||
+          insight.toLowerCase().includes('email') ||
+          insight.toLowerCase().includes('contact')
+        )
+      : false;
     
     return hasLeadCapture ? aiAnalysis.overallScore : Math.max(aiAnalysis.overallScore - 1, 1);
   }
 
   private calculateObjectionHandlingScore(aiAnalysis: AIAnalysisResult): number {
     // Check for objection handling elements
-    const hasFaq = aiAnalysis.keyInsights.some(insight => 
-      insight.toLowerCase().includes('faq') ||
-      insight.toLowerCase().includes('guarantee') ||
-      insight.toLowerCase().includes('policy')
-    );
+    const hasFaq = aiAnalysis.keyInsights && Array.isArray(aiAnalysis.keyInsights) 
+      ? aiAnalysis.keyInsights.some(insight => 
+          insight.toLowerCase().includes('faq') ||
+          insight.toLowerCase().includes('guarantee') ||
+          insight.toLowerCase().includes('policy')
+        )
+      : false;
     
     return hasFaq ? Math.min(aiAnalysis.overallScore + 1, 10) : Math.max(aiAnalysis.overallScore - 1, 1);
   }

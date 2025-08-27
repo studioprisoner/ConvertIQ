@@ -3,6 +3,7 @@ import { analyses, websites } from '@/db/schema';
 import { eq, and, desc, gt } from 'drizzle-orm';
 import { cosineDistance, sql } from 'drizzle-orm';
 import { embeddingService, textProcessor } from '@/lib/embeddings';
+import type { ExtractionResults } from '@/db/schema/analyses';
 
 export interface SimilarReport {
   analysisId: string;
@@ -36,6 +37,27 @@ export interface SearchResult {
   overallScore?: number;
 }
 
+export interface StructuredSearchFilters extends SearchFilters {
+  businessType?: string[];
+  ctaTypes?: string[];
+  socialProofTypes?: string[];
+  psychologyTriggers?: string[];
+  extractionScore?: { min?: number; max?: number; };
+}
+
+export interface StructuredSearchResult extends SearchResult {
+  extractionResults?: ExtractionResults;
+  extractionScore?: number;
+  businessInfo?: {
+    name?: string;
+    industry?: string;
+    description?: string;
+  };
+  ctaCount?: number;
+  socialProofElements?: number;
+  psychologyTriggersFound?: string[];
+}
+
 export interface VectorSearchService {
   findSimilarReports(
     query: string,
@@ -67,6 +89,36 @@ export interface VectorSearchService {
     averageScore: number;
     topPatterns: string[];
     commonIssues: string[];
+  }>;
+
+  // New methods for Firecrawl v2 structured data
+  searchByStructuredData(
+    filters: StructuredSearchFilters,
+    userId: string,
+    limit?: number
+  ): Promise<StructuredSearchResult[]>;
+
+  findSimilarBusinessTypes(
+    businessType: string,
+    userId: string,
+    limit?: number
+  ): Promise<StructuredSearchResult[]>;
+
+  findByCTAPatterns(
+    ctaPattern: string,
+    userId: string,
+    limit?: number
+  ): Promise<StructuredSearchResult[]>;
+
+  getStructuredStats(
+    userId: string
+  ): Promise<{
+    totalAnalyses: number;
+    businessTypes: { [key: string]: number };
+    ctaPatterns: { [key: string]: number };
+    psychologyTriggers: { [key: string]: number };
+    averageExtractionScore: number;
+    topPerformingIndustries: Array<{ industry: string; avgScore: number; count: number }>;
   }>;
 }
 
@@ -510,6 +562,401 @@ export class PostgresVectorSearchService implements VectorSearchService {
         ? [`Contains: ${matchingKeywords.join(', ')}`]
         : [];
     }
+  }
+
+  /**
+   * Search by structured extraction data with filters
+   */
+  async searchByStructuredData(
+    filters: StructuredSearchFilters,
+    userId: string,
+    limit: number = 20
+  ): Promise<StructuredSearchResult[]> {
+    try {
+      const whereConditions = [
+        eq(analyses.status, 'completed'),
+        eq(websites.userId, userId),
+        sql`${analyses.extractionResults} IS NOT NULL`
+      ];
+
+      // Apply date range filter
+      if (filters.dateRange) {
+        const dateThreshold = this.getDateThreshold(filters.dateRange);
+        whereConditions.push(gt(analyses.createdAt, dateThreshold));
+      }
+
+      // Apply extraction score filter
+      if (filters.extractionScore) {
+        if (filters.extractionScore.min !== undefined) {
+          whereConditions.push(
+            sql`(${analyses.extractionResults}->>'extractionScore')::int >= ${filters.extractionScore.min}`
+          );
+        }
+        if (filters.extractionScore.max !== undefined) {
+          whereConditions.push(
+            sql`(${analyses.extractionResults}->>'extractionScore')::int <= ${filters.extractionScore.max}`
+          );
+        }
+      }
+
+      // Apply business type filter
+      if (filters.businessType && filters.businessType.length > 0) {
+        whereConditions.push(
+          sql`${analyses.extractionResults}->>'businessInfo'->>'industry' = ANY(${filters.businessType})`
+        );
+      }
+
+      // Apply psychology triggers filter
+      if (filters.psychologyTriggers && filters.psychologyTriggers.length > 0) {
+        const triggerConditions = filters.psychologyTriggers.map(trigger =>
+          sql`${analyses.extractionResults}->>'psychologyTriggers'->>${trigger} IS NOT NULL`
+        );
+        whereConditions.push(sql`(${sql.join(triggerConditions, sql` OR `)})`);
+      }
+
+      const results = await db
+        .select({
+          analysisId: analyses.id,
+          websiteUrl: websites.url,
+          aiAnalysis: analyses.aiAnalysis,
+          extractionResults: analyses.extractionResults,
+          createdAt: analyses.createdAt,
+        })
+        .from(analyses)
+        .innerJoin(websites, eq(analyses.websiteId, websites.id))
+        .where(and(...whereConditions))
+        .orderBy(desc(analyses.createdAt))
+        .limit(limit);
+
+      return results.map(result => this.mapToStructuredSearchResult(result));
+    } catch (error) {
+      console.error('Structured data search failed:', error);
+      throw new Error(`Failed to search structured data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Find analyses with similar business types
+   */
+  async findSimilarBusinessTypes(
+    businessType: string,
+    userId: string,
+    limit: number = 10
+  ): Promise<StructuredSearchResult[]> {
+    try {
+      const results = await db
+        .select({
+          analysisId: analyses.id,
+          websiteUrl: websites.url,
+          aiAnalysis: analyses.aiAnalysis,
+          extractionResults: analyses.extractionResults,
+          createdAt: analyses.createdAt,
+        })
+        .from(analyses)
+        .innerJoin(websites, eq(analyses.websiteId, websites.id))
+        .where(
+          and(
+            eq(analyses.status, 'completed'),
+            eq(websites.userId, userId),
+            sql`${analyses.extractionResults}->>'businessInfo'->>'industry' ILIKE ${`%${businessType}%`}`,
+            sql`${analyses.extractionResults} IS NOT NULL`
+          )
+        )
+        .orderBy(desc(analyses.createdAt))
+        .limit(limit);
+
+      return results.map(result => this.mapToStructuredSearchResult(result));
+    } catch (error) {
+      console.error('Similar business types search failed:', error);
+      throw new Error(`Failed to find similar business types: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Find analyses by CTA patterns
+   */
+  async findByCTAPatterns(
+    ctaPattern: string,
+    userId: string,
+    limit: number = 10
+  ): Promise<StructuredSearchResult[]> {
+    try {
+      const results = await db
+        .select({
+          analysisId: analyses.id,
+          websiteUrl: websites.url,
+          aiAnalysis: analyses.aiAnalysis,
+          extractionResults: analyses.extractionResults,
+          createdAt: analyses.createdAt,
+        })
+        .from(analyses)
+        .innerJoin(websites, eq(analyses.websiteId, websites.id))
+        .where(
+          and(
+            eq(analyses.status, 'completed'),
+            eq(websites.userId, userId),
+            sql`${analyses.extractionResults}->>'callsToAction'::text ILIKE ${`%${ctaPattern}%`}`,
+            sql`${analyses.extractionResults} IS NOT NULL`
+          )
+        )
+        .orderBy(desc(analyses.createdAt))
+        .limit(limit);
+
+      return results.map(result => this.mapToStructuredSearchResult(result));
+    } catch (error) {
+      console.error('CTA patterns search failed:', error);
+      throw new Error(`Failed to find CTA patterns: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get comprehensive structured data statistics
+   */
+  async getStructuredStats(userId: string): Promise<{
+    totalAnalyses: number;
+    businessTypes: { [key: string]: number };
+    ctaPatterns: { [key: string]: number };
+    psychologyTriggers: { [key: string]: number };
+    averageExtractionScore: number;
+    topPerformingIndustries: Array<{ industry: string; avgScore: number; count: number }>;
+  }> {
+    try {
+      const results = await db
+        .select({
+          aiAnalysis: analyses.aiAnalysis,
+          extractionResults: analyses.extractionResults,
+        })
+        .from(analyses)
+        .innerJoin(websites, eq(analyses.websiteId, websites.id))
+        .where(
+          and(
+            eq(websites.userId, userId),
+            eq(analyses.status, 'completed'),
+            sql`${analyses.extractionResults} IS NOT NULL`
+          )
+        );
+
+      const stats = {
+        totalAnalyses: results.length,
+        businessTypes: {} as { [key: string]: number },
+        ctaPatterns: {} as { [key: string]: number },
+        psychologyTriggers: {} as { [key: string]: number },
+        averageExtractionScore: 0,
+        topPerformingIndustries: [] as Array<{ industry: string; avgScore: number; count: number }>
+      };
+
+      const extractionScores: number[] = [];
+      const industryScores: { [key: string]: { scores: number[]; count: number } } = {};
+
+      results.forEach(result => {
+        if (!result.extractionResults) return;
+
+        try {
+          const extraction = result.extractionResults as ExtractionResults;
+          
+          // Count business types/industries
+          if (extraction.businessInfo?.industry) {
+            const industry = extraction.businessInfo.industry;
+            stats.businessTypes[industry] = (stats.businessTypes[industry] || 0) + 1;
+            
+            // Track industry scores
+            if (!industryScores[industry]) {
+              industryScores[industry] = { scores: [], count: 0 };
+            }
+            industryScores[industry].count++;
+            
+            // Extract overall score from AI analysis
+            if (result.aiAnalysis) {
+              try {
+                const analysis = JSON.parse(result.aiAnalysis);
+                if (analysis.overallScore) {
+                  industryScores[industry].scores.push(analysis.overallScore);
+                }
+              } catch (e) {
+                // Ignore parse errors for individual analyses
+              }
+            }
+          }
+
+          // Count CTA patterns
+          if (extraction.callsToAction) {
+            extraction.callsToAction.forEach(cta => {
+              if (cta.prominence) {
+                const pattern = `${cta.prominence} CTA`;
+                stats.ctaPatterns[pattern] = (stats.ctaPatterns[pattern] || 0) + 1;
+              }
+            });
+          }
+
+          // Count psychology triggers
+          if (extraction.psychologyTriggers) {
+            Object.entries(extraction.psychologyTriggers).forEach(([trigger, values]) => {
+              if (values && Array.isArray(values) && values.length > 0) {
+                stats.psychologyTriggers[trigger] = (stats.psychologyTriggers[trigger] || 0) + values.length;
+              }
+            });
+          }
+
+          // Track extraction scores (if available)
+          const extractionScore = this.calculateExtractionScore(extraction);
+          if (extractionScore > 0) {
+            extractionScores.push(extractionScore);
+          }
+
+        } catch (parseError) {
+          console.warn('Failed to parse extraction results:', parseError);
+        }
+      });
+
+      // Calculate average extraction score
+      stats.averageExtractionScore = extractionScores.length > 0
+        ? Math.round((extractionScores.reduce((sum, score) => sum + score, 0) / extractionScores.length) * 10) / 10
+        : 0;
+
+      // Calculate top performing industries
+      stats.topPerformingIndustries = Object.entries(industryScores)
+        .map(([industry, data]) => ({
+          industry,
+          avgScore: data.scores.length > 0 
+            ? Math.round((data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length) * 10) / 10
+            : 0,
+          count: data.count
+        }))
+        .filter(item => item.avgScore > 0)
+        .sort((a, b) => b.avgScore - a.avgScore)
+        .slice(0, 5);
+
+      return stats;
+    } catch (error) {
+      console.error('Failed to get structured stats:', error);
+      throw new Error(`Failed to get structured statistics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Map database result to StructuredSearchResult
+   */
+  private mapToStructuredSearchResult(result: any): StructuredSearchResult {
+    const baseResult: SearchResult = {
+      analysisId: result.analysisId,
+      websiteUrl: result.websiteUrl,
+      title: this.extractTitle(result.aiAnalysis),
+      similarity: 1, // For structured search, we don't have semantic similarity
+      relevantSnippets: this.extractRelevantSnippets(result.aiAnalysis, ''),
+      createdAt: result.createdAt?.toISOString() || new Date().toISOString(),
+      overallScore: this.extractOverallScore(result.aiAnalysis),
+    };
+
+    const structuredResult: StructuredSearchResult = {
+      ...baseResult,
+      extractionResults: result.extractionResults as ExtractionResults,
+    };
+
+    // Add structured data fields
+    if (result.extractionResults) {
+      try {
+        const extraction = result.extractionResults as ExtractionResults;
+        
+        structuredResult.extractionScore = this.calculateExtractionScore(extraction);
+        
+        if (extraction.businessInfo) {
+          structuredResult.businessInfo = {
+            name: extraction.businessInfo.name,
+            industry: extraction.businessInfo.industry,
+            description: extraction.businessInfo.description,
+          };
+        }
+
+        structuredResult.ctaCount = extraction.callsToAction?.length || 0;
+        
+        // Count social proof elements
+        if (extraction.socialProof) {
+          structuredResult.socialProofElements = [
+            ...(extraction.socialProof.testimonials || []),
+            ...(extraction.socialProof.reviews || []),
+            ...(extraction.socialProof.certifications || []),
+            ...(extraction.socialProof.statistics || [])
+          ].length;
+        }
+
+        // Extract active psychology triggers
+        if (extraction.psychologyTriggers) {
+          structuredResult.psychologyTriggersFound = Object.entries(extraction.psychologyTriggers)
+            .filter(([_, values]) => values && Array.isArray(values) && values.length > 0)
+            .map(([trigger]) => trigger);
+        }
+
+      } catch (parseError) {
+        console.warn('Failed to parse extraction results for mapping:', parseError);
+      }
+    }
+
+    return structuredResult;
+  }
+
+  /**
+   * Calculate extraction completeness score
+   */
+  private calculateExtractionScore(extractionResults: ExtractionResults): number {
+    let score = 0;
+    let maxScore = 100;
+
+    // Business info scoring (20 points)
+    if (extractionResults.businessInfo) {
+      const businessFields = ['name', 'description', 'industry', 'contactEmail'];
+      const completedFields = businessFields.filter(field => 
+        extractionResults.businessInfo?.[field as keyof typeof extractionResults.businessInfo]
+      ).length;
+      score += (completedFields / businessFields.length) * 20;
+    }
+
+    // CTAs scoring (15 points)
+    if (extractionResults.callsToAction?.length) {
+      score += Math.min(extractionResults.callsToAction.length * 3, 15);
+    }
+
+    // Social proof scoring (15 points)
+    if (extractionResults.socialProof) {
+      const proofTypes = ['testimonials', 'reviews', 'certifications', 'statistics'];
+      const foundTypes = proofTypes.filter(type => 
+        extractionResults.socialProof?.[type as keyof typeof extractionResults.socialProof]?.length
+      ).length;
+      score += (foundTypes / proofTypes.length) * 15;
+    }
+
+    // Psychology triggers scoring (15 points)
+    if (extractionResults.psychologyTriggers) {
+      const triggerTypes = ['scarcity', 'urgency', 'authority', 'reciprocity'];
+      const foundTriggers = triggerTypes.filter(type => 
+        extractionResults.psychologyTriggers?.[type as keyof typeof extractionResults.psychologyTriggers]?.length
+      ).length;
+      score += (foundTriggers / triggerTypes.length) * 15;
+    }
+
+    // Products scoring (10 points)
+    if (extractionResults.products?.length) {
+      score += Math.min(extractionResults.products.length * 2, 10);
+    }
+
+    // Technical SEO scoring (15 points)
+    if (extractionResults.technicalSeo) {
+      const seoFields = ['pageTitle', 'metaDescription', 'headings', 'keywords'];
+      const completedSeoFields = seoFields.filter(field => 
+        extractionResults.technicalSeo?.[field as any]
+      ).length;
+      score += (completedSeoFields / seoFields.length) * 15;
+    }
+
+    // UX scoring (10 points)
+    if (extractionResults.userExperience) {
+      const uxFields = ['navigationClarity', 'contentStructure', 'mobileOptimization', 'loadingSpeed'];
+      const completedUxFields = uxFields.filter(field => 
+        extractionResults.userExperience?.[field as keyof typeof extractionResults.userExperience] != null
+      ).length;
+      score += (completedUxFields / uxFields.length) * 10;
+    }
+
+    return Math.round(score);
   }
 
   /**

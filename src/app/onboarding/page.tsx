@@ -2,9 +2,12 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import PlanSelection from "./plan-selection";
 import DomainSetup from "./domain-setup";
 import { authClient } from "@/lib/auth-client";
+import { OnboardingProgress } from "@/components/features/onboarding/onboarding-progress";
+import { WelcomeHero } from "@/components/features/onboarding/welcome-hero";
 
 export type OnboardingStep = "plan-selection" | "domain-setup" | "complete";
 
@@ -258,17 +261,101 @@ function OnboardingContent() {
     );
   }
 
+  const completedSteps: OnboardingStep[] = [];
+  
+  if (step === "domain-setup" || step === "complete") {
+    completedSteps.push("plan-selection");
+  }
+  if (step === "complete") {
+    completedSteps.push("domain-setup");
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950">
       <div className="container mx-auto px-4 py-12">
-        <div className="max-w-2xl mx-auto">
-          {error && (
-            <div className="mb-6 rounded-md bg-red-50 p-4 ring-1 ring-red-200 dark:bg-red-950/30 dark:ring-red-800">
-              <p className="text-red-600 text-sm dark:text-red-400">{error}</p>
-            </div>
-          )}
-          
-          {renderStep()}
+        <div className="max-w-4xl mx-auto">
+          {/* Welcome Hero - Show only on first step */}
+          <AnimatePresence>
+            {step === "plan-selection" && !searchParams.get('payment') && (
+              <motion.div
+                className="mb-12"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.5 }}
+              >
+                <WelcomeHero />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Progress indicator */}
+          <motion.div
+            className="mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <OnboardingProgress
+              currentStep={step}
+              completedSteps={completedSteps}
+            />
+          </motion.div>
+
+          {/* Error display */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                className="mb-6 rounded-lg bg-red-50 dark:bg-red-950/20 p-4 border border-red-200 dark:border-red-800"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex items-center space-x-3">
+                  <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-red-700 dark:text-red-300 text-sm font-medium">{error}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Step content */}
+          <motion.div
+            className="bg-white dark:bg-zinc-800 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {renderStep()}
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Help text */}
+          <motion.div
+            className="mt-8 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.8 }}
+          >
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Need help? Contact our support team at{' '}
+              <a href="mailto:support@convertiq.com" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                support@convertiq.com
+              </a>
+            </p>
+          </motion.div>
         </div>
       </div>
     </div>

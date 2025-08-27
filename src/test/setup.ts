@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 
 // Mock environment variables for testing
 process.env.NODE_ENV = 'test';
@@ -8,6 +9,7 @@ process.env.POLAR_ACCESS_TOKEN = 'test-token';
 process.env.ANTHROPIC_API_KEY = 'test-key';
 process.env.BETTER_AUTH_SECRET = 'test-secret';
 process.env.RESEND_API_KEY = 'test-resend-key';
+process.env.FIRECRAWL_API_KEY = 'test-firecrawl-key';
 
 // Mock fetch for API testing
 global.fetch = vi.fn();
@@ -52,6 +54,18 @@ vi.mock('@/lib/polar', () => ({
   },
 }));
 
+// Mock AI SDK for testing
+vi.mock('ai', () => ({
+  generateObject: vi.fn(),
+  generateText: vi.fn(),
+  streamText: vi.fn(),
+}));
+
+// Mock Anthropic SDK
+vi.mock('@ai-sdk/anthropic', () => ({
+  createAnthropic: vi.fn(() => vi.fn(() => 'claude-3-5-sonnet-20241022')),
+}));
+
 // Mock AI services
 vi.mock('@/lib/ai/analysis-engine', () => ({
   analysisEngine: {
@@ -70,6 +84,20 @@ vi.mock('@/lib/reports/generators/conversion-report', () => ({
   conversionReportGenerator: {
     generateConversionReport: vi.fn(),
   },
+}));
+
+// Mock Heroicons
+vi.mock('@heroicons/react/24/outline', () => ({
+  ShoppingCartIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'E-commerce Product icon' })),
+  BuildingStorefrontIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'E-commerce Category icon' })),
+  HomeIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Homepage icon' })),
+  DocumentTextIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Blog Post icon' })),
+  PhoneIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Contact icon' })),
+  CurrencyDollarIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Pricing icon' })),
+  ChartBarIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Chart icon' })),
+  TagIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Tag icon' })),
+  ChevronDownIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Expand details' })),
+  ChevronUpIcon: vi.fn(({ className }: { className?: string }) => ({ className, 'aria-label': 'Collapse details' })),
 }));
 
 // Reset all mocks before each test

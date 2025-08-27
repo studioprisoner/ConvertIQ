@@ -105,7 +105,8 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+// DISABLED: Only wrap with Sentry config in production to reduce development noise
+export default process.env.NODE_ENV === 'production' ? withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://github.com/getsentry/sentry-webpack-plugin#options
 
@@ -132,4 +133,4 @@ export default withSentryConfig(nextConfig, {
 
   // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
   automaticVercelMonitors: true,
-});
+}) : nextConfig;

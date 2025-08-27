@@ -1,7 +1,7 @@
 "use client";
 
-import { Avatar } from "@/components/avatar";
-import { CompanyIcon } from "@/components/company-logo";
+import { Avatar } from "@/components/common/avatar";
+import { CompanyIcon } from "@/components/common/company-logo";
 
 // Extended user type to include our custom fields
 type ExtendedUser = {
@@ -30,7 +30,7 @@ import {
   NavbarItem,
   NavbarSection,
   NavbarSpacer,
-} from "@/components/navbar";
+} from "@/components/layouts/navbar";
 import {
   Sidebar,
   SidebarBody,
@@ -40,8 +40,8 @@ import {
   SidebarLabel,
   SidebarSection,
   SidebarSpacer,
-} from "@/components/sidebar";
-import { SidebarLayout } from "@/components/sidebar-layout";
+} from "@/components/layouts/sidebar";
+import { SidebarLayout } from "@/components/layouts/sidebar-layout";
 import { authClient, useSession } from "@/lib/auth-client";
 import {
   ArrowRightStartOnRectangleIcon,
@@ -57,11 +57,12 @@ import {
   HomeIcon,
   QuestionMarkCircleIcon,
   SparklesIcon,
+  MagnifyingGlassIcon,
 } from "@heroicons/react/20/solid";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { SupportDialog } from "@/components/support-dialog";
-import { useFeatureGate } from "@/hooks/use-feature-gate";
+import { SupportDialog } from "@/components/common/support-dialog";
+import { useFeatureGate } from "@/hooks/common/use-feature-gate";
 
 function AccountDropdownMenu({
   anchor,
@@ -149,11 +150,18 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     }
 
     if (!isPending && !session) {
-      // Add a small delay to allow for session establishment during registration flow
+      // Check if we might be in an OAuth callback scenario
+      const isOAuthCallback = window.location.search.includes('code=') || 
+                             window.location.search.includes('state=') ||
+                             document.referrer.includes('accounts.google.com');
+      
+      // Use slightly longer delay for OAuth scenarios to allow session establishment
+      const delay = isOAuthCallback ? 2000 : 1000;
+      
       redirectTimeoutRef.current = setTimeout(() => {
-        console.log("🚪 Redirecting to login - no session found after delay");
+        console.log("🚪 Redirecting to login - no session found after delay", { isOAuthCallback, delay });
         router.push("/login");
-      }, 1000); // 1 second delay
+      }, delay);
     }
 
     // Cleanup timeout on unmount or session change
@@ -236,13 +244,18 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
           <SidebarBody>
             <SidebarSection>
               <SidebarItem
-                href="/dashboard/scan"
-                current={
-                  pathname === "/dashboard/scan" || pathname === "/dashboard"
-                }
+                href="/dashboard"
+                current={pathname === "/dashboard"}
               >
                 <HomeIcon />
                 <SidebarLabel>Dashboard</SidebarLabel>
+              </SidebarItem>
+              <SidebarItem
+                href="/dashboard/scan"
+                current={pathname === "/dashboard/scan"}
+              >
+                <MagnifyingGlassIcon />
+                <SidebarLabel>Scan</SidebarLabel>
               </SidebarItem>
               <SidebarItem
                 href="/dashboard/reports"

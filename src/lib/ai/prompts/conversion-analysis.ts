@@ -55,34 +55,34 @@ URL: ${crawlData.url}
 Page Type: Based on content analysis
 
 META INFORMATION:
-- Title: ${crawlData.htmlAnalysis.meta.title || 'Not found'}
-- Description: ${crawlData.htmlAnalysis.meta.description || 'Not found'}
-- Open Graph Image: ${crawlData.htmlAnalysis.meta.ogImage || 'Not found'}
+- Title: ${crawlData.htmlAnalysis?.meta?.title || 'Not found'}
+- Description: ${crawlData.htmlAnalysis?.meta?.description || 'Not found'}
+- Open Graph Image: ${crawlData.htmlAnalysis?.meta?.ogImage || 'Not found'}
 
 CONTENT STRUCTURE:
-- Headings: ${JSON.stringify(crawlData.htmlAnalysis.headings)}
-- Word Count: ${crawlData.htmlAnalysis.structure.wordCount}
-- Has Hero Section: ${crawlData.htmlAnalysis.structure.hasHeroSection}
-- Sections Count: ${crawlData.htmlAnalysis.structure.sectionsCount}
+- Headings: ${JSON.stringify(crawlData.htmlAnalysis?.headings || [])}
+- Word Count: ${crawlData.htmlAnalysis?.structure?.wordCount || 0}
+- Has Hero Section: ${crawlData.htmlAnalysis?.structure?.hasHeroSection || false}
+- Sections Count: ${crawlData.htmlAnalysis?.structure?.sectionsCount || 0}
 
 CALLS-TO-ACTION:
-${JSON.stringify(crawlData.htmlAnalysis.ctas, null, 2)}
+${JSON.stringify(crawlData.htmlAnalysis?.ctas || [], null, 2)}
 
 FORMS:
-${JSON.stringify(crawlData.htmlAnalysis.forms, null, 2)}
+${JSON.stringify(crawlData.htmlAnalysis?.forms || [], null, 2)}
 
 IMAGES:
-${JSON.stringify(crawlData.htmlAnalysis.images.slice(0, 10), null, 2)}
+${JSON.stringify(crawlData.htmlAnalysis?.images?.slice(0, 10) || [], null, 2)}
 
 LINKS & NAVIGATION:
-- Navigation Links: ${crawlData.htmlAnalysis.links.filter(link => link.isNavigation).length}
-- CTA Links: ${crawlData.htmlAnalysis.links.filter(link => link.isCTA).length}
-- Total Links: ${crawlData.htmlAnalysis.links.length}
+- Navigation Links: ${crawlData.htmlAnalysis?.links?.filter(link => link.isNavigation)?.length || 0}
+- CTA Links: ${crawlData.htmlAnalysis?.links?.filter(link => link.isCTA)?.length || 0}
+- Total Links: ${crawlData.htmlAnalysis?.links?.length || 0}
 
 TRUST INDICATORS:
-- Has Contact Info: ${crawlData.htmlAnalysis.structure.hasFooter}
-- Has Navigation: ${crawlData.htmlAnalysis.structure.hasNavigation}
-- Professional Structure: ${crawlData.htmlAnalysis.structure.hasHeader && crawlData.htmlAnalysis.structure.hasFooter}
+- Has Contact Info: ${crawlData.htmlAnalysis?.structure?.hasFooter || false}
+- Has Navigation: ${crawlData.htmlAnalysis?.structure?.hasNavigation || false}
+- Professional Structure: ${(crawlData.htmlAnalysis?.structure?.hasHeader && crawlData.htmlAnalysis?.structure?.hasFooter) || false}
 
 Analyze this data for conversion psychology opportunities and provide:
 

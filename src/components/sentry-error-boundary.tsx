@@ -1,10 +1,36 @@
 'use client';
 
 import { ErrorBoundary } from "@sentry/react";
+import { ReactNode, Component, ErrorInfo } from "react";
 
 interface SentryErrorBoundaryProps {
   children: React.ReactNode;
   fallback?: React.ComponentType<any>;
+}
+
+// Simple error boundary for development (no Sentry)
+class SimpleErrorBoundary extends Component<{children: ReactNode, fallback: React.ComponentType<any>}, {hasError: boolean}> {
+  constructor(props: {children: ReactNode, fallback: React.ComponentType<any>}) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      const Fallback = this.props.fallback;
+      return <Fallback />;
+    }
+
+    return this.props.children;
+  }
 }
 
 function DefaultErrorFallback() {
@@ -34,6 +60,16 @@ function DefaultErrorFallback() {
 }
 
 export function SentryErrorBoundary({ children, fallback: Fallback = DefaultErrorFallback }: SentryErrorBoundaryProps) {
+  // DISABLED: Use simple error boundary in development to reduce Sentry noise
+  if (process.env.NODE_ENV === 'development') {
+    return (
+      <SimpleErrorBoundary fallback={Fallback}>
+        {children}
+      </SimpleErrorBoundary>
+    );
+  }
+
+  // Use Sentry error boundary only in production
   return (
     <ErrorBoundary fallback={Fallback} showDialog>
       {children}

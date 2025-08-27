@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CompanyIcon } from "@/components/company-logo";
+import { CompanyIcon } from "@/components/common/company-logo";
 
 interface ChangelogEntry {
   version: string;

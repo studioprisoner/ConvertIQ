@@ -84,9 +84,24 @@ export const reportsRouter = createTRPCRouter({
           });
         }
 
-        // Fetch latest non-archived analysis for this website
+        // Fetch latest non-archived analysis for this website - only select existing columns
         const latestAnalysis = await ctx.db
-          .select()
+          .select({
+            id: analyses.id,
+            websiteId: analyses.websiteId,
+            status: analyses.status,
+            aiAnalysis: analyses.aiAnalysis,
+            rawData: analyses.rawData,
+            errorMessage: analyses.errorMessage,
+            firecrawlVersion: analyses.firecrawlVersion,
+            extractionResults: analyses.extractionResults,
+            extractionDataUsed: analyses.extractionDataUsed,
+            loadTime: analyses.loadTime,
+            pageSize: analyses.pageSize,
+            resourceCount: analyses.resourceCount,
+            createdAt: analyses.createdAt,
+            updatedAt: analyses.updatedAt,
+          })
           .from(analyses)
           .where(eq(analyses.websiteId, input.websiteId))
           .orderBy(desc(analyses.createdAt))

@@ -1,9 +1,10 @@
 import { db } from '@/db/connection';
-import { analyses, websites } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { analyses, websites, insertAnalysisSchema } from '@/db/schema';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import type { AIAnalysisResult } from './types';
 import type { CrawlResult } from '../crawler/types';
 import { embeddingService, textProcessor } from '@/lib/embeddings';
+import { randomUUID } from 'crypto';
 
 export class AIAnalysisDatabase {
   /**
@@ -12,22 +13,127 @@ export class AIAnalysisDatabase {
   async saveAnalysis(
     websiteId: string,
     crawlData: CrawlResult,
-    aiAnalysisResult: AIAnalysisResult
+    aiAnalysisResult: AIAnalysisResult,
+    metadata?: {
+      extractionResults?: any;
+      firecrawlVersion?: string;
+      isEnhancedAnalysis?: boolean;
+    }
   ): Promise<string> {
     try {
-      // Insert new analysis record
-      const [analysis] = await db
-        .insert(analyses)
-        .values({
-          websiteId,
-          status: 'completed',
-          rawData: JSON.stringify(crawlData),
-          aiAnalysis: JSON.stringify(aiAnalysisResult),
-        })
-        .returning({ id: analyses.id });
+      // Verify website exists before saving analysis
+      const websiteCheck = await db
+        .select({ id: websites.id })
+        .from(websites)
+        .where(eq(websites.id, websiteId))
+        .limit(1);
 
-      console.log('💾 AI analysis saved to database:', analysis.id);
-      return analysis.id;
+      if (websiteCheck.length === 0) {
+        throw new Error(`Website with ID ${websiteId} not found in database. Cannot save analysis.`);
+      }
+      // Aggressively compress JSON data for database storage
+      const compressForDatabase = (data: any, fieldType: 'crawl' | 'analysis' | 'extraction'): string => {
+        try {
+          let compressedData;
+          
+          if (fieldType === 'crawl') {
+            // Ultra-minimal crawl data - absolute essentials only
+            compressedData = {
+              url: data.url,
+              timestamp: data.timestamp,
+              statusCode: data.statusCode,
+              loadTime: data.performance?.loadTime,
+              htmlSize: data.performance?.htmlSize,
+              title: data.htmlAnalysis?.meta?.title?.substring(0, 100),
+              wordCount: data.htmlAnalysis?.structure?.wordCount,
+              compressed: true,
+              originalSize: JSON.stringify(data).length
+            };
+          } else if (fieldType === 'analysis') {
+            // Ultra-minimal analysis results - just core scores and summary
+            compressedData = {
+              type: data.analysis?.type || data.type,
+              overallScore: data.analysis?.overallScore || data.overallScore,
+              businessType: data.analysis?.websiteOverview?.businessType,
+              summary: data.analysis?.websiteOverview?.summary?.substring(0, 200),
+              topRecommendationsCount: (data.analysis?.topRecommendations || data.topRecommendations)?.length || 0,
+              compressed: true,
+              originalSize: JSON.stringify(data).length
+            };
+          } else {
+            // Ultra-minimal extraction results
+            compressedData = {
+              pageType: data.structuredData?.pageType,
+              confidence: data.structuredData?.confidence,
+              businessName: data.structuredData?.data?.product?.name,
+              category: data.structuredData?.data?.product?.category,
+              dataQualityScore: data.extractionMetrics?.dataQualityScore,
+              fieldsExtracted: data.extractionMetrics?.fieldsExtracted,
+              compressed: true,
+              originalSize: JSON.stringify(data).length
+            };
+          }
+          
+          const stringified = JSON.stringify(compressedData);
+          const maxSize = 10000; // 10KB limit per field - extremely aggressive
+          
+          if (stringified.length > maxSize) {
+            console.log(`💾 Data still too large for ${fieldType}: ${stringified.length} → storing minimal summary`);
+            return JSON.stringify({
+              summary: `Minimal ${fieldType} summary`,
+              url: fieldType === 'crawl' ? data.url : undefined,
+              score: fieldType === 'analysis' ? (data.analysis?.overallScore || data.overallScore) : undefined,
+              timestamp: new Date().toISOString(),
+              originalSize: JSON.stringify(data).length,
+              status: 'minimal_storage'
+            });
+          }
+          
+          return stringified;
+        } catch (error) {
+          console.error(`💾 Error compressing ${fieldType} data:`, error);
+          return JSON.stringify({
+            error: 'Failed to compress data',
+            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            fieldType,
+            timestamp: new Date().toISOString()
+          });
+        }
+      };
+
+      // Use raw SQL to avoid Drizzle's automatic column inclusion
+      const analysisId = randomUUID();
+      
+      await db.execute(sql`
+        INSERT INTO analyses (
+          id,
+          website_id,
+          status,
+          raw_data,
+          ai_analysis,
+          firecrawl_version,
+          extraction_results,
+          extraction_data_used,
+          load_time,
+          page_size,
+          resource_count
+        ) VALUES (
+          ${analysisId},
+          ${websiteId},
+          'completed',
+          ${compressForDatabase(crawlData, 'crawl')},
+          ${compressForDatabase(aiAnalysisResult, 'analysis')},
+          ${metadata?.firecrawlVersion || 'v2'},
+          ${metadata?.extractionResults ? compressForDatabase(metadata.extractionResults, 'extraction') : null},
+          ${metadata?.isEnhancedAnalysis || false},
+          ${crawlData.performance?.loadTime || null},
+          ${crawlData.performance?.htmlSize || null},
+          ${crawlData.performance?.totalResourcesCount || null}
+        )
+      `);
+
+      console.log('💾 AI analysis saved to database:', analysisId);
+      return analysisId;
     } catch (error) {
       console.error('💾 Failed to save AI analysis:', error);
       throw new Error(`Failed to save analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
