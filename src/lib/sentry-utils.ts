@@ -10,9 +10,15 @@ export interface ErrorContext {
 }
 
 /**
- * Enhanced error capture with context
+ * Enhanced error capture with context - DISABLED in development
  */
 export function captureErrorWithContext(error: Error, context: ErrorContext = {}) {
+  // DISABLED: Skip Sentry capture in development to reduce console noise
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Error (Sentry disabled in dev):', error, context);
+    return;
+  }
+
   return Sentry.captureException(error, {
     tags: {
       component: context.component,
@@ -30,13 +36,19 @@ export function captureErrorWithContext(error: Error, context: ErrorContext = {}
 }
 
 /**
- * Capture message with context for non-error events
+ * Capture message with context for non-error events - DISABLED in development
  */
 export function captureMessageWithContext(
   message: string, 
   level: Sentry.SeverityLevel = 'info',
   context: ErrorContext = {}
 ) {
+  // DISABLED: Skip Sentry capture in development to reduce console noise
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Message (Sentry disabled in dev) [${level}]:`, message, context);
+    return;
+  }
+
   return Sentry.captureMessage(message, {
     level,
     tags: {
@@ -55,9 +67,14 @@ export function captureMessageWithContext(
 }
 
 /**
- * Set user context for the current session
+ * Set user context for the current session - DISABLED in development
  */
 export function setUserContext(user: { id: string; email?: string; name?: string }) {
+  // DISABLED: Skip Sentry user context in development
+  if (process.env.NODE_ENV === 'development') {
+    return;
+  }
+
   Sentry.setUser({
     id: user.id,
     email: user.email,
@@ -66,9 +83,14 @@ export function setUserContext(user: { id: string; email?: string; name?: string
 }
 
 /**
- * Add breadcrumb for tracking user actions
+ * Add breadcrumb for tracking user actions - DISABLED in development
  */
 export function addBreadcrumb(message: string, category: string, data?: Record<string, any>) {
+  // DISABLED: Skip Sentry breadcrumbs in development
+  if (process.env.NODE_ENV === 'development') {
+    return;
+  }
+
   Sentry.addBreadcrumb({
     message,
     category,
@@ -79,13 +101,18 @@ export function addBreadcrumb(message: string, category: string, data?: Record<s
 }
 
 /**
- * Performance monitoring wrapper for async functions
+ * Performance monitoring wrapper for async functions - DISABLED in development
  */
 export function withSentryTracing<T extends (...args: any[]) => Promise<any>>(
   fn: T,
   operationName: string,
   description?: string
 ): T {
+  // DISABLED: Skip Sentry tracing in development
+  if (process.env.NODE_ENV === 'development') {
+    return fn;
+  }
+
   return (async (...args: Parameters<T>) => {
     return await Sentry.startSpan(
       {

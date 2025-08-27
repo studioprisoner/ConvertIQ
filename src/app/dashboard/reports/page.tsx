@@ -17,10 +17,10 @@ import { Badge } from "@/components/badge";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { lazy, Suspense } from "react";
-import PageTypeIndicator from "@/components/analysis/page-type-indicator";
-import DataRichnessIndicator from "@/components/analysis/data-richness-indicator";
-import StructuredDataPreview from "@/components/analysis/structured-data-preview";
-import EnhancedRecommendationCard from "@/components/analysis/enhanced-recommendation-card";
+import PageTypeIndicator from "@/components/features/analysis/page-type-indicator";
+import DataRichnessIndicator from "@/components/features/analysis/data-richness-indicator";
+import StructuredDataPreview from "@/components/features/analysis/structured-data-preview";
+import EnhancedRecommendationCard from "@/components/features/analysis/enhanced-recommendation-card";
 
 // Lazy load ReactMarkdown to reduce initial bundle size
 const ReactMarkdown = lazy(() => import("react-markdown"));
@@ -767,7 +767,7 @@ export default function ReportsPage() {
         </h3>
         <ul className="space-y-3">
           {mockScanResults.keyInsights.map((insight, index) => (
-            <li key={index} className="flex items-start">
+            <li key={`insight-${index}`} className="flex items-start">
               <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
               <Text className="text-zinc-600 dark:text-zinc-400">
                 {insight}

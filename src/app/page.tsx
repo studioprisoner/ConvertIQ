@@ -11,7 +11,7 @@ import {
 import { ChevronRightIcon } from "@heroicons/react/20/solid";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { CompanyIcon } from "@/components/company-logo";
+import { CompanyIcon } from "@/components/common/company-logo";
 import { useSession } from "@/lib/auth-client";
 
 export default function Home() {

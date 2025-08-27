@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "@/styles/tailwind.css";
 import { TRPCProvider } from "@/lib/trpc/provider";
 import { SentryErrorBoundary } from "@/components/sentry-error-boundary";
-import { WebVitalsReporter } from "@/components/performance/web-vitals-reporter";
+import { WebVitalsReporter } from "@/components/common/performance/web-vitals-reporter";
 import { Analytics } from "@vercel/analytics/react";
 
 const geistSans = Geist({

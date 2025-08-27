@@ -1,28 +1,31 @@
 import * as Sentry from "@sentry/nextjs";
-import { validateEnv } from "./src/lib/env-validation";
 
 export async function register() {
-  // Validate environment variables at startup
-  try {
-    validateEnv();
-  } catch (error) {
-    console.error('❌ Environment validation failed:', error);
-    if (process.env.NODE_ENV === 'production') {
-      // In production, fail fast on invalid environment
-      process.exit(1);
+  // Validate environment variables at startup (only in Node.js runtime)
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    try {
+      const { validateEnv } = await import("./src/config/env-validation");
+      validateEnv();
+    } catch (error) {
+      console.error('❌ Environment validation failed:', error);
+      if (process.env.NODE_ENV === 'production') {
+        // In production, fail fast on invalid environment
+        throw new Error('Environment validation failed');
+      }
     }
   }
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
+  // DISABLED: Skip Sentry initialization in development to reduce console noise
+  if (process.env.NEXT_RUNTIME === 'nodejs' && process.env.NODE_ENV === 'production') {
     Sentry.init({
       dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
       environment: process.env.NODE_ENV || 'development',
-      tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-      profilesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-      debug: process.env.NODE_ENV !== 'production',
+      tracesSampleRate: 0.1,
+      profilesSampleRate: 0.1,
+      debug: false,
       
       beforeSend(event, hint) {
         // Filter out development errors in production
-        if (process.env.NODE_ENV === 'production' && event.level === 'info') {
+        if (event.level === 'info') {
           return null;
         }
         return event;
@@ -35,15 +38,16 @@ export async function register() {
     });
   }
 
-  if (process.env.NEXT_RUNTIME === 'edge') {
+  // DISABLED: Skip Sentry initialization in development to reduce console noise
+  if (process.env.NEXT_RUNTIME === 'edge' && process.env.NODE_ENV === 'production') {
     Sentry.init({
       dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
       environment: process.env.NODE_ENV || 'development',
-      tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-      debug: process.env.NODE_ENV !== 'production',
+      tracesSampleRate: 0.1,
+      debug: false,
       
       beforeSend(event, hint) {
-        if (process.env.NODE_ENV === 'production' && event.level === 'info') {
+        if (event.level === 'info') {
           return null;
         }
         return event;

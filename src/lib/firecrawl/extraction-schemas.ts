@@ -377,4 +377,10 @@ export const extractionConfigurations = {
   }
 };
 
+// Type definition for extraction configurations
+export interface ExtractConfig {
+  schema: any;
+  prompt: string;
+}
+
 // Individual schemas are already exported above as const exports

@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '../server';
 import { recommendations } from '@/db/schema/recommendations';
 import { reports } from '@/db/schema/reports';
+import { analyses } from '@/db/schema/analyses';
+import { websites } from '@/db/schema/websites';
 import { eq, and, desc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
@@ -25,14 +27,16 @@ export const recommendationsRouter = createTRPCRouter({
       const { user } = ctx;
       
       try {
-        // Verify recommendation ownership
+        // Verify recommendation ownership using proper relation chain
         const recommendation = await ctx.db
           .select({ reportId: recommendations.reportId })
           .from(recommendations)
           .innerJoin(reports, eq(recommendations.reportId, reports.id))
+          .innerJoin(analyses, eq(reports.analysisId, analyses.id))
+          .innerJoin(websites, eq(analyses.websiteId, websites.id))
           .where(and(
             eq(recommendations.id, input.recommendationId),
-            eq(reports.userId, user.id)
+            eq(websites.userId, user.id)
           ))
           .limit(1);
 
@@ -89,14 +93,16 @@ export const recommendationsRouter = createTRPCRouter({
       const { user } = ctx;
       
       try {
-        // Verify recommendation ownership
+        // Verify recommendation ownership using proper relation chain
         const recommendation = await ctx.db
           .select({ reportId: recommendations.reportId })
           .from(recommendations)
           .innerJoin(reports, eq(recommendations.reportId, reports.id))
+          .innerJoin(analyses, eq(reports.analysisId, analyses.id))
+          .innerJoin(websites, eq(analyses.websiteId, websites.id))
           .where(and(
             eq(recommendations.id, input.recommendationId),
-            eq(reports.userId, user.id)
+            eq(websites.userId, user.id)
           ))
           .limit(1);
 
@@ -153,14 +159,16 @@ export const recommendationsRouter = createTRPCRouter({
       const { user } = ctx;
       
       try {
-        // Verify recommendation ownership
+        // Verify recommendation ownership using proper relation chain
         const recommendation = await ctx.db
           .select({ reportId: recommendations.reportId })
           .from(recommendations)
           .innerJoin(reports, eq(recommendations.reportId, reports.id))
+          .innerJoin(analyses, eq(reports.analysisId, analyses.id))
+          .innerJoin(websites, eq(analyses.websiteId, websites.id))
           .where(and(
             eq(recommendations.id, input.recommendationId),
-            eq(reports.userId, user.id)
+            eq(websites.userId, user.id)
           ))
           .limit(1);
 
@@ -206,14 +214,16 @@ export const recommendationsRouter = createTRPCRouter({
       const { user } = ctx;
       
       try {
-        // Verify recommendation ownership
+        // Verify recommendation ownership using proper relation chain
         const recommendation = await ctx.db
           .select({ reportId: recommendations.reportId })
           .from(recommendations)
           .innerJoin(reports, eq(recommendations.reportId, reports.id))
+          .innerJoin(analyses, eq(reports.analysisId, analyses.id))
+          .innerJoin(websites, eq(analyses.websiteId, websites.id))
           .where(and(
             eq(recommendations.id, input.recommendationId),
-            eq(reports.userId, user.id)
+            eq(websites.userId, user.id)
           ))
           .limit(1);
 
@@ -259,14 +269,16 @@ export const recommendationsRouter = createTRPCRouter({
       const { user } = ctx;
       
       try {
-        // Verify recommendation ownership
+        // Verify recommendation ownership using proper relation chain
         const recommendation = await ctx.db
           .select({ reportId: recommendations.reportId })
           .from(recommendations)
           .innerJoin(reports, eq(recommendations.reportId, reports.id))
+          .innerJoin(analyses, eq(reports.analysisId, analyses.id))
+          .innerJoin(websites, eq(analyses.websiteId, websites.id))
           .where(and(
             eq(recommendations.id, input.recommendationId),
-            eq(reports.userId, user.id)
+            eq(websites.userId, user.id)
           ))
           .limit(1);
 
@@ -316,14 +328,16 @@ export const recommendationsRouter = createTRPCRouter({
       const { user } = ctx;
       
       try {
-        // Verify recommendation ownership
+        // Verify recommendation ownership using proper relation chain
         const recommendation = await ctx.db
           .select({ reportId: recommendations.reportId })
           .from(recommendations)
           .innerJoin(reports, eq(recommendations.reportId, reports.id))
+          .innerJoin(analyses, eq(reports.analysisId, analyses.id))
+          .innerJoin(websites, eq(analyses.websiteId, websites.id))
           .where(and(
             eq(recommendations.id, input.recommendationId),
-            eq(reports.userId, user.id)
+            eq(websites.userId, user.id)
           ))
           .limit(1);
 
@@ -514,8 +528,10 @@ export const recommendationsRouter = createTRPCRouter({
           .select({ id: recommendations.id })
           .from(recommendations)
           .innerJoin(reports, eq(recommendations.reportId, reports.id))
+          .innerJoin(analyses, eq(reports.analysisId, analyses.id))
+          .innerJoin(websites, eq(analyses.websiteId, websites.id))
           .where(and(
-            eq(reports.userId, user.id)
+            eq(websites.userId, user.id)
           ));
 
         const userRecommendationIds = new Set(userRecommendations.map(r => r.id));

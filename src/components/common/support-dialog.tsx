@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from './button'
-import { Dialog, DialogActions, DialogBody, DialogDescription, DialogTitle } from './dialog'
-import { Field, Label, ErrorMessage } from './fieldset'
-import { Input } from './input'
-import { Textarea } from './textarea'
+import { Button } from '../button'
+import { Dialog, DialogActions, DialogBody, DialogDescription, DialogTitle } from '../dialog'
+import { Field, Label, ErrorMessage } from '../fieldset'
+import { Input } from '../input'
+import { Textarea } from '../textarea'
 import { CheckCircleIcon } from '@heroicons/react/20/solid'
 import { useSession } from '@/lib/auth-client'
 

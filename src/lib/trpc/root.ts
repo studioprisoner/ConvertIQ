@@ -8,6 +8,7 @@ import { searchRouter } from './routers/search';
 import { streamingAnalysisRouter } from './routers/streaming-analysis';
 import { firecrawlV2Router } from './routers/firecrawl-v2';
 import { adminRouter } from './routers/admin';
+import { dashboardRouter } from './routers/dashboard';
 
 /**
  * Main tRPC router for the application.
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
   streaming: streamingAnalysisRouter,
   firecrawlV2: firecrawlV2Router,
   admin: adminRouter,
+  dashboard: dashboardRouter,
 });
 
 export type AppRouter = typeof appRouter;

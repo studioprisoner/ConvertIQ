@@ -1,5 +1,5 @@
 import type React from 'react'
-import { CompanyIcon } from '@/components/company-logo'
+import { CompanyIcon } from '@/components/common/company-logo'
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   return (

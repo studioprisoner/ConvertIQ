@@ -3,13 +3,13 @@
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
-import { useFeatureGate } from "@/hooks/use-feature-gate";
-import { FeatureGate } from "@/components/feature-gating/feature-gate";
+import { useFeatureGate } from "@/hooks/common/use-feature-gate";
+import { FeatureGate } from "@/components/features/feature-gating/feature-gate";
 import { urlValidationSchema, detectPageType } from "@/lib/url-validation";
 import { motion, AnimatePresence, Variants } from "framer-motion";
-import { CompanyIcon } from "@/components/company-logo";
+import { CompanyIcon } from "@/components/common/company-logo";
 import { Input, InputGroup } from "@/components/input";
-import { AiChat } from "@/components/aichat";
+import { AiChat } from "@/components/features/analysis/aichat";
 import {
   Dialog,
   DialogActions,
@@ -424,12 +424,10 @@ export default function ScanPage() {
       aiAnalysisMutation.mutate({
         crawlData: result,
         websiteId: currentWebsiteId,
-        analysisType: "comprehensive",
-        saveToDb: true, // Enable DB save with real website ID
-        // Enhanced v2 fields
-        firecrawlVersion: "v1",
+        analysisType: "comprehensive" as const,
+        saveToDb: true,
+        firecrawlVersion: "v1" as const,
         useEnhancedAnalysis: false,
-        extractionResults: undefined,
       });
     },
     onError: (error) => {
@@ -456,16 +454,20 @@ export default function ScanPage() {
         setExtractionResults(result.extractedData);
       }
 
-      aiAnalysisMutation.mutate({
+      const mutationInput: any = {
         crawlData: result.crawlResult,
         websiteId: currentWebsiteId,
-        analysisType: "comprehensive",
-        saveToDb: true, // Enable DB save with real website ID
-        // Enhanced v2 fields
-        firecrawlVersion: result.extractionMetadata.extractionVersion,
+        analysisType: "comprehensive" as const,
+        saveToDb: true,
+        firecrawlVersion: result.extractionMetadata.extractionVersion as "v1" | "v2",
         useEnhancedAnalysis: result.extractionMetadata.useEnhancedExtraction,
-        extractionResults: result.extractedData || undefined,
-      });
+      };
+      
+      if (result.extractedData) {
+        mutationInput.extractionResults = result.extractedData;
+      }
+
+      aiAnalysisMutation.mutate(mutationInput);
     },
     onError: (error) => {
       console.error("🚀 Enhanced crawl failed:", error);

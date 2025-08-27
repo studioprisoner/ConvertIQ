@@ -1,4 +1,4 @@
-import { AuthLayout } from "@/components/auth-layout";
+import { AuthLayout } from "@/components/layouts/auth-layout";
 
 export default async function RootLayout({
   children,
