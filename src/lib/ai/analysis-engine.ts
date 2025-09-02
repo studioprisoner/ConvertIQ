@@ -657,7 +657,6 @@ export class AIAnalysisEngine {
     return insights;
   }
 
-<<<<<<< HEAD
   private detectPlatform(structuredData: any): string {
     // CovertIQ Platform Intelligence - detect ecommerce platforms for specific optimization
     if (!structuredData) return 'custom';
