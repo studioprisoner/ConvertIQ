@@ -46,14 +46,14 @@ export const baseConvertiqSchema = {
   }
 };
 
-// Conversion-focused extraction schema
+// Enhanced conversion-focused extraction schema (CovertIQ expert level)
 export const conversionOptimizationSchema = {
   ...baseConvertiqSchema,
   properties: {
     ...baseConvertiqSchema.properties,
     callsToAction: {
       type: "array" as const,
-      description: "All call-to-action elements found on the page",
+      description: "All call-to-action elements with conversion psychology analysis",
       items: {
         type: "object" as const,
         properties: {
@@ -77,64 +77,259 @@ export const conversionOptimizationSchema = {
           type: { 
             type: "string" as const,
             description: "Type of CTA (button, link, form, etc.)"
+          },
+          conversionStrength: {
+            type: "string" as const,
+            enum: ["weak", "moderate", "strong", "compelling"],
+            description: "Assessment of CTA persuasiveness and action-orientation"
+          },
+          psychologyTrigger: {
+            type: "string" as const,
+            description: "Psychological trigger used (urgency, scarcity, benefit-focused, etc.)"
           }
+        }
+      }
+    },
+    revenueElements: {
+      type: "object" as const,
+      description: "Revenue-focused elements that drive purchasing decisions",
+      properties: {
+        pricingStrategy: {
+          type: "object" as const,
+          properties: {
+            priceAnchoring: { 
+              type: "array" as const,
+              items: { type: "string" as const },
+              description: "High-value pricing anchors (original prices, premium options)"
+            },
+            discountMessaging: { 
+              type: "array" as const,
+              items: { type: "string" as const },
+              description: "Discount percentages, savings amounts, promotional messaging"
+            },
+            valuePropositions: { 
+              type: "array" as const,
+              items: { type: "string" as const },
+              description: "Value statements that justify pricing"
+            },
+            paymentFlexibility: { 
+              type: "array" as const,
+              items: { type: "string" as const },
+              description: "Payment plans, financing options, installments"
+            }
+          }
+        },
+        conversionBarriers: {
+          type: "array" as const,
+          items: { type: "string" as const },
+          description: "Identified friction points that may prevent conversions"
+        },
+        riskReversals: {
+          type: "array" as const,
+          items: { type: "string" as const },
+          description: "Guarantees, warranties, return policies that reduce purchase risk"
+        },
+        urgencyElements: {
+          type: "array" as const,
+          items: { type: "string" as const },
+          description: "Time-sensitive offers, limited availability, countdown timers"
         }
       }
     },
     socialProof: {
       type: "object" as const,
-      description: "Social proof elements that build trust and credibility",
+      description: "Social proof elements analyzed for conversion impact",
       properties: {
         testimonials: { 
           type: "array" as const,
-          items: { type: "string" as const },
-          description: "Customer testimonials or quotes"
+          items: {
+            type: "object" as const,
+            properties: {
+              text: { type: "string" as const, description: "Testimonial content" },
+              author: { type: "string" as const, description: "Customer name/title" },
+              credibilityLevel: { 
+                type: "string" as const,
+                enum: ["low", "medium", "high"],
+                description: "Credibility assessment based on specificity and details"
+              },
+              conversionImpact: {
+                type: "string" as const,
+                enum: ["weak", "moderate", "strong"],
+                description: "Potential impact on visitor purchase decisions"
+              }
+            }
+          },
+          description: "Customer testimonials with conversion analysis"
         },
         reviews: { 
           type: "array" as const,
-          items: { type: "string" as const },
-          description: "Customer reviews or ratings"
+          items: {
+            type: "object" as const,
+            properties: {
+              rating: { type: "string" as const, description: "Star rating or score" },
+              text: { type: "string" as const, description: "Review content" },
+              volume: { type: "string" as const, description: "Number of reviews if displayed" },
+              platform: { type: "string" as const, description: "Review platform (Google, Yelp, etc.)" }
+            }
+          },
+          description: "Customer reviews with detailed analysis"
         },
-        clientLogos: { 
+        trustSignals: { 
           type: "array" as const,
           items: { type: "string" as const },
-          description: "Client or partner logo mentions/descriptions"
+          description: "Security badges, certifications, awards, media mentions"
         },
-        certifications: { 
+        quantifiedProof: { 
+          type: "array" as const,
+          items: {
+            type: "object" as const,
+            properties: {
+              statistic: { type: "string" as const, description: "The quantified claim" },
+              credibility: { 
+                type: "string" as const,
+                enum: ["specific", "vague", "questionable"],
+                description: "Assessment of statistic believability"
+              },
+              impact: { type: "string" as const, description: "Business impact area (customers, revenue, satisfaction, etc.)" }
+            }
+          },
+          description: "Quantified achievements with credibility analysis"
+        },
+        authorityIndicators: {
           type: "array" as const,
           items: { type: "string" as const },
-          description: "Certifications, awards, or credentials displayed"
-        },
-        statistics: { 
-          type: "array" as const,
-          items: { type: "string" as const },
-          description: "Quantified achievements (e.g., '1000+ customers', '99% uptime')"
+          description: "Expert credentials, media appearances, industry recognition"
         }
       }
     },
     psychologyTriggers: {
       type: "object" as const,
-      description: "Psychological persuasion elements",
+      description: "Advanced psychological persuasion analysis per CovertIQ methodology",
       properties: {
         scarcity: { 
           type: "array" as const,
-          items: { type: "string" as const },
-          description: "Scarcity indicators (limited time, stock, availability)"
+          items: {
+            type: "object" as const,
+            properties: {
+              text: { type: "string" as const, description: "Scarcity message" },
+              type: { 
+                type: "string" as const, 
+                enum: ["time-limited", "quantity-limited", "exclusive-access", "seasonal"],
+                description: "Type of scarcity used" 
+              },
+              authenticity: { 
+                type: "string" as const,
+                enum: ["authentic", "questionable", "fake"],
+                description: "Assessment of scarcity legitimacy"
+              },
+              effectiveness: {
+                type: "string" as const,
+                enum: ["low", "medium", "high"],
+                description: "Predicted conversion impact"
+              }
+            }
+          },
+          description: "Scarcity elements with authenticity assessment"
         },
         urgency: { 
           type: "array" as const,
-          items: { type: "string" as const },
-          description: "Urgency elements (deadlines, countdowns, immediate action)"
+          items: {
+            type: "object" as const,
+            properties: {
+              text: { type: "string" as const, description: "Urgency message" },
+              trigger: { 
+                type: "string" as const,
+                enum: ["deadline", "countdown", "immediate-action", "consequence-based"],
+                description: "Type of urgency trigger"
+              },
+              ethical: { 
+                type: "boolean" as const,
+                description: "Whether urgency is ethical and transparent"
+              }
+            }
+          },
+          description: "Urgency elements with ethical evaluation"
         },
         authority: { 
           type: "array" as const,
-          items: { type: "string" as const },
-          description: "Authority indicators (expert credentials, media mentions)"
+          items: {
+            type: "object" as const,
+            properties: {
+              text: { type: "string" as const, description: "Authority claim" },
+              type: { 
+                type: "string" as const,
+                enum: ["expert-credentials", "media-mention", "certification", "testimonial-authority"],
+                description: "Type of authority signal"
+              },
+              verifiable: { 
+                type: "boolean" as const,
+                description: "Whether the authority claim is verifiable"
+              }
+            }
+          },
+          description: "Authority indicators with credibility assessment"
         },
         reciprocity: { 
           type: "array" as const,
+          items: {
+            type: "object" as const,
+            properties: {
+              offer: { type: "string" as const, description: "Free offer or value provided" },
+              value: { 
+                type: "string" as const,
+                enum: ["low", "moderate", "high", "exceptional"],
+                description: "Perceived value of the free offer"
+              },
+              expectation: { type: "string" as const, description: "What's expected in return" }
+            }
+          },
+          description: "Reciprocity elements with value assessment"
+        },
+        commitment: { 
+          type: "array" as const,
           items: { type: "string" as const },
-          description: "Free offers, valuable content, or gifts"
+          description: "Commitment and consistency triggers (guarantees, policies, expectations)"
+        }
+      }
+    },
+    mobileFirstAnalysis: {
+      type: "object" as const,
+      description: "Mobile-first revenue analysis per CovertIQ 'Mobile-First Revenue' principle",
+      properties: {
+        mobileOptimization: {
+          type: "object" as const,
+          properties: {
+            ctaVisibility: { 
+              type: "string" as const,
+              enum: ["poor", "fair", "good", "excellent"],
+              description: "How well CTAs work on mobile devices"
+            },
+            touchTargets: { 
+              type: "string" as const,
+              enum: ["too-small", "adequate", "optimal"],
+              description: "Assessment of touch target sizes"
+            },
+            mobileNavigation: { 
+              type: "string" as const,
+              enum: ["confusing", "basic", "intuitive"],
+              description: "Mobile navigation effectiveness"
+            },
+            loadingExperience: { 
+              type: "string" as const,
+              enum: ["slow", "moderate", "fast"],
+              description: "Perceived mobile loading performance"
+            }
+          }
+        },
+        mobileConversionBarriers: {
+          type: "array" as const,
+          items: { type: "string" as const },
+          description: "Specific mobile experience issues that could hurt conversions"
+        },
+        mobileRevenuePotential: {
+          type: "string" as const,
+          enum: ["limited", "moderate", "high", "excellent"],
+          description: "Overall mobile revenue generation potential"
         }
       }
     }
