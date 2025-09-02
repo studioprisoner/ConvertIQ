@@ -133,6 +133,8 @@ Business Type: ${crawlData.extractedData?.businessInfo?.businessType || 'To be d
 - Description: ${crawlData.htmlAnalysis?.meta?.description || 'Missing - SEO opportunity'}
 - Open Graph Image: ${crawlData.htmlAnalysis?.meta?.ogImage || 'Missing - social media optimization needed'}
 - Page Structure: ${crawlData.htmlAnalysis?.structure?.sectionsCount || 0} sections, ${crawlData.htmlAnalysis?.structure?.wordCount || 0} words
+- Has Hero Section: ${crawlData.htmlAnalysis?.structure?.hasHeroSection || false}
+- Headings: ${JSON.stringify(crawlData.htmlAnalysis?.headings || [])}
 
 ### REVENUE ELEMENTS ANALYSIS
 **Products/Services Identified:**
@@ -155,6 +157,20 @@ ${JSON.stringify(crawlData.extractedData?.scarcityElements || [], null, 2)}
 
 **Authority Signals:**
 ${JSON.stringify(crawlData.extractedData?.authoritySignals || [], null, 2)}
+
+### ADDITIONAL DATA FROM MAIN BRANCH
+**Images:**
+${JSON.stringify(crawlData.htmlAnalysis?.images?.slice(0, 10) || [], null, 2)}
+
+**Links & Navigation:**
+- Navigation Links: ${crawlData.htmlAnalysis?.links?.filter(link => link.isNavigation)?.length || 0}
+- CTA Links: ${crawlData.htmlAnalysis?.links?.filter(link => link.isCTA)?.length || 0}
+- Total Links: ${crawlData.htmlAnalysis?.links?.length || 0}
+
+**Trust Indicators:**
+- Has Contact Info: ${crawlData.htmlAnalysis?.structure?.hasFooter || false}
+- Has Navigation: ${crawlData.htmlAnalysis?.structure?.hasNavigation || false}
+- Professional Structure: ${(crawlData.htmlAnalysis?.structure?.hasHeader && crawlData.htmlAnalysis?.structure?.hasFooter) || false}
 
 ### MOBILE-FIRST REVENUE ANALYSIS
 Mobile Optimization Status: ${crawlData.htmlAnalysis?.structure?.isMobileOptimized ? 'Optimized' : 'Needs optimization - revenue leakage likely'}

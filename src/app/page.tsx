@@ -11,6 +11,7 @@ import {
 import { ChevronRightIcon } from "@heroicons/react/20/solid";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import { CompanyIcon } from "@/components/common/company-logo";
 import { useSession } from "@/lib/auth-client";
 
@@ -64,7 +65,7 @@ export default function Home() {
         </div>
 
         {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-200/30 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-blue-300/25 rounded-full blur-3xl animate-pulse delay-1000"></div>
           <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-indigo-300/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
@@ -92,12 +93,12 @@ export default function Home() {
               >
                 Pricing
               </a>
-              <a
+              <Link
                 href={session ? "/dashboard" : "/login"}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {session ? "Open App" : "Sign In"}
-              </a>
+              </Link>
             </div>
           </div>
         </nav>
@@ -124,12 +125,12 @@ export default function Home() {
               business website with AI-powered analysis.
             </p>
             <div className="mt-10 flex items-center gap-x-6">
-              <a
+              <Link
                 href={session ? "/dashboard" : "/login"}
                 className="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
               >
                 {session ? "Open App" : "Get Started"}
-              </a>
+              </Link>
               <a
                 href="#features"
                 className="text-sm/6 font-semibold text-gray-800"
