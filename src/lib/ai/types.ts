@@ -11,11 +11,21 @@ export const analysisTypeSchema = z.enum([
 
 export type AnalysisType = z.infer<typeof analysisTypeSchema>;
 
-// Impact and Effort Scoring
+// CovertIQ Revenue Impact Scoring
+export const revenueImpactSchema = z.object({
+  conversionRateIncrease: z.string().describe("Estimated percentage point improvement (e.g., '+2.3% conversion rate')"),
+  monthlyRevenueImpact: z.string().describe("Dollar amount projection based on typical traffic"),
+  aovImpact: z.string().describe("Average Order Value improvement potential"),
+  implementationROI: z.string().describe("Payback period and cost-benefit analysis"),
+  timeframe: z.enum(['immediate', 'short-term', 'medium-term', 'long-term']),
+});
+
+// Enhanced Impact and Effort Scoring with Revenue Focus
 export const impactScoreSchema = z.object({
-  score: z.number().min(1).max(10), // 1-10 scale
+  score: z.number().min(1).max(10), // 1-10 scale (legacy support)
   reasoning: z.string(),
   category: z.enum(['high', 'medium', 'low']),
+  revenueImpact: revenueImpactSchema.optional(), // CovertIQ enhancement
 });
 
 export const effortScoreSchema = z.object({
@@ -23,46 +33,83 @@ export const effortScoreSchema = z.object({
   reasoning: z.string(),
   category: z.enum(['low', 'medium', 'high']),
   estimatedHours: z.number().optional(),
+  resourceRequirements: z.array(z.string()).optional(), // CovertIQ enhancement
+  technicalComplexity: z.enum(['basic', 'intermediate', 'advanced']).optional(),
 });
 
-// Conversion Psychology Analysis
+// Conversion Psychology Analysis with CovertIQ Enhancement
 export const conversionPsychologyAnalysisSchema = z.object({
   type: z.literal('conversion_psychology'),
   
-  // Website overview
+  // Enhanced Website overview with business intelligence
   websiteOverview: z.object({
     businessType: z.string(),
+    businessModel: z.string().optional(), // B2C, B2B, marketplace, etc.
     targetAudience: z.string(),
-    overallScore: z.number().min(1).max(10),
+    overallScore: z.number().min(1).max(10), // legacy support
     summary: z.string(),
+    revenueModel: z.string().optional(), // subscription, one-time, freemium, etc.
+    competitivePositioning: z.string().optional(),
   }),
   
-  // Psychological triggers analysis
+  // Revenue projections (CovertIQ enhancement)
+  revenueProjections: z.object({
+    conversionRateIncrease: z.string(),
+    monthlyRevenueImpact: z.string(),
+    aovImpact: z.string(),
+    implementationROI: z.string(),
+  }).optional(),
+  
+  // Mobile-first revenue opportunities
+  mobileRevenueOpportunities: z.array(z.object({
+    opportunity: z.string(),
+    impact: z.string(),
+    implementation: z.string(),
+  })).optional(),
+  
+  // Platform-specific intelligence
+  platformIntelligence: z.object({
+    platform: z.enum(['shopify', 'woocommerce', 'custom', 'squarespace', 'webflow', 'other']).optional(),
+    recommendations: z.array(z.string()),
+    optimizations: z.array(z.string()),
+  }).optional(),
+  
+  // Enhanced psychological triggers analysis with authenticity assessment
   psychologicalTriggers: z.object({
     scarcity: z.object({
-      score: z.number().min(1).max(10),
+      score: z.number().min(1).max(10), // legacy support
       currentImplementation: z.string(),
       opportunities: z.string(),
+      authenticity: z.enum(['authentic', 'questionable', 'fake']).optional(),
+      revenueImpact: z.string().optional(), // CovertIQ enhancement
     }),
     socialProof: z.object({
       score: z.number().min(1).max(10),
       currentImplementation: z.string(),
       opportunities: z.string(),
+      credibility: z.enum(['high', 'medium', 'low']).optional(),
+      impactOnConversion: z.string().optional(),
     }),
     authority: z.object({
       score: z.number().min(1).max(10),
       currentImplementation: z.string(),
       opportunities: z.string(),
+      credibilitySignals: z.array(z.string()).optional(),
+      purchaseConfidenceImpact: z.string().optional(),
     }),
     reciprocity: z.object({
       score: z.number().min(1).max(10),
       currentImplementation: z.string(),
       opportunities: z.string(),
+      valueProvided: z.string().optional(),
+      purchaseObligationLevel: z.enum(['strong', 'moderate', 'weak']).optional(),
     }),
     commitment: z.object({
       score: z.number().min(1).max(10),
       currentImplementation: z.string(),
       opportunities: z.string(),
+      riskReversalStrength: z.string().optional(),
+      barrierRemovalImpact: z.string().optional(),
     }),
   }),
   
@@ -97,6 +144,33 @@ export const conversionPsychologyAnalysisSchema = z.object({
     priority2: z.string(),
     priority3: z.string(),
   }),
+  
+  // CovertIQ Strategic Enhancement Fields
+  quickWins: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    revenueImpact: z.string(),
+    implementationTime: z.string(),
+  })).optional(),
+  
+  strategicInitiatives: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    revenueUpside: z.string(),
+    timeframe: z.string(),
+  })).optional(),
+  
+  competitiveAdvantage: z.array(z.object({
+    opportunity: z.string(),
+    differentiator: z.string(),
+    implementation: z.string(),
+  })).optional(),
+  
+  implementationPriority: z.object({
+    phase1: z.array(z.string()).describe("Immediate revenue opportunities (0-30 days)"),
+    phase2: z.array(z.string()).describe("Strategic improvements (1-3 months)"),
+    phase3: z.array(z.string()).describe("Competitive advantage initiatives (3-6 months)"),
+  }).optional(),
   
   // Legacy fields for backward compatibility
   overallScore: z.number().min(1).max(10),
@@ -307,3 +381,4 @@ export type ContentAnalysis = z.infer<typeof contentAnalysisSchema>;
 export type AIAnalysisResult = z.infer<typeof aiAnalysisResultSchema>;
 export type ImpactScore = z.infer<typeof impactScoreSchema>;
 export type EffortScore = z.infer<typeof effortScoreSchema>;
+export type RevenueImpact = z.infer<typeof revenueImpactSchema>;

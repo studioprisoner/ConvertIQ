@@ -382,15 +382,25 @@ export class AIAnalysisEngine {
   private generateEnhancedSummary(analysis: any, type: string, extractedData: any): string {
     const baseScore = analysis.overallScore || 0;
     const pageType = extractedData.structuredData?.pageType || 'unknown';
-    const qualityScore = extractedData.extractionMetrics?.dataQualityScore || 0;
+    const qualityScore = Math.round((extractedData.extractionMetrics?.dataQualityScore || 0) * 100);
     
     switch (type) {
       case 'conversion':
-        return `Enhanced conversion analysis (${pageType} page) reveals score ${baseScore}/10 with ${qualityScore}% data confidence. ${analysis.keyFindings?.length || 0} optimization opportunities identified using structured data insights.`;
+        // CovertIQ Revenue-Focused Summary
+        if (analysis.revenueProjections) {
+          const revenueIncrease = analysis.revenueProjections.monthlyRevenueImpact || 'significant revenue potential';
+          const conversionIncrease = analysis.revenueProjections.conversionRateIncrease || '+2-4% conversion rate';
+          const quickWinsCount = analysis.quickWins?.length || 0;
+          const strategicCount = analysis.strategicInitiatives?.length || 0;
+          const platform = analysis.platformIntelligence?.platform || 'custom';
+          
+          return `CovertIQ Analysis: ${revenueIncrease} revenue opportunity identified with ${conversionIncrease} improvement potential. Platform: ${platform}. ${quickWinsCount} quick wins + ${strategicCount} strategic initiatives for ${pageType} optimization (${qualityScore}% confidence).`;
+        }
+        return `CovertIQ conversion analysis (${pageType}) identified ${analysis.keyFindings?.length || 0} revenue optimization opportunities with ${baseScore}/10 baseline score (${qualityScore}% confidence).`;
       case 'ux':
-        return `Enhanced UX analysis (${pageType} page) shows score ${baseScore}/10 with ${qualityScore}% extraction confidence. Recommendations based on structured content analysis and user experience patterns.`;
+        return `Enhanced UX analysis (${pageType} page) shows score ${baseScore}/10 with ${qualityScore}% extraction confidence. Mobile-first revenue optimizations identified following CovertIQ methodology.`;
       case 'seo':
-        return `Enhanced SEO analysis (${pageType} page) indicates score ${baseScore}/10 with ${qualityScore}% data quality. Technical recommendations enhanced with structured metadata insights.`;
+        return `Enhanced SEO analysis (${pageType} page) indicates score ${baseScore}/10 with ${qualityScore}% data quality. Technical SEO recommendations focused on commercial keyword revenue impact.`;
       default:
         return `Enhanced analysis (${pageType} page) completed with score ${baseScore}/10 and ${qualityScore}% data confidence.`;
     }
@@ -401,11 +411,19 @@ export class AIAnalysisEngine {
     const pageType = extractedData.structuredData?.pageType || 'unknown';
     const structuredData = extractedData.structuredData || {};
     
-    // Enhance recommendations with structured data context
-    return baseRecommendations.map((rec: any) => ({
+    // Generate CovertIQ revenue-focused recommendations
+    const revenueRecommendations = this.generateCovertIQRecommendations(analysis, category, structuredData, pageType);
+    
+    // Generate platform-specific recommendations
+    const platform = this.detectPlatform(structuredData);
+    const platformRecommendations = this.generatePlatformSpecificRecommendations(platform, pageType, structuredData);
+    
+    // Enhance base recommendations with revenue context
+    const enhancedBase = baseRecommendations.map((rec: any) => ({
       ...rec,
       enhancedContext: {
         pageType,
+        platform,
         dataConfidence: extractedData.extractionMetrics?.dataQualityScore || 0,
         structuredInsights: this.getStructuredInsights(structuredData, category),
       },
@@ -413,7 +431,171 @@ export class AIAnalysisEngine {
         ...rec.implementation,
         enhancedSteps: this.getEnhancedImplementationSteps(rec, structuredData, pageType),
       },
+      revenueImpact: this.estimateRevenueImpact(rec, pageType, structuredData),
     }));
+    
+    // Combine all recommendations and prioritize by revenue potential
+    return [...enhancedBase, ...revenueRecommendations, ...platformRecommendations]
+      .sort((a: any, b: any) => this.compareRevenueImpact(a, b));
+  }
+
+  private generateCovertIQRecommendations(analysis: any, category: string, structuredData: any, pageType: string): Array<Record<string, unknown>> {
+    const recommendations: any[] = [];
+    
+    // CovertIQ Quick Wins - High Revenue Impact, Low Effort
+    if (analysis.quickWins) {
+      analysis.quickWins.forEach((win: any) => {
+        recommendations.push({
+          id: uuidv4(),
+          title: win.title,
+          description: win.description,
+          category: 'conversion',
+          impact: {
+            score: 9, // High impact
+            reasoning: `CovertIQ Quick Win: ${win.revenueImpact}`,
+            category: 'high',
+            revenueImpact: {
+              conversionRateIncrease: win.revenueImpact.includes('%') ? win.revenueImpact : '+1.5-3.0% conversion rate',
+              monthlyRevenueImpact: this.estimateMonthlyRevenue(win.revenueImpact, pageType),
+              aovImpact: 'Minimal direct AOV impact',
+              implementationROI: `Payback in ${win.implementationTime}`,
+              timeframe: 'immediate',
+            }
+          },
+          effort: {
+            score: 2, // Low effort
+            reasoning: `Quick implementation: ${win.implementationTime}`,
+            category: 'low',
+            resourceRequirements: ['Marketing team', 'Basic web editing'],
+            technicalComplexity: 'basic',
+          },
+          implementation: {
+            steps: [`Implement ${win.title} following CovertIQ methodology`],
+            codeSnippets: [],
+            resources: [
+              {
+                title: 'CovertIQ Revenue Optimization Guide',
+                url: '#',
+                type: 'guide',
+              },
+            ],
+          },
+          whyItMatters: `Revenue Impact: ${win.revenueImpact}. This optimization follows CovertIQ's "Mobile-First Revenue" and "Speed Equals Sales" principles.`,
+          priority: 'high',
+        });
+      });
+    }
+    
+    // CovertIQ Strategic Initiatives - Substantial Revenue Upside
+    if (analysis.strategicInitiatives) {
+      analysis.strategicInitiatives.forEach((initiative: any) => {
+        recommendations.push({
+          id: uuidv4(),
+          title: initiative.title,
+          description: initiative.description,
+          category: 'conversion',
+          impact: {
+            score: 8, // High impact
+            reasoning: `CovertIQ Strategic Initiative: ${initiative.revenueUpside}`,
+            category: 'high',
+            revenueImpact: {
+              conversionRateIncrease: '+3.0-5.0% conversion rate',
+              monthlyRevenueImpact: this.estimateMonthlyRevenue(initiative.revenueUpside, pageType),
+              aovImpact: '+10-25% Average Order Value',
+              implementationROI: `Payback in ${initiative.timeframe}`,
+              timeframe: 'medium-term',
+            }
+          },
+          effort: {
+            score: 6, // Medium effort
+            reasoning: `Strategic implementation: ${initiative.timeframe}`,
+            category: 'medium',
+            resourceRequirements: ['Development team', 'Marketing team', 'Design resources'],
+            technicalComplexity: 'intermediate',
+          },
+          implementation: {
+            steps: [`Execute ${initiative.title} following CovertIQ strategic framework`],
+            codeSnippets: [],
+            resources: [],
+          },
+          whyItMatters: `Strategic Revenue Growth: ${initiative.revenueUpside}. This optimization creates competitive advantage through advanced conversion psychology.`,
+          priority: 'medium',
+        });
+      });
+    }
+    
+    return recommendations;
+  }
+
+  private estimateRevenueImpact(recommendation: any, pageType: string, structuredData: any): any {
+    // CovertIQ revenue impact estimation based on page type and optimization
+    const baseImpact = {
+      conversionRateIncrease: '+1.0-2.0% conversion rate',
+      monthlyRevenueImpact: '$500-2,000 estimated increase',
+      aovImpact: 'No direct AOV impact',
+      implementationROI: 'Payback within 30-60 days',
+      timeframe: 'short-term',
+    };
+    
+    // Adjust based on page type and optimization category
+    if (pageType === 'product' && recommendation.category === 'conversion') {
+      baseImpact.conversionRateIncrease = '+2.0-4.0% conversion rate';
+      baseImpact.monthlyRevenueImpact = '$1,000-5,000 estimated increase';
+      baseImpact.aovImpact = '+5-15% Average Order Value';
+    } else if (pageType === 'homepage' && recommendation.title?.toLowerCase().includes('trust')) {
+      baseImpact.conversionRateIncrease = '+1.5-3.0% conversion rate';
+      baseImpact.monthlyRevenueImpact = '$750-3,000 estimated increase';
+    }
+    
+    return baseImpact;
+  }
+
+  private estimateMonthlyRevenue(impact: string, pageType: string): string {
+    // Extract revenue indicators from impact string or estimate based on page type
+    if (impact.includes('$')) {
+      return impact;
+    }
+    
+    // Default estimates based on page type
+    switch (pageType) {
+      case 'product':
+        return '$1,000-5,000 estimated monthly increase';
+      case 'homepage':
+        return '$750-3,000 estimated monthly increase';
+      case 'category':
+        return '$500-2,500 estimated monthly increase';
+      default:
+        return '$300-1,500 estimated monthly increase';
+    }
+  }
+
+  private compareRevenueImpact(a: any, b: any): number {
+    // Prioritize by revenue impact, then by implementation ease
+    const aRevenue = this.parseRevenueImpact(a.revenueImpact?.monthlyRevenueImpact || a.impact?.revenueImpact?.monthlyRevenueImpact);
+    const bRevenue = this.parseRevenueImpact(b.revenueImpact?.monthlyRevenueImpact || b.impact?.revenueImpact?.monthlyRevenueImpact);
+    
+    if (bRevenue !== aRevenue) {
+      return bRevenue - aRevenue; // Higher revenue first
+    }
+    
+    // If revenue is equal, prioritize by lower effort
+    const aEffort = a.effort?.score || 5;
+    const bEffort = b.effort?.score || 5;
+    return aEffort - bEffort; // Lower effort first
+  }
+
+  private parseRevenueImpact(revenueString: string | undefined): number {
+    if (!revenueString) return 0;
+    
+    // Extract numeric value from revenue string (e.g., "$1,000-5,000" -> 3000)
+    const matches = revenueString.match(/\$([0-9,]+)(?:-([0-9,]+))?/);
+    if (matches) {
+      const low = parseInt(matches[1].replace(',', ''));
+      const high = matches[2] ? parseInt(matches[2].replace(',', '')) : low;
+      return (low + high) / 2; // Return average
+    }
+    
+    return 0;
   }
 
   private combineEnhancedRecommendations(analyses: Array<Record<string, unknown>>, extractedData: any): Array<Record<string, unknown>> {
@@ -434,6 +616,11 @@ export class AIAnalysisEngine {
   private getStructuredInsights(structuredData: any, category: string): Array<string> {
     const insights: string[] = [];
     
+    // Add platform detection insights
+    const platform = this.detectPlatform(structuredData);
+    if (platform !== 'custom') {
+      insights.push(`Platform detected: ${platform} - specific optimization opportunities available`);
+    }
     switch (category) {
       case 'conversion':
         if (structuredData.ctaElements?.length) {
@@ -441,6 +628,12 @@ export class AIAnalysisEngine {
         }
         if (structuredData.trustSignals?.length) {
           insights.push(`Identified ${structuredData.trustSignals.length} trust signals`);
+        }
+        // Add platform-specific conversion insights
+        if (platform === 'shopify') {
+          insights.push('Shopify checkout optimization opportunities identified');
+        } else if (platform === 'woocommerce') {
+          insights.push('WooCommerce cart abandonment reduction strategies available');
         }
         break;
       case 'ux':
@@ -462,6 +655,223 @@ export class AIAnalysisEngine {
     }
     
     return insights;
+  }
+
+  private detectPlatform(structuredData: any): string {
+    // CovertIQ Platform Intelligence - detect ecommerce platforms for specific optimization
+    if (!structuredData) return 'custom';
+    
+    // Check for platform-specific indicators in the content
+    const content = JSON.stringify(structuredData).toLowerCase();
+    
+    // Shopify detection
+    if (content.includes('shopify') || 
+        content.includes('shop-js') || 
+        content.includes('myshopify.com') ||
+        content.includes('shopify-section')) {
+      return 'shopify';
+    }
+    
+    // WooCommerce detection
+    if (content.includes('woocommerce') ||
+        content.includes('wc-') ||
+        content.includes('wp-content') ||
+        content.includes('wordpress')) {
+      return 'woocommerce';
+    }
+    
+    // Squarespace detection
+    if (content.includes('squarespace') ||
+        content.includes('static1.squarespace.com') ||
+        content.includes('sqs-')) {
+      return 'squarespace';
+    }
+    
+    // Webflow detection
+    if (content.includes('webflow') ||
+        content.includes('uploads-ssl.webflow.com') ||
+        content.includes('w-')) {
+      return 'webflow';
+    }
+    
+    // BigCommerce detection
+    if (content.includes('bigcommerce') ||
+        content.includes('mybigcommerce.com')) {
+      return 'bigcommerce';
+    }
+    
+    return 'custom';
+  }
+
+  private generatePlatformSpecificRecommendations(platform: string, pageType: string, structuredData: any): Array<Record<string, unknown>> {
+    const recommendations: any[] = [];
+    
+    switch (platform) {
+      case 'shopify':
+        recommendations.push({
+          id: uuidv4(),
+          title: 'Shopify Theme Conversion Optimization',
+          description: 'Optimize Shopify theme for higher conversion rates using platform-specific features',
+          category: 'conversion',
+          impact: {
+            score: 8,
+            reasoning: 'Shopify-specific optimizations can significantly improve conversion rates',
+            category: 'high',
+            revenueImpact: {
+              conversionRateIncrease: '+2.5-4.0% conversion rate',
+              monthlyRevenueImpact: '$1,500-6,000 estimated increase',
+              aovImpact: '+10-20% Average Order Value',
+              implementationROI: 'Payback within 30-45 days',
+              timeframe: 'short-term',
+            }
+          },
+          effort: {
+            score: 4,
+            reasoning: 'Moderate effort using Shopify admin and theme customization',
+            category: 'medium',
+            resourceRequirements: ['Shopify admin access', 'Theme customization knowledge'],
+            technicalComplexity: 'intermediate',
+          },
+          implementation: {
+            steps: [
+              'Access Shopify admin theme editor',
+              'Implement trust badges in checkout flow',
+              'Add urgency elements to product pages',
+              'Optimize mobile cart experience',
+              'Enable abandoned cart recovery apps'
+            ],
+            resources: [
+              {
+                title: 'Shopify Conversion Optimization Guide',
+                url: 'https://shopify.dev/themes/best-practices/conversion-optimization',
+                type: 'documentation',
+              },
+            ],
+          },
+          whyItMatters: 'Shopify stores with optimized themes see 15-35% higher conversion rates. Platform-specific features like one-click checkout and integrated payment options create competitive advantages.',
+          priority: 'high',
+        });
+        
+        if (pageType === 'product') {
+          recommendations.push({
+            id: uuidv4(),
+            title: 'Shopify Product Page Revenue Enhancement',
+            description: 'Leverage Shopify product features for maximum revenue per visitor',
+            category: 'conversion',
+            impact: {
+              score: 9,
+              reasoning: 'Product page optimization directly impacts AOV and conversion rate',
+              category: 'high',
+              revenueImpact: {
+                conversionRateIncrease: '+3.0-5.5% conversion rate',
+                monthlyRevenueImpact: '$2,000-8,000 estimated increase',
+                aovImpact: '+15-30% Average Order Value',
+                implementationROI: 'Payback within 20-30 days',
+                timeframe: 'immediate',
+              }
+            },
+            effort: {
+              score: 3,
+              reasoning: 'Easy implementation using Shopify apps and theme settings',
+              category: 'low',
+              resourceRequirements: ['Shopify app installation', 'Basic product data entry'],
+              technicalComplexity: 'basic',
+            },
+            implementation: {
+              steps: [
+                'Install product reviews app (Judge.me or Loox)',
+                'Add product bundles and upsells',
+                'Implement inventory scarcity indicators',
+                'Enable product recommendations',
+                'Add size guides and comparison tables'
+              ],
+            },
+            whyItMatters: 'Shopify product pages with social proof and scarcity elements convert 40-60% better than basic configurations.',
+            priority: 'high',
+          });
+        }
+        break;
+        
+      case 'woocommerce':
+        recommendations.push({
+          id: uuidv4(),
+          title: 'WooCommerce Cart Abandonment Prevention',
+          description: 'Reduce cart abandonment using WordPress/WooCommerce specific optimization plugins',
+          category: 'conversion',
+          impact: {
+            score: 7,
+            reasoning: 'WooCommerce cart abandonment solutions can recover 15-25% of lost sales',
+            category: 'high',
+            revenueImpact: {
+              conversionRateIncrease: '+2.0-3.5% conversion rate',
+              monthlyRevenueImpact: '$1,000-4,500 estimated increase',
+              aovImpact: '+5-15% Average Order Value',
+              implementationROI: 'Payback within 45-60 days',
+              timeframe: 'short-term',
+            }
+          },
+          effort: {
+            score: 5,
+            reasoning: 'Requires WooCommerce plugin configuration and email setup',
+            category: 'medium',
+            resourceRequirements: ['WordPress admin access', 'Email marketing setup'],
+            technicalComplexity: 'intermediate',
+          },
+          implementation: {
+            steps: [
+              'Install WooCommerce cart abandonment plugin',
+              'Configure automated email sequences',
+              'Add exit-intent popups with offers',
+              'Implement guest checkout optimization',
+              'Add multiple payment gateway options'
+            ],
+          },
+          whyItMatters: 'WooCommerce stores lose 70% of potential sales to cart abandonment. Platform-specific recovery tools can recapture significant revenue.',
+          priority: 'high',
+        });
+        break;
+        
+      default:
+        // Custom platform recommendations
+        recommendations.push({
+          id: uuidv4(),
+          title: 'Custom Platform Conversion Optimization',
+          description: 'Implement conversion optimization best practices for custom-built website',
+          category: 'conversion',
+          impact: {
+            score: 6,
+            reasoning: 'Custom implementations require more effort but offer flexibility',
+            category: 'medium',
+            revenueImpact: {
+              conversionRateIncrease: '+1.5-3.0% conversion rate',
+              monthlyRevenueImpact: '$750-3,500 estimated increase',
+              aovImpact: '+3-12% Average Order Value',
+              implementationROI: 'Payback within 60-90 days',
+              timeframe: 'medium-term',
+            }
+          },
+          effort: {
+            score: 7,
+            reasoning: 'Custom development required for implementation',
+            category: 'high',
+            resourceRequirements: ['Development team', 'UX/UI design', 'Analytics setup'],
+            technicalComplexity: 'advanced',
+          },
+          implementation: {
+            steps: [
+              'Implement custom trust signal components',
+              'Add dynamic scarcity indicators',
+              'Create personalized product recommendations',
+              'Build custom checkout optimization',
+              'Implement A/B testing framework'
+            ],
+          },
+          whyItMatters: 'Custom platforms offer maximum flexibility but require strategic implementation of proven conversion principles.',
+          priority: 'medium',
+        });
+    }
+    
+    return recommendations;
   }
 
   private getEnhancedImplementationSteps(recommendation: any, structuredData: any, pageType: string): Array<string> {
