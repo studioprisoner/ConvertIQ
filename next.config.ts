@@ -55,12 +55,6 @@ const nextConfig: NextConfig = {
     return config;
   },
   
-  // ESLint configuration - temporarily disable for production build
-  eslint: {
-    // Temporarily ignore ESLint errors during builds for production deployment
-    ignoreDuringBuilds: true,
-  },
-  
   // TypeScript configuration
   typescript: {
     // Temporarily ignore TypeScript errors during builds for production deployment
@@ -130,9 +124,4 @@ export default process.env.NODE_ENV === 'production' ? withSentryConfig(nextConf
     deleteSourcemapsAfterUpload: true,
   },
 
-  // Automatically tree-shake Sentry logger statements to reduce bundle size
-  disableLogger: true,
-
-  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-  automaticVercelMonitors: true,
 }) : nextConfig;
