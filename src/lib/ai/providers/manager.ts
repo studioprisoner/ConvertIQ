@@ -350,7 +350,7 @@ export class AIProviderManager {
           model,
           prompt: this.buildPrompt(request),
           schema: request.schema,
-          maxTokens: providerConfig.maxTokens,
+          maxOutputTokens: providerConfig.maxTokens,
         });
 
         result = response.object;
@@ -359,7 +359,7 @@ export class AIProviderManager {
         const response = await generateText({
           model,
           prompt: this.buildPrompt(request),
-          maxTokens: providerConfig.maxTokens,
+          maxOutputTokens: providerConfig.maxTokens,
           temperature: 0.7,
         });
 

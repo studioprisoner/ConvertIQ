@@ -122,7 +122,7 @@ Return ONLY the JSON, no other text.`;
       system: systemPrompt,
       prompt: structuredPrompt,
       temperature: 0.3,
-      maxTokens: 2000,
+      maxOutputTokens: 2000,
       onFinish: ({ text, finishReason, usage }) => {
         console.log(`✅ Streaming ${analysisType} completed:`, {
           finishReason,

@@ -1107,7 +1107,7 @@ Keep recommendations specific and actionable for small business owners.`;
           system: 'You are ConvertIQ AI providing concise executive summary insights. Use proper markdown formatting with headers, bullet points, and bold text. Focus on actionable recommendations with specific impact estimates.',
           prompt: optimizedPrompt,
           temperature: 0.4,
-          maxTokens: 1200, // Limit tokens for faster processing
+          maxOutputTokens: 1200, // Limit tokens for faster processing
         }),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Executive summary timeout after 12s')), 12000)
@@ -1642,9 +1642,9 @@ Provide a comprehensive executive summary focusing on data-driven insights and s
           system: 'You are ConvertIQ AI providing enhanced executive summary with structured data insights. Focus on specific, data-driven recommendations.',
           prompt: enhancedPrompt,
           temperature: 0.4,
-          maxTokens: 1500,
+          maxOutputTokens: 1500,
         }),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Enhanced executive summary timeout after 15s')), 15000)
         )
       ]) as any;
@@ -2116,7 +2116,7 @@ Provide specific recommendations based on the actual extracted elements and iden
         () => generateText({
           model: this.model,
           prompt: 'Respond with "OK" if you are working correctly.',
-          maxTokens: 10,
+          maxOutputTokens: 10,
         })
       ) as any;
       

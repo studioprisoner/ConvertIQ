@@ -359,7 +359,7 @@ export class WebsiteMonitoringService {
       const { text } = await generateText({
         model: anthropic('claude-3-haiku-20240307'),
         prompt,
-        maxTokens: 2000,
+        maxOutputTokens: 2000,
         temperature: 0.2
       });
 

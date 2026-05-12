@@ -31,10 +31,10 @@
     "security:fix-permissions": "chmod 600 .env* 2>/dev/null || true"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "2.0.0",
-    "@ai-sdk/google": "^2.0.72",
-    "@ai-sdk/openai": "2.0.0",
-    "@ai-sdk/react": "2.0.0",
+    "@ai-sdk/anthropic": "^3.0.76",
+    "@ai-sdk/google": "^3.0.72",
+    "@ai-sdk/openai": "^3.0.63",
+    "@ai-sdk/react": "^3.0.179",
     "@headlessui/react": "^2.2.10",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.2.2",
@@ -76,7 +76,7 @@
     "@trpc/server": "^11.17.0",
     "@uploadthing/react": "^7.3.3",
     "@vercel/analytics": "^1.6.1",
-    "ai": "5.0.0",
+    "ai": "^6.0.177",
     "better-auth": "^1.6.10",
     "chalk": "^5.6.2",
     "cheerio": "^1.2.0",

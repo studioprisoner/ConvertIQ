@@ -162,7 +162,7 @@ Return ONLY the JSON, no other text.
       system: comprehensiveSystemPrompt,
       prompt: structuredPrompt,
       temperature: 0.3,
-      maxTokens: 3000,
+      maxOutputTokens: 3000,
       onFinish: ({ text, finishReason, usage }) => {
         console.log('✅ Comprehensive streaming analysis completed:', {
           finishReason,
