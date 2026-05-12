@@ -47,7 +47,7 @@ export { default as PrimaryDomainSetup } from './common/primary-domain-setup';
 export { default as ProfileForm } from './common/profile-form';
 export { default as SupportDialog } from './common/support-dialog';
 export { default as URLScanner } from './common/url-scanner';
-export { default as SentryErrorBoundary } from './sentry-error-boundary';
+export { SentryErrorBoundary } from './sentry-error-boundary';
 
 // Performance Components
 export { default as WebVitalsReporter } from './common/performance/web-vitals-reporter';

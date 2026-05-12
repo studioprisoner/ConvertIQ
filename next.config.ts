@@ -125,8 +125,10 @@ export default process.env.NODE_ENV === 'production' ? withSentryConfig(nextConf
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
   tunnelRoute: "/monitoring",
 
-  // Hides source maps from generated client bundles
-  hideSourceMaps: true,
+  // Delete source maps after uploading to Sentry (v10: replaces hideSourceMaps)
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,
