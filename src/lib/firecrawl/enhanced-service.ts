@@ -140,15 +140,12 @@ export class EnhancedFirecrawlService {
 
       return {
         success: true,
-        data: result.data, // Direct return for now
+        data: result.data,
         metadata: {
-          tokensUsed: result.tokensUsed,
-          cost: result.cost,
           processingTime: Date.now() - startTime,
           requestId,
           retryCount: 0
-        },
-        sources: result.sources
+        }
       };
 
     } catch (error) {
@@ -171,7 +168,7 @@ export class EnhancedFirecrawlService {
     const requestId = this.generateRequestId();
 
     const {
-      batchSize = FIRECRAWL_CONSTANTS.BATCH_SIZE.OPTIMAL,
+      batchSize = 5,
       delayBetweenBatches = 1000,
       maxRetries = 3,
       onProgress,
@@ -195,11 +192,9 @@ export class EnhancedFirecrawlService {
         try {
           const batchResult = await this.executeWithRetry(async () => {
             return await this.firecrawl.batchScrape(batch, {
-              formats: ['markdown', 'extract'],
-              pageOptions: {
-                onlyMainContent: true,
-                includeLinks: true,
-                includeImages: true
+              options: {
+                formats: ['markdown'],
+                onlyMainContent: true
               }
             });
           }, maxRetries);
@@ -253,11 +248,11 @@ export class EnhancedFirecrawlService {
     try {
       const crawlResult = await this.executeWithRetry(async () => {
         return await this.firecrawl.crawl(baseUrl, {
-          maxDepth: options.maxDepth || 3,
-          maxLinks: options.maxLinks || 100,
-          onlyDomain: options.onlyDomain ?? true,
-          formats: options.formats || ['markdown', 'extract'],
-          pageOptions: {
+          maxDiscoveryDepth: options.maxDepth || 3,
+          limit: options.maxLinks || 100,
+          crawlEntireDomain: options.onlyDomain ?? true,
+          scrapeOptions: {
+            formats: ['markdown'],
             onlyMainContent: true
           },
           includePaths: options.includePaths,
@@ -291,8 +286,6 @@ export class EnhancedFirecrawlService {
         success: true,
         data: enhancedData,
         metadata: {
-          tokensUsed: crawlResult.tokensUsed,
-          cost: crawlResult.cost,
           processingTime: Date.now() - startTime,
           requestId,
           retryCount: 0
