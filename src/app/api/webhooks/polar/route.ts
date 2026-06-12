@@ -51,24 +51,17 @@ export async function POST(request: NextRequest) {
     const timestamp = headersList.get('webhook-timestamp');
     
     console.log('🔍 Webhook received with signature:', signature ? 'Present' : 'Missing');
-    
-    // Allow manual triggers to bypass signature verification
-    const isManualTrigger = signature === 'manual-trigger';
-    
-    if (!isManualTrigger) {
-      if (!signature || !process.env.POLAR_WEBHOOK_SECRET) {
-        console.error('❌ Missing signature or webhook secret');
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
 
-      // Verify webhook signature for real webhooks
-      const isValidSignature = verifySignature(body, signature, process.env.POLAR_WEBHOOK_SECRET, timestamp, headersList);
-      if (!isValidSignature) {
-        console.error('Invalid webhook signature');
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-      }
-    } else {
-      console.log('🔧 Processing manual webhook trigger (signature verification bypassed)');
+    if (!signature || !process.env.POLAR_WEBHOOK_SECRET) {
+      console.error('❌ Missing signature or webhook secret');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify webhook signature for real webhooks
+    const isValidSignature = verifySignature(body, signature, process.env.POLAR_WEBHOOK_SECRET, timestamp, headersList);
+    if (!isValidSignature) {
+      console.error('Invalid webhook signature');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
     const event: PolarWebhookEvent = JSON.parse(body);
