@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+
 // Test users (local development database IDs)
 export const TEST_USERS = {
   josh: {
@@ -12,8 +14,7 @@ export const TEST_USERS = {
   },
 } as const;
 
-// Test environment configuration
-process.env.NODE_ENV = 'test';
+// Test environment configuration (NODE_ENV is set by vitest itself)
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
 
 // Database setup for testing
