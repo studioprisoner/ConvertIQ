@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { parse as parseHtml } from 'node-html-parser';
+import { assertPublicTarget } from '@/lib/url-validation';
 // @ts-expect-error - no types available for robots-parser
 import robotsParser from 'robots-parser';
 import { 
@@ -277,6 +278,15 @@ export class WebCrawler {
       },
       redirect: this.options.followRedirects ? 'follow' : 'manual',
     });
+
+    // SSRF guard: a public URL can redirect to an internal target after the
+    // initial validation passed — re-validate the final URL (CON-94)
+    if (response.url && response.url !== url) {
+      const redirectCheck = await assertPublicTarget(response.url);
+      if (!redirectCheck.safe) {
+        throw new Error(`Redirect target blocked: ${redirectCheck.reason}`);
+      }
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
