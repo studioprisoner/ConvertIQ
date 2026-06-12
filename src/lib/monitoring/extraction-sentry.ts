@@ -40,7 +40,7 @@ export function trackExtractionStart(context: ExtractionContext) {
     }
   );
 
-  return Sentry.startSpan({
+  return Sentry.startInactiveSpan({
     name: 'extraction_pipeline',
     op: 'extraction',
     attributes: {
@@ -72,12 +72,12 @@ export function trackExtractionSuccess(
     }
   );
 
-  // Send metrics to Sentry
-  Sentry.setMeasurement('extraction.processing_time', metrics.processingTime);
-  Sentry.setMeasurement('extraction.data_quality_score', metrics.dataQualityScore);
-  Sentry.setMeasurement('extraction.fields_extracted', metrics.fieldsExtracted);
-  Sentry.setMeasurement('extraction.total_tokens', metrics.tokenUsage?.totalTokens || 0);
-  Sentry.setMeasurement('extraction.cost_usd', metrics.costUsd || 0);
+  // Send metrics to Sentry (v10: setMeasurement requires unit as 3rd arg)
+  Sentry.setMeasurement('extraction.processing_time', metrics.processingTime, 'millisecond');
+  Sentry.setMeasurement('extraction.data_quality_score', metrics.dataQualityScore, 'none');
+  Sentry.setMeasurement('extraction.fields_extracted', metrics.fieldsExtracted, 'none');
+  Sentry.setMeasurement('extraction.total_tokens', metrics.tokenUsage?.totalTokens || 0, 'none');
+  Sentry.setMeasurement('extraction.cost_usd', metrics.costUsd || 0, 'none');
 
   Sentry.setTag('extraction.page_type', pageType || 'unknown');
   Sentry.setTag('extraction.version', context.firecrawlVersion);
@@ -172,8 +172,8 @@ export function trackDataQualityIssue(
   });
 
   // Set quality metrics
-  Sentry.setMeasurement('data_quality.score', qualityScore);
-  Sentry.setMeasurement('data_quality.issues_count', issues.length);
+  Sentry.setMeasurement('data_quality.score', qualityScore, 'none');
+  Sentry.setMeasurement('data_quality.issues_count', issues.length, 'none');
 }
 
 /**
@@ -200,12 +200,12 @@ export function trackBatchProcessingMetrics(
   );
 
   // Set batch metrics
-  Sentry.setMeasurement('batch.total_urls', metrics.totalUrls);
-  Sentry.setMeasurement('batch.success_count', metrics.successCount);
-  Sentry.setMeasurement('batch.failed_count', metrics.failedCount);
-  Sentry.setMeasurement('batch.success_rate', (metrics.successCount / metrics.totalUrls) * 100);
-  Sentry.setMeasurement('batch.average_processing_time', metrics.averageProcessingTime);
-  Sentry.setMeasurement('batch.total_cost', metrics.totalCost);
+  Sentry.setMeasurement('batch.total_urls', metrics.totalUrls, 'none');
+  Sentry.setMeasurement('batch.success_count', metrics.successCount, 'none');
+  Sentry.setMeasurement('batch.failed_count', metrics.failedCount, 'none');
+  Sentry.setMeasurement('batch.success_rate', (metrics.successCount / metrics.totalUrls) * 100, 'percent');
+  Sentry.setMeasurement('batch.average_processing_time', metrics.averageProcessingTime, 'millisecond');
+  Sentry.setMeasurement('batch.total_cost', metrics.totalCost, 'none');
 
   Sentry.setTag('batch.job_id', context.batchJobId);
 }
@@ -235,13 +235,13 @@ export function trackCrawlProcessingMetrics(
   );
 
   // Set crawl metrics
-  Sentry.setMeasurement('crawl.pages_discovered', metrics.pagesDiscovered);
-  Sentry.setMeasurement('crawl.success_count', metrics.successCount);
-  Sentry.setMeasurement('crawl.failed_count', metrics.failedCount);
-  Sentry.setMeasurement('crawl.max_depth', metrics.maxDepth);
-  Sentry.setMeasurement('crawl.success_rate', (metrics.successCount / metrics.pagesDiscovered) * 100);
-  Sentry.setMeasurement('crawl.average_processing_time', metrics.averageProcessingTime);
-  Sentry.setMeasurement('crawl.total_cost', metrics.totalCost);
+  Sentry.setMeasurement('crawl.pages_discovered', metrics.pagesDiscovered, 'none');
+  Sentry.setMeasurement('crawl.success_count', metrics.successCount, 'none');
+  Sentry.setMeasurement('crawl.failed_count', metrics.failedCount, 'none');
+  Sentry.setMeasurement('crawl.max_depth', metrics.maxDepth, 'none');
+  Sentry.setMeasurement('crawl.success_rate', (metrics.successCount / metrics.pagesDiscovered) * 100, 'percent');
+  Sentry.setMeasurement('crawl.average_processing_time', metrics.averageProcessingTime, 'millisecond');
+  Sentry.setMeasurement('crawl.total_cost', metrics.totalCost, 'none');
 
   Sentry.setTag('crawl.job_id', context.crawlJobId);
 }

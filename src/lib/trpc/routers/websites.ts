@@ -453,15 +453,15 @@ export const websitesRouter = createTRPCRouter({
   /**
    * Get website by ID
    */
-  getById: publicProcedure
+  getById: protectedProcedure
     .input(z.object({
       id: z.string().uuid(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const website = await db
         .select()
         .from(websites)
-        .where(eq(websites.id, input.id))
+        .where(and(eq(websites.id, input.id), eq(websites.userId, ctx.user!.id)))
         .limit(1);
 
       if (website.length === 0) {
@@ -474,15 +474,15 @@ export const websitesRouter = createTRPCRouter({
   /**
    * Get website by URL
    */
-  getByUrl: publicProcedure
+  getByUrl: protectedProcedure
     .input(z.object({
       url: z.string().url(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const website = await db
         .select()
         .from(websites)
-        .where(eq(websites.url, input.url))
+        .where(and(eq(websites.url, input.url), eq(websites.userId, ctx.user!.id)))
         .limit(1);
 
       return website.length > 0 ? website[0] : null;
@@ -491,15 +491,12 @@ export const websitesRouter = createTRPCRouter({
   /**
    * Get all websites for a user
    */
-  getByUser: publicProcedure
-    .input(z.object({
-      userId: z.string().optional().default('anonymous-user'),
-    }))
-    .query(async ({ input }) => {
+  getByUser: protectedProcedure
+    .query(async ({ ctx }) => {
       const userWebsites = await db
         .select()
         .from(websites)
-        .where(eq(websites.userId, input.userId))
+        .where(eq(websites.userId, ctx.user!.id))
         .orderBy(desc(websites.updatedAt));
 
       return userWebsites;
@@ -508,16 +505,16 @@ export const websitesRouter = createTRPCRouter({
   /**
    * Get website with latest analysis
    */
-  getWithLatestAnalysis: publicProcedure
+  getWithLatestAnalysis: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       // Get website info
       const website = await db
         .select()
         .from(websites)
-        .where(eq(websites.id, input.websiteId))
+        .where(and(eq(websites.id, input.websiteId), eq(websites.userId, ctx.user!.id)))
         .limit(1);
 
       if (website.length === 0) {

@@ -71,7 +71,7 @@ export function SentryErrorBoundary({ children, fallback: Fallback = DefaultErro
 
   // Use Sentry error boundary only in production
   return (
-    <ErrorBoundary fallback={Fallback} showDialog>
+    <ErrorBoundary fallback={() => <Fallback />} showDialog>
       {children}
     </ErrorBoundary>
   );

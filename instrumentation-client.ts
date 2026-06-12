@@ -34,8 +34,8 @@ if (process.env.NODE_ENV === 'production') {
         blockAllMedia: true,
         maskAllInputs: true,
         // Privacy-focused settings for production
-        maskTextSelectors: ['[data-sentry-mask]', '.sensitive-data'],
-        blockSelector: '[data-sentry-block]',
+        mask: ['[data-sentry-mask]', '.sensitive-data'],
+        block: ['[data-sentry-block]'],
       }),
       Sentry.browserTracingIntegration({
         // Track navigation and interactions

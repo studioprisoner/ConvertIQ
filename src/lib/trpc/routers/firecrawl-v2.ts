@@ -22,7 +22,7 @@ import {
 const extractOptionsSchema = z.object({
   urls: z.array(z.string().url()).min(1).max(10),
   prompt: z.string().min(10).max(1000),
-  schema: z.record(z.any()),
+  schema: z.record(z.string(), z.any()),
 });
 
 const batchScrapeOptionsSchema = z.object({
@@ -57,7 +57,7 @@ export const firecrawlV2Router = createTRPCRouter({
       urls: z.array(z.string().url()).min(1).max(5),
       extractionType: z.enum(['conversionAudit', 'ecommerceAnalysis', 'technicalSeoAudit', 'leadGenAudit', 'comprehensive']).default('conversionAudit'),
       customPrompt: z.string().optional(),
-      customSchema: z.record(z.any()).optional(),
+      customSchema: z.record(z.string(), z.any()).optional(),
     }))
     .mutation(withExtractionTracing(async ({ ctx, input }) => {
       const { user } = ctx;
@@ -136,7 +136,7 @@ export const firecrawlV2Router = createTRPCRouter({
 
         if (!extractResult.success) {
           const error = new TRPCError({
-            code: 'EXTERNAL_SERVICE_ERROR',
+            code: 'INTERNAL_SERVER_ERROR',
             message: `Firecrawl extraction failed: ${extractResult.error || 'Unknown error'}`
           });
           trackFirecrawlError(error, extractionContext, 'extract');
@@ -171,8 +171,8 @@ export const firecrawlV2Router = createTRPCRouter({
           fieldsExtracted: Object.keys(extractResult.data || {}).length,
           totalPossibleFields: Object.keys(config.schema || {}).length,
           dataQualityScore: extractResult.data ? 0.8 : 0.1,
-          tokenUsage: extractResult.metadata?.tokens,
-          costUsd: extractResult.metadata?.cost,
+          tokenUsage: undefined,
+          costUsd: undefined,
         });
 
         return {
@@ -264,8 +264,10 @@ export const firecrawlV2Router = createTRPCRouter({
         let batchResult;
         try {
           batchResult = await firecrawl.batchScrape(input.options.urls, {
-            formats: input.options.formats,
-            pageOptions: input.options.pageOptions,
+            options: {
+              formats: input.options.formats as any,
+              onlyMainContent: input.options.pageOptions?.onlyMainContent ?? true,
+            },
           });
         } catch (error) {
           if (error instanceof Error) {
@@ -278,10 +280,10 @@ export const firecrawlV2Router = createTRPCRouter({
           throw error;
         }
 
-        if (!batchResult.success) {
+        if (batchResult.status === 'failed') {
           const error = new TRPCError({
-            code: 'EXTERNAL_SERVICE_ERROR',
-            message: `Firecrawl batch scrape failed: ${batchResult.error || 'Unknown error'}`
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Firecrawl batch scrape failed`
           });
           trackFirecrawlError(error, extractionContext, 'scrape');
           throw error;
@@ -294,9 +296,8 @@ export const firecrawlV2Router = createTRPCRouter({
               .insert(analyses)
               .values({
                 websiteId: input.websiteId,
-                status: result.success ? 'completed' : 'failed',
-                rawData: result.success ? JSON.stringify(result) : undefined,
-                errorMessage: result.success ? undefined : 'Batch scrape failed for this URL',
+                status: 'completed',
+                rawData: JSON.stringify(result),
                 firecrawlVersion: 'v2',
                 batchJobId,
                 createdAt: new Date(),
@@ -310,7 +311,7 @@ export const firecrawlV2Router = createTRPCRouter({
 
         // Track batch processing metrics
         const processingTime = Date.now() - startTime;
-        const successCount = batchResult.data?.filter(r => r.success).length || 0;
+        const successCount = batchResult.data?.length || 0;
         const failedCount = (batchResult.data?.length || 0) - successCount;
 
         trackBatchProcessingMetrics(
@@ -414,11 +415,13 @@ export const firecrawlV2Router = createTRPCRouter({
         let crawlResult;
         try {
           crawlResult = await firecrawl.crawl(input.options.baseUrl, {
-            maxDepth: input.options.maxDepth,
-            maxLinks: input.options.maxLinks,
-            onlyDomain: input.options.onlyDomain,
-            formats: input.options.formats,
-            pageOptions: input.options.pageOptions,
+            maxDiscoveryDepth: input.options.maxDepth,
+            limit: input.options.maxLinks,
+            crawlEntireDomain: input.options.onlyDomain,
+            scrapeOptions: {
+              formats: input.options.formats as any,
+              onlyMainContent: input.options.pageOptions?.onlyMainContent ?? true,
+            },
           });
         } catch (error) {
           if (error instanceof Error) {
@@ -431,10 +434,10 @@ export const firecrawlV2Router = createTRPCRouter({
           throw error;
         }
 
-        if (!crawlResult.success) {
+        if (crawlResult.status === 'failed') {
           const error = new TRPCError({
-            code: 'EXTERNAL_SERVICE_ERROR',
-            message: `Firecrawl website crawl failed: ${crawlResult.error || 'Unknown error'}`
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Firecrawl website crawl failed`
           });
           trackFirecrawlError(error, extractionContext, 'crawl');
           throw error;
@@ -484,9 +487,8 @@ export const firecrawlV2Router = createTRPCRouter({
           maxLinks: input.options.maxLinks,
           baseUrl: input.options.baseUrl,
           pages: crawlResult.data?.map(page => ({
-            url: page.metadata?.sourceURL || page.url,
+            url: page.metadata?.sourceURL || page.metadata?.url || '',
             title: page.metadata?.title || 'Untitled',
-            wordCount: page.metadata?.wordCount || 0,
           })) || [],
           analysisIds: savedAnalyses.map(a => a.id),
         };
