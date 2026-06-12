@@ -1,8 +1,7 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
-// Mock environment variables for testing
-process.env.NODE_ENV = 'test';
+// Mock environment variables for testing (NODE_ENV is set by vitest itself)
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://test:test@localhost:5432/convertiq_test';
 process.env.POLAR_ACCESS_TOKEN = 'test-token';

@@ -13,8 +13,10 @@ export default defineConfig({
       '.next/**',
       'src/test/isolation/**'
     ],
-    deps: {
-      inline: ['@testing-library/react'],
+    server: {
+      deps: {
+        inline: ['@testing-library/react'],
+      },
     },
   },
   resolve: {

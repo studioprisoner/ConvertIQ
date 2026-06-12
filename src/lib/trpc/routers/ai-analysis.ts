@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure } from '../server';
+import { createTRPCRouter, publicProcedure, protectedProcedure } from '../server';
 // Restore real AI analysis engine now that database is fixed
 import { aiAnalysisEngine } from '@/lib/ai';
 import { analysisTypeSchema, aiAnalysisResultSchema } from '@/lib/ai/types';
@@ -230,7 +230,15 @@ const aiAnalysisDb = {
       return null;
     }
 
-    return JSON.parse(result[0].aiAnalysis);
+    try {
+      return JSON.parse(result[0].aiAnalysis);
+    } catch (err) {
+      console.error('getLatestAnalysis: failed to parse aiAnalysis JSON', {
+        analysisId: result[0].id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
   },
   getWebsiteAnalyses: async (websiteId: string) => {
     // Use static imports from top of file
@@ -249,7 +257,18 @@ const aiAnalysisDb = {
       id: result.id,
       status: result.status || 'unknown',
       createdAt: result.createdAt || new Date(),
-      aiAnalysis: result.aiAnalysis ? JSON.parse(result.aiAnalysis) : undefined,
+      aiAnalysis: (() => {
+        if (!result.aiAnalysis) return undefined;
+        try {
+          return JSON.parse(result.aiAnalysis);
+        } catch (err) {
+          console.error('getWebsiteAnalyses: failed to parse aiAnalysis JSON', {
+            analysisId: result.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return undefined;
+        }
+      })(),
     }));
   },
   getAnalysisById: async (analysisId: string) => {
@@ -270,11 +289,19 @@ const aiAnalysisDb = {
       return null;
     }
 
-    return {
-      analysis: JSON.parse(result[0].analysis),
-      crawlData: JSON.parse(result[0].rawData),
-      website: result[0].website,
-    };
+    try {
+      return {
+        analysis: JSON.parse(result[0].analysis),
+        crawlData: JSON.parse(result[0].rawData),
+        website: result[0].website,
+      };
+    } catch (err) {
+      console.error('getAnalysisById: failed to parse analysis or rawData JSON', {
+        analysisId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
   },
   getAnalysisStats: async () => ({ totalAnalyses: 0, completedAnalyses: 0, failedAnalyses: 0, averageScore: 0 }),
   updateAnalysisWithAI: async () => {}
@@ -803,14 +830,25 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Get latest analysis for a website - TEMPORARILY SIMPLIFIED
-  getLatestAnalysis: publicProcedure
+  getLatestAnalysis: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       console.log('📊 Getting latest analysis (mock) for website:', input.websiteId);
-      
+
       try {
+        // Ownership check: the website must belong to the caller
+        const ownedWebsite = await db
+          .select({ id: websites.id })
+          .from(websites)
+          .where(and(eq(websites.id, input.websiteId), eq(websites.userId, ctx.user!.id)))
+          .limit(1);
+
+        if (ownedWebsite.length === 0) {
+          return null;
+        }
+
         const analysis = await aiAnalysisDb.getLatestAnalysis(input.websiteId);
         
         if (!analysis) {
@@ -826,14 +864,25 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Get all analyses for a website - TEMPORARILY SIMPLIFIED
-  getWebsiteAnalyses: publicProcedure
+  getWebsiteAnalyses: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       console.log('📊 Getting all analyses (mock) for website:', input.websiteId);
-      
+
       try {
+        // Ownership check: the website must belong to the caller
+        const ownedWebsite = await db
+          .select({ id: websites.id })
+          .from(websites)
+          .where(and(eq(websites.id, input.websiteId), eq(websites.userId, ctx.user!.id)))
+          .limit(1);
+
+        if (ownedWebsite.length === 0) {
+          return [];
+        }
+
         const analyses = await aiAnalysisDb.getWebsiteAnalyses(input.websiteId);
         
         console.log('📊 Found (mock)', analyses.length, 'analyses for website');
@@ -845,17 +894,19 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Get specific analysis by ID - TEMPORARILY SIMPLIFIED
-  getAnalysisById: publicProcedure
+  getAnalysisById: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       console.log('📊 Getting analysis by ID (mock):', input.analysisId);
-      
+
       try {
         const result = await aiAnalysisDb.getAnalysisById(input.analysisId);
-        
-        if (!result) {
+
+        // Ownership check: the joined website must belong to the caller.
+        // Returns the same "not found" as a missing row so IDs can't be probed.
+        if (!result || result.website?.userId !== ctx.user!.id) {
           throw new Error('Analysis not found');
         }
         
