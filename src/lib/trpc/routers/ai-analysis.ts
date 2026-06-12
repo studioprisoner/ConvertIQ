@@ -307,6 +307,24 @@ const aiAnalysisDb = {
   updateAnalysisWithAI: async () => {}
 };
 
+/**
+ * Throws unless the analysis exists AND its website belongs to the given user.
+ * Unowned and missing IDs produce the identical error so analysis IDs cannot
+ * be probed.
+ */
+async function assertAnalysisOwnership(analysisId: string, userId: string): Promise<void> {
+  const owned = await db
+    .select({ id: analyses.id })
+    .from(analyses)
+    .leftJoin(websites, eq(analyses.websiteId, websites.id))
+    .where(and(eq(analyses.id, analysisId), eq(websites.userId, userId)))
+    .limit(1);
+
+  if (owned.length === 0) {
+    throw new Error('Analysis not found');
+  }
+}
+
 const embeddingQueue = {
   backfillEmbeddings: async () => {},
   getStatus: () => ({ pending: 0, processing: 0, completed: 0 }),
@@ -997,15 +1015,16 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Re-trigger individual analysis sections - TEMPORARILY SIMPLIFIED
-  retriggerConversionAnalysis: publicProcedure
+  retriggerConversionAnalysis: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
       websiteId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔄 Re-triggering conversion analysis (mock) for:', input.analysisId);
-      
+
       try {
+        await assertAnalysisOwnership(input.analysisId, ctx.user!.id);
         // Mock re-trigger process
         console.log('✅ Conversion analysis re-triggered successfully (mock)');
         return {
@@ -1021,15 +1040,16 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  retriggerUXAnalysis: publicProcedure
+  retriggerUXAnalysis: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
       websiteId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔄 Re-triggering UX analysis (mock) for:', input.analysisId);
-      
+
       try {
+        await assertAnalysisOwnership(input.analysisId, ctx.user!.id);
         // Mock re-trigger process
         console.log('✅ UX analysis re-triggered successfully (mock)');
         return {
@@ -1045,14 +1065,15 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  retriggerSEOAnalysis: publicProcedure
+  retriggerSEOAnalysis: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔄 Re-triggering SEO analysis (mock) for:', input.analysisId);
-      
+
       try {
+        await assertAnalysisOwnership(input.analysisId, ctx.user!.id);
         // Mock re-trigger process
         console.log('✅ SEO analysis re-triggered successfully (mock)');
         return {
@@ -1069,15 +1090,16 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Re-trigger all failed sections of an analysis - TEMPORARILY SIMPLIFIED
-  retriggerFailedSections: publicProcedure
+  retriggerFailedSections: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
       websiteId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔄 Re-triggering all failed sections (mock) for:', input.analysisId);
-      
+
       try {
+        await assertAnalysisOwnership(input.analysisId, ctx.user!.id);
         // Mock re-trigger process
         const mockFailedSections = ['conversion_psychology', 'ux_analysis'];
         const mockSuccessfulSections = ['conversion_psychology'];
