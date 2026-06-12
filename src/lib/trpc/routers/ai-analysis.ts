@@ -230,7 +230,15 @@ const aiAnalysisDb = {
       return null;
     }
 
-    return JSON.parse(result[0].aiAnalysis);
+    try {
+      return JSON.parse(result[0].aiAnalysis);
+    } catch (err) {
+      console.error('getLatestAnalysis: failed to parse aiAnalysis JSON', {
+        analysisId: result[0].id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
   },
   getWebsiteAnalyses: async (websiteId: string) => {
     // Use static imports from top of file
@@ -249,7 +257,18 @@ const aiAnalysisDb = {
       id: result.id,
       status: result.status || 'unknown',
       createdAt: result.createdAt || new Date(),
-      aiAnalysis: result.aiAnalysis ? JSON.parse(result.aiAnalysis) : undefined,
+      aiAnalysis: (() => {
+        if (!result.aiAnalysis) return undefined;
+        try {
+          return JSON.parse(result.aiAnalysis);
+        } catch (err) {
+          console.error('getWebsiteAnalyses: failed to parse aiAnalysis JSON', {
+            analysisId: result.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return undefined;
+        }
+      })(),
     }));
   },
   getAnalysisById: async (analysisId: string) => {
@@ -270,11 +289,19 @@ const aiAnalysisDb = {
       return null;
     }
 
-    return {
-      analysis: JSON.parse(result[0].analysis),
-      crawlData: JSON.parse(result[0].rawData),
-      website: result[0].website,
-    };
+    try {
+      return {
+        analysis: JSON.parse(result[0].analysis),
+        crawlData: JSON.parse(result[0].rawData),
+        website: result[0].website,
+      };
+    } catch (err) {
+      console.error('getAnalysisById: failed to parse analysis or rawData JSON', {
+        analysisId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
   },
   getAnalysisStats: async () => ({ totalAnalyses: 0, completedAnalyses: 0, failedAnalyses: 0, averageScore: 0 }),
   updateAnalysisWithAI: async () => {}
