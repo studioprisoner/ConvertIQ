@@ -148,8 +148,6 @@ export default function ScanPage() {
             respectRobots: true,
             includeRawHtml: false,
           },
-          userId: session?.user?.id,
-          userEmail: session?.user?.email,
         });
       } else {
         console.log("🕷️ Using standard crawling");

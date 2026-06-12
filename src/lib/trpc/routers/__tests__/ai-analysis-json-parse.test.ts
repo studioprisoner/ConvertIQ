@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { aiAnalysisRouter } from '../ai-analysis';
 import { reportsRouter } from '../reports-simple';
+import { urlRouter } from '../urls';
 import { db } from '@/db/connection';
 
 // Mock the database connection used by ai-analysis.ts
@@ -173,6 +174,71 @@ describe('ai-analysis router — auth, ownership, and JSON.parse resilience (CON
       const result = await caller.retriggerFailedSections(WEBSITE_INPUT);
       expect(result.success).toBe(true);
       expect(result.analysisId).toBe(ANALYSIS_ID);
+    });
+  });
+
+  describe('AI-spend and embedding endpoints — auth (CON-104)', () => {
+    // Minimal object satisfying crawlResultSchema (src/lib/crawler/types.ts)
+    const minimalCrawlData = {
+      url: 'https://example.com',
+      timestamp: new Date('2026-01-01T00:00:00Z').toISOString(),
+      statusCode: 200,
+      htmlAnalysis: {
+        meta: {},
+        headings: [],
+        images: [],
+        links: [],
+        forms: [],
+        ctas: [],
+        structure: {
+          hasHeader: true,
+          hasNavigation: true,
+          hasFooter: true,
+          hasSidebar: false,
+          hasHeroSection: true,
+          sectionsCount: 3,
+          wordCount: 500,
+        },
+      },
+      cssAnalysis: {
+        externalStylesheets: [],
+        hasInlineStyles: false,
+        frameworks: [],
+        responsive: { hasViewportMeta: true, hasMediaQueries: true },
+      },
+      performance: {
+        loadTime: 1000,
+        htmlSize: 50000,
+        totalResourcesCount: 10,
+        imagesWithoutAlt: 0,
+        imagesWithoutSize: 0,
+        externalResourcesCount: 5,
+      },
+      errors: [],
+    };
+
+    it('analyze rejects unauthenticated callers', async () => {
+      await expect(
+        anonCaller.analyze({ crawlData: minimalCrawlData, websiteId: WEBSITE_ID })
+      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+
+    it("analyze refuses a websiteId the caller doesn't own", async () => {
+      setDbQueue([]); // ownership pre-check finds nothing
+      await expect(
+        caller.analyze({ crawlData: minimalCrawlData, websiteId: WEBSITE_ID })
+      ).rejects.toThrow(/Website not found/);
+    });
+
+    it('generateEmbedding and backfillEmbeddings reject unauthenticated callers', async () => {
+      await expect(anonCaller.backfillEmbeddings()).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+
+    it('url.crawl and url.crawlEnhanced reject unauthenticated callers', async () => {
+      const anonUrlCaller = urlRouter.createCaller(anonCtx);
+      await expect(anonUrlCaller.crawl({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+      await expect(anonUrlCaller.crawlEnhanced({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+      await expect(anonUrlCaller.validate({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
     });
   });
 
