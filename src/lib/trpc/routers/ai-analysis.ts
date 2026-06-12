@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure } from '../server';
+import { createTRPCRouter, publicProcedure, protectedProcedure } from '../server';
 // Restore real AI analysis engine now that database is fixed
 import { aiAnalysisEngine } from '@/lib/ai';
 import { analysisTypeSchema, aiAnalysisResultSchema } from '@/lib/ai/types';
@@ -830,14 +830,25 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Get latest analysis for a website - TEMPORARILY SIMPLIFIED
-  getLatestAnalysis: publicProcedure
+  getLatestAnalysis: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       console.log('📊 Getting latest analysis (mock) for website:', input.websiteId);
-      
+
       try {
+        // Ownership check: the website must belong to the caller
+        const ownedWebsite = await db
+          .select({ id: websites.id })
+          .from(websites)
+          .where(and(eq(websites.id, input.websiteId), eq(websites.userId, ctx.user!.id)))
+          .limit(1);
+
+        if (ownedWebsite.length === 0) {
+          return null;
+        }
+
         const analysis = await aiAnalysisDb.getLatestAnalysis(input.websiteId);
         
         if (!analysis) {
@@ -853,14 +864,25 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Get all analyses for a website - TEMPORARILY SIMPLIFIED
-  getWebsiteAnalyses: publicProcedure
+  getWebsiteAnalyses: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       console.log('📊 Getting all analyses (mock) for website:', input.websiteId);
-      
+
       try {
+        // Ownership check: the website must belong to the caller
+        const ownedWebsite = await db
+          .select({ id: websites.id })
+          .from(websites)
+          .where(and(eq(websites.id, input.websiteId), eq(websites.userId, ctx.user!.id)))
+          .limit(1);
+
+        if (ownedWebsite.length === 0) {
+          return [];
+        }
+
         const analyses = await aiAnalysisDb.getWebsiteAnalyses(input.websiteId);
         
         console.log('📊 Found (mock)', analyses.length, 'analyses for website');
@@ -872,17 +894,19 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Get specific analysis by ID - TEMPORARILY SIMPLIFIED
-  getAnalysisById: publicProcedure
+  getAnalysisById: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       console.log('📊 Getting analysis by ID (mock):', input.analysisId);
-      
+
       try {
         const result = await aiAnalysisDb.getAnalysisById(input.analysisId);
-        
-        if (!result) {
+
+        // Ownership check: the joined website must belong to the caller.
+        // Returns the same "not found" as a missing row so IDs can't be probed.
+        if (!result || result.website?.userId !== ctx.user!.id) {
           throw new Error('Analysis not found');
         }
         
