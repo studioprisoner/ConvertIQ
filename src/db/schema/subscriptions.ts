@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, boolean, uuid, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, boolean, uuid, jsonb, index } from 'drizzle-orm/pg-core';
 import { user } from './auth';
 
 // Subscription plans table
@@ -44,10 +44,15 @@ export const subscriptions = pgTable('subscriptions', {
   
   // Metadata
   metadata: jsonb('metadata'), // Store additional Polar metadata
-  
+
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (table) => [
+  // FK checked on every feature-gated procedure
+  index('subscriptions_user_id_idx').on(table.userId),
+  // Common lookup: active subscription for a user
+  index('subscriptions_user_status_idx').on(table.userId, table.status),
+]);
 
 // Plan prices mapping to Polar
 export const planPrices = pgTable('plan_prices', {
@@ -59,7 +64,9 @@ export const planPrices = pgTable('plan_prices', {
   currency: text('currency').default('USD'),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('plan_prices_plan_id_idx').on(table.planId),
+]);
 
 // Usage tracking table for monitoring plan limits
 export const usageTracking = pgTable('usage_tracking', {
@@ -74,10 +81,12 @@ export const usageTracking = pgTable('usage_tracking', {
   // Tracking period
   periodStart: timestamp('period_start').notNull(),
   periodEnd: timestamp('period_end').notNull(),
-  
+
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (table) => [
+  index('usage_tracking_user_id_idx').on(table.userId),
+]);
 
 // Subscription events for audit trail
 export const subscriptionEvents = pgTable('subscription_events', {
@@ -91,9 +100,11 @@ export const subscriptionEvents = pgTable('subscription_events', {
   // Polar webhook info
   polarEventId: text('polar_event_id'),
   processed: boolean('processed').default(false),
-  
+
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('subscription_events_subscription_id_idx').on(table.subscriptionId),
+]);
 
 // Plan feature definitions for granular feature gating
 export const planFeatures = pgTable('plan_features', {
@@ -118,7 +129,9 @@ export const featureUsage = pgTable('feature_usage', {
   periodEnd: timestamp('period_end').notNull(),
   metadata: jsonb('metadata'), // Store additional usage context
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('feature_usage_user_id_idx').on(table.userId),
+]);
 
 // Feature access attempts for conversion analytics
 export const featureAccessAttempts = pgTable('feature_access_attempts', {
@@ -131,4 +144,6 @@ export const featureAccessAttempts = pgTable('feature_access_attempts', {
   upgradeCompleted: boolean('upgrade_completed').default(false),
   sessionId: text('session_id'), // Track user session for funnel analysis
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('feature_access_attempts_user_id_idx').on(table.userId),
+]);

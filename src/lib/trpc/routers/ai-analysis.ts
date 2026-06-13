@@ -307,6 +307,40 @@ const aiAnalysisDb = {
   updateAnalysisWithAI: async () => {}
 };
 
+/**
+ * Throws unless the analysis exists AND its website belongs to the given user.
+ * Unowned and missing IDs produce the identical error so analysis IDs cannot
+ * be probed.
+ */
+async function assertAnalysisOwnership(analysisId: string, userId: string): Promise<void> {
+  const owned = await db
+    .select({ id: analyses.id })
+    .from(analyses)
+    .leftJoin(websites, eq(analyses.websiteId, websites.id))
+    .where(and(eq(analyses.id, analysisId), eq(websites.userId, userId)))
+    .limit(1);
+
+  if (owned.length === 0) {
+    throw new Error('Analysis not found');
+  }
+}
+
+/**
+ * Throws unless the website exists AND belongs to the given user. Unowned and
+ * missing IDs produce the identical error so website IDs cannot be probed.
+ */
+async function assertWebsiteOwnership(websiteId: string, userId: string): Promise<void> {
+  const owned = await db
+    .select({ id: websites.id })
+    .from(websites)
+    .where(and(eq(websites.id, websiteId), eq(websites.userId, userId)))
+    .limit(1);
+
+  if (owned.length === 0) {
+    throw new Error('Website not found');
+  }
+}
+
 const embeddingQueue = {
   backfillEmbeddings: async () => {},
   getStatus: () => ({ pending: 0, processing: 0, completed: 0 }),
@@ -315,7 +349,7 @@ const embeddingQueue = {
 
 export const aiAnalysisRouter = createTRPCRouter({
   // Test AI connection
-  testConnection: publicProcedure
+  testConnection: protectedProcedure
     .query(async () => {
       console.log('🤖 Testing AI connection (mock)...');
       
@@ -335,7 +369,7 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Analyze crawl data with AI and save to database - TEMPORARILY SIMPLIFIED
-  analyze: publicProcedure
+  analyze: protectedProcedure
     .input(z.object({
       crawlData: crawlResultSchema,
       websiteId: z.string().uuid(),
@@ -345,10 +379,11 @@ export const aiAnalysisRouter = createTRPCRouter({
       useEnhancedAnalysis: z.boolean().default(false),
       extractionResults: z.any().nullable().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🤖 AI analysis starting for:', input.crawlData?.url || 'unknown URL', 'Type:', input.analysisType, 'Firecrawl Version:', input.firecrawlVersion);
-      
+
       try {
+        await assertWebsiteOwnership(input.websiteId, ctx.user!.id);
         // Create a comprehensive analysis result with rich data
         const overallScore = Math.floor(Math.random() * 30) + 70;
         const result = {
@@ -686,21 +721,20 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Enhanced analysis using v2 extraction data - TEMPORARILY SIMPLIFIED
-  analyzeEnhanced: publicProcedure
+  analyzeEnhanced: protectedProcedure
     .input(z.object({
       crawlData: crawlResultSchema,
       extractedData: z.any(), // ExtractedData type
       websiteId: z.string().uuid(),
       analysisType: analysisTypeSchema.default('comprehensive'),
       saveToDb: z.boolean().default(true),
-      userId: z.string().optional(),
-      userEmail: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🚀 Enhanced AI analysis starting (mock) for:', input.crawlData.url, 'Type:', input.analysisType);
       console.log('📊 Enhanced extraction data available:', !!input.extractedData);
-      
+
       try {
+        await assertWebsiteOwnership(input.websiteId, ctx.user!.id);
         // Mock enhanced analysis result
         const result = {
           type: input.analysisType,
@@ -732,15 +766,16 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Quick conversion psychology analysis - TEMPORARILY SIMPLIFIED
-  analyzeConversion: publicProcedure
+  analyzeConversion: protectedProcedure
     .input(z.object({
       crawlData: crawlResultSchema,
       websiteId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🎯 Conversion analysis starting (mock) for:', input.crawlData.url);
-      
+
       try {
+        await assertWebsiteOwnership(input.websiteId, ctx.user!.id);
         const result = await aiAnalysisEngine.analyze(
           input.crawlData,
           input.websiteId,
@@ -756,15 +791,16 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Quick UX analysis - TEMPORARILY SIMPLIFIED
-  analyzeUX: publicProcedure
+  analyzeUX: protectedProcedure
     .input(z.object({
       crawlData: crawlResultSchema,
       websiteId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🎨 UX analysis starting (mock) for:', input.crawlData.url);
-      
+
       try {
+        await assertWebsiteOwnership(input.websiteId, ctx.user!.id);
         const result = await aiAnalysisEngine.analyze(
           input.crawlData,
           input.websiteId,
@@ -780,15 +816,16 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Quick SEO analysis - TEMPORARILY SIMPLIFIED
-  analyzeSEO: publicProcedure
+  analyzeSEO: protectedProcedure
     .input(z.object({
       crawlData: crawlResultSchema,
       websiteId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔍 SEO analysis starting (mock) for:', input.crawlData.url);
-      
+
       try {
+        await assertWebsiteOwnership(input.websiteId, ctx.user!.id);
         const result = await aiAnalysisEngine.analyze(
           input.crawlData,
           input.websiteId,
@@ -804,7 +841,7 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Validate analysis result
-  validateResult: publicProcedure
+  validateResult: protectedProcedure
     .input(aiAnalysisResultSchema)
     .mutation(async ({ input }) => {
       console.log('✅ Validating AI analysis result for website:', input.websiteId);
@@ -919,7 +956,7 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Get analysis statistics - TEMPORARILY SIMPLIFIED
-  getStats: publicProcedure
+  getStats: protectedProcedure
     .query(async () => {
       console.log('📈 Getting analysis statistics (mock)');
       
@@ -935,7 +972,7 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Admin: Backfill embeddings for existing analyses - TEMPORARILY SIMPLIFIED
-  backfillEmbeddings: publicProcedure
+  backfillEmbeddings: protectedProcedure
     .mutation(async () => {
       console.log('🔮 Starting embedding backfill process (mock)');
       
@@ -954,7 +991,7 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Admin: Get embedding queue status - TEMPORARILY SIMPLIFIED
-  getEmbeddingQueueStatus: publicProcedure
+  getEmbeddingQueueStatus: protectedProcedure
     .query(async () => {
       console.log('🔮 Getting embedding queue status (mock)');
       
@@ -970,7 +1007,7 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Admin: Generate embedding for specific analysis - TEMPORARILY SIMPLIFIED
-  generateEmbedding: publicProcedure
+  generateEmbedding: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
       priority: z.enum(['normal', 'high']).default('high'),
@@ -997,15 +1034,16 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Re-trigger individual analysis sections - TEMPORARILY SIMPLIFIED
-  retriggerConversionAnalysis: publicProcedure
+  retriggerConversionAnalysis: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
       websiteId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔄 Re-triggering conversion analysis (mock) for:', input.analysisId);
-      
+
       try {
+        await assertAnalysisOwnership(input.analysisId, ctx.user!.id);
         // Mock re-trigger process
         console.log('✅ Conversion analysis re-triggered successfully (mock)');
         return {
@@ -1021,15 +1059,16 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  retriggerUXAnalysis: publicProcedure
+  retriggerUXAnalysis: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
       websiteId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔄 Re-triggering UX analysis (mock) for:', input.analysisId);
-      
+
       try {
+        await assertAnalysisOwnership(input.analysisId, ctx.user!.id);
         // Mock re-trigger process
         console.log('✅ UX analysis re-triggered successfully (mock)');
         return {
@@ -1045,14 +1084,15 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  retriggerSEOAnalysis: publicProcedure
+  retriggerSEOAnalysis: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔄 Re-triggering SEO analysis (mock) for:', input.analysisId);
-      
+
       try {
+        await assertAnalysisOwnership(input.analysisId, ctx.user!.id);
         // Mock re-trigger process
         console.log('✅ SEO analysis re-triggered successfully (mock)');
         return {
@@ -1069,15 +1109,16 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Re-trigger all failed sections of an analysis - TEMPORARILY SIMPLIFIED
-  retriggerFailedSections: publicProcedure
+  retriggerFailedSections: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
       websiteId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔄 Re-triggering all failed sections (mock) for:', input.analysisId);
-      
+
       try {
+        await assertAnalysisOwnership(input.analysisId, ctx.user!.id);
         // Mock re-trigger process
         const mockFailedSections = ['conversion_psychology', 'ux_analysis'];
         const mockSuccessfulSections = ['conversion_psychology'];
@@ -1098,7 +1139,7 @@ export const aiAnalysisRouter = createTRPCRouter({
     }),
 
   // Check analysis metadata for fallback indicators - TEMPORARILY SIMPLIFIED
-  getAnalysisMetadata: publicProcedure
+  getAnalysisMetadata: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
     }))

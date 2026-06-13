@@ -28,6 +28,8 @@ export const websites = pgTable('websites', {
 }, (table) => [
   // Website page type index
   index('websites_page_type_idx').on(table.pageType),
+  // FK queried on every dashboard load and website list
+  index('websites_user_id_idx').on(table.userId),
 ]);
 
 // Relations

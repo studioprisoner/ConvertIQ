@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure } from '../server';
+import { createTRPCRouter, publicProcedure, protectedProcedure } from '../server';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/db/connection';
 import { websites } from '@/db/schema/websites';
 import { analyses } from '@/db/schema/analyses';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 // Import report services
 import { marketingReportGenerator } from '@/lib/reports/generators/marketing-report';
@@ -815,15 +815,17 @@ export const reportsRouter = createTRPCRouter({
   /**
    * Retrigger a pending or failed analysis
    */
-  retriggerAnalysis: publicProcedure
+  retriggerAnalysis: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         console.log('🔄 Retrigger request received for analysis:', input.analysisId);
-        
-        // Get the analysis and verify it exists
+
+        // Get the analysis and verify it exists AND belongs to the caller.
+        // Unowned and missing IDs return the same NOT_FOUND so analysis IDs
+        // cannot be probed.
         const [analysis] = await db
           .select({
             id: analyses.id,
@@ -832,7 +834,8 @@ export const reportsRouter = createTRPCRouter({
             errorMessage: analyses.errorMessage,
           })
           .from(analyses)
-          .where(eq(analyses.id, input.analysisId))
+          .leftJoin(websites, eq(analyses.websiteId, websites.id))
+          .where(and(eq(analyses.id, input.analysisId), eq(websites.userId, ctx.user!.id)))
           .limit(1);
 
         if (!analysis) {

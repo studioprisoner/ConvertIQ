@@ -23,24 +23,25 @@ export const urlRouter = createTRPCRouter({
       return { success: true, echo: input.message };
     }),
 
-  validate: publicProcedure
+  validate: protectedProcedure
     .input(z.object({
       url: z.string().url(),
       pageType: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       console.log('tRPC url.validate received input:', JSON.stringify(input, null, 2));
-      
+
       if (!input) {
         throw new Error('Input is undefined');
       }
-      
+
       const { url, pageType } = input;
-      
+
       // Convert pageType to the expected enum type
       const validPageType = pageType as 'homepage' | 'product' | 'service' | 'landing' | 'other' | undefined;
-      
-      // Perform comprehensive URL validation (without user context for public access)
+
+      // Perform comprehensive URL validation (auth required: triggers
+      // server-side DNS resolution and an outbound HEAD fetch)
       const result = await validateUrl(url, validPageType);
       
       console.log('tRPC url.validate returning result:', JSON.stringify(result, null, 2));
@@ -86,7 +87,7 @@ export const urlRouter = createTRPCRouter({
     }),
 
   // Crawl a website and extract content (legacy v1 method)
-  crawl: publicProcedure
+  crawl: protectedProcedure
     .input(z.object({
       url: z.string().url(),
       options: crawlerOptionsSchema.optional(),
@@ -107,23 +108,22 @@ export const urlRouter = createTRPCRouter({
     }),
 
   // Enhanced crawl with v2 extraction capabilities
-  crawlEnhanced: publicProcedure
+  crawlEnhanced: protectedProcedure
     .input(z.object({
       url: z.string().url(),
       options: crawlerOptionsSchema.optional(),
-      userId: z.string().optional(),
-      userEmail: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🚀 tRPC url.crawlEnhanced received input:', JSON.stringify(input, null, 2));
-      
-      const { url, options = {}, userId, userEmail } = input;
-      
+
+      const { url, options = {} } = input;
+
       // Create crawler instance with options
       const crawler = new WebCrawler(options);
-      
-      // Perform enhanced crawl with feature flag support
-      const result = await crawler.crawlWithEnhancedExtraction(url, userId, userEmail);
+
+      // Perform enhanced crawl with feature flag support — identity comes from
+      // the session, never from the caller (CON-104)
+      const result = await crawler.crawlWithEnhancedExtraction(url, ctx.user!.id, ctx.user!.email ?? undefined);
       
       console.log('🚀 tRPC url.crawlEnhanced completed for:', url);
       console.log(`📊 Extraction version used: ${result.extractionMetadata.extractionVersion}`);

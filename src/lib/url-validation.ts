@@ -1,6 +1,103 @@
 import { z } from 'zod';
 import { validateDomainAccess } from './domain-validation';
 
+// ---------------------------------------------------------------------------
+// SSRF guard (CON-94)
+//
+// This module is imported by client components (for the zod schema and
+// detectPageType), so it must stay free of top-level Node imports. The pure
+// IP checks below run anywhere; the DNS resolution in assertPublicTarget is
+// dynamically imported and only runs server-side.
+// ---------------------------------------------------------------------------
+
+function parseIPv4(host: string): number[] | null {
+  const match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!match) return null;
+  const octets = match.slice(1).map(Number);
+  return octets.every(o => o <= 255) ? octets : null;
+}
+
+/** Returns true if the IP (v4 or v6) is private, loopback, link-local, or otherwise non-public. */
+export function isPrivateIp(ip: string): boolean {
+  const v4 = parseIPv4(ip);
+  if (v4) {
+    const [a, b] = v4;
+    return (
+      a === 0 ||                            // 0.0.0.0/8
+      a === 10 ||                           // 10.0.0.0/8
+      a === 127 ||                          // loopback
+      (a === 169 && b === 254) ||           // link-local / cloud metadata
+      (a === 172 && b >= 16 && b <= 31) ||  // 172.16.0.0/12
+      (a === 192 && b === 168) ||           // 192.168.0.0/16
+      (a === 100 && b >= 64 && b <= 127)    // 100.64.0.0/10 CGNAT
+    );
+  }
+  if (ip.includes(':')) {
+    const lower = ip.toLowerCase();
+    if (lower === '::' || lower === '::1') return true;                 // unspecified / loopback
+    if (lower.startsWith('fe80:')) return true;                          // link-local
+    if (lower.startsWith('fc') || lower.startsWith('fd')) return true;   // unique-local
+    const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);          // IPv4-mapped IPv6
+    if (mapped) return isPrivateIp(mapped[1]);
+    return false;
+  }
+  return false; // not an IP literal
+}
+
+/**
+ * Async SSRF guard: rejects URLs whose hostname is an IP literal in a private
+ * range, an obviously internal name, or whose DNS resolution includes any
+ * private address. DNS resolution only runs server-side; in the browser the
+ * pure checks still apply and the server re-validates.
+ *
+ * Known limitation: DNS is checked at validation time, not pinned into the
+ * subsequent fetch, so a malicious resolver could still rebind. Closing that
+ * requires a custom dispatcher and is deferred.
+ */
+export async function assertPublicTarget(url: string): Promise<{ safe: boolean; reason?: string }> {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname.replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+  } catch {
+    return { safe: false, reason: 'Invalid URL' };
+  }
+
+  // IP literals (the WHATWG URL parser normalises decimal/octal/hex encodings
+  // like http://2130706433/ to dotted-quad form before we get here)
+  if (parseIPv4(hostname) || hostname.includes(':')) {
+    return isPrivateIp(hostname)
+      ? { safe: false, reason: 'Cannot scan private or internal IP addresses' }
+      : { safe: true };
+  }
+
+  // Obvious non-public hostnames, before DNS
+  if (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname.endsWith('.local') ||
+    hostname.endsWith('.internal')
+  ) {
+    return { safe: false, reason: 'Cannot scan local or internal hostnames' };
+  }
+
+  // DNS resolution check — server-side only
+  if (typeof window !== 'undefined') {
+    return { safe: true };
+  }
+  try {
+    const { lookup } = await import('node:dns/promises');
+    const records = await lookup(hostname, { all: true, verbatim: true });
+    for (const record of records) {
+      if (isPrivateIp(record.address)) {
+        return { safe: false, reason: 'Hostname resolves to a private or internal address' };
+      }
+    }
+    return { safe: true };
+  } catch {
+    return { safe: false, reason: 'Hostname could not be resolved' };
+  }
+}
+
 // URL validation schema
 export const urlValidationSchema = z.object({
   url: z.string()
@@ -139,6 +236,17 @@ export async function validateUrl(
 
   // Detect page type if not provided
   const detectedPageType = userPageType || detectPageType(url);
+
+  // SSRF guard: block private/internal targets (IP literals, internal names,
+  // and hostnames resolving to private addresses)
+  const ssrfCheck = await assertPublicTarget(url);
+  if (!ssrfCheck.safe) {
+    return {
+      isValid: false,
+      pageType: detectedPageType,
+      error: ssrfCheck.reason,
+    };
+  }
 
   // Check domain access for basic plan users
   if (userPlan === 'basic') {

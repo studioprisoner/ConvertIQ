@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { aiAnalysisRouter } from '../ai-analysis';
+import { reportsRouter } from '../reports-simple';
+import { urlRouter } from '../urls';
 import { db } from '@/db/connection';
 
 // Mock the database connection used by ai-analysis.ts
@@ -144,6 +146,134 @@ describe('ai-analysis router — auth, ownership, and JSON.parse resilience (CON
       expect(result).toHaveLength(2);
       expect(result[0].aiAnalysis).toEqual({ overallScore: 8 });
       expect(result[1].aiAnalysis).toBeUndefined();
+    });
+  });
+
+  describe('retrigger procedures — auth and ownership (CON-103)', () => {
+    const WEBSITE_INPUT = { analysisId: ANALYSIS_ID, websiteId: WEBSITE_ID };
+
+    it('all four retrigger procedures reject unauthenticated callers', async () => {
+      await expect(anonCaller.retriggerConversionAnalysis(WEBSITE_INPUT)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+      await expect(anonCaller.retriggerUXAnalysis(WEBSITE_INPUT)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+      await expect(anonCaller.retriggerSEOAnalysis({ analysisId: ANALYSIS_ID })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+      await expect(anonCaller.retriggerFailedSections(WEBSITE_INPUT)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+
+    it('retriggerConversionAnalysis reports not-found for an analysis the caller does not own', async () => {
+      setDbQueue([]); // ownership join finds nothing
+      await expect(caller.retriggerConversionAnalysis(WEBSITE_INPUT)).rejects.toThrow(/Analysis not found/);
+    });
+
+    it('retriggerSEOAnalysis reports not-found for an unowned analysis (no websiteId input)', async () => {
+      setDbQueue([]);
+      await expect(caller.retriggerSEOAnalysis({ analysisId: ANALYSIS_ID })).rejects.toThrow(/Analysis not found/);
+    });
+
+    it('retriggerFailedSections succeeds for an owned analysis', async () => {
+      setDbQueue([{ id: ANALYSIS_ID }]); // ownership check passes
+      const result = await caller.retriggerFailedSections(WEBSITE_INPUT);
+      expect(result.success).toBe(true);
+      expect(result.analysisId).toBe(ANALYSIS_ID);
+    });
+  });
+
+  describe('AI-spend and embedding endpoints — auth (CON-104)', () => {
+    // Minimal object satisfying crawlResultSchema (src/lib/crawler/types.ts)
+    const minimalCrawlData = {
+      url: 'https://example.com',
+      timestamp: new Date('2026-01-01T00:00:00Z').toISOString(),
+      statusCode: 200,
+      htmlAnalysis: {
+        meta: {},
+        headings: [],
+        images: [],
+        links: [],
+        forms: [],
+        ctas: [],
+        structure: {
+          hasHeader: true,
+          hasNavigation: true,
+          hasFooter: true,
+          hasSidebar: false,
+          hasHeroSection: true,
+          sectionsCount: 3,
+          wordCount: 500,
+        },
+      },
+      cssAnalysis: {
+        externalStylesheets: [],
+        hasInlineStyles: false,
+        frameworks: [],
+        responsive: { hasViewportMeta: true, hasMediaQueries: true },
+      },
+      performance: {
+        loadTime: 1000,
+        htmlSize: 50000,
+        totalResourcesCount: 10,
+        imagesWithoutAlt: 0,
+        imagesWithoutSize: 0,
+        externalResourcesCount: 5,
+      },
+      errors: [],
+    };
+
+    it('analyze rejects unauthenticated callers', async () => {
+      await expect(
+        anonCaller.analyze({ crawlData: minimalCrawlData, websiteId: WEBSITE_ID })
+      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+
+    it("analyze refuses a websiteId the caller doesn't own", async () => {
+      setDbQueue([]); // ownership pre-check finds nothing
+      await expect(
+        caller.analyze({ crawlData: minimalCrawlData, websiteId: WEBSITE_ID })
+      ).rejects.toThrow(/Website not found/);
+    });
+
+    it('generateEmbedding and backfillEmbeddings reject unauthenticated callers', async () => {
+      await expect(anonCaller.backfillEmbeddings()).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+
+    it('url.crawl and url.crawlEnhanced reject unauthenticated callers', async () => {
+      const anonUrlCaller = urlRouter.createCaller(anonCtx);
+      await expect(anonUrlCaller.crawl({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+      await expect(anonUrlCaller.crawlEnhanced({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+      await expect(anonUrlCaller.validate({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+  });
+
+  describe('reports.retriggerAnalysis — auth and ownership (CON-103, the live mutation)', () => {
+    const reportsCaller = reportsRouter.createCaller(authedCtx);
+    const anonReportsCaller = reportsRouter.createCaller(anonCtx);
+
+    it('rejects unauthenticated callers', async () => {
+      await expect(anonReportsCaller.retriggerAnalysis({ analysisId: ANALYSIS_ID })).rejects.toMatchObject({
+        code: 'UNAUTHORIZED',
+      });
+    });
+
+    it('returns NOT_FOUND for an analysis the caller does not own (same as missing)', async () => {
+      setDbQueue([]); // ownership join finds nothing
+      await expect(reportsCaller.retriggerAnalysis({ analysisId: ANALYSIS_ID })).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
+    });
+
+    it('retriggers an owned pending/failed analysis', async () => {
+      setDbQueue(
+        [{ id: ANALYSIS_ID, websiteId: WEBSITE_ID, status: 'failed', errorMessage: 'boom' }], // owned lookup
+        [{ id: ANALYSIS_ID, status: 'pending' }] // update().returning()
+      );
+      const result = await reportsCaller.retriggerAnalysis({ analysisId: ANALYSIS_ID });
+      expect(result.analysisId).toBe(ANALYSIS_ID);
+      expect(result.status).toBe('pending');
+    });
+
+    it('refuses to retrigger a completed analysis (owned)', async () => {
+      setDbQueue([{ id: ANALYSIS_ID, websiteId: WEBSITE_ID, status: 'completed', errorMessage: null }]);
+      await expect(reportsCaller.retriggerAnalysis({ analysisId: ANALYSIS_ID })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+      });
     });
   });
 

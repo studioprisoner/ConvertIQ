@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, text, pgEnum, integer, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, text, pgEnum, integer, boolean, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
@@ -21,7 +21,12 @@ export const recommendations = pgTable('recommendations', {
   isCompleted: boolean('is_completed').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (table) => [
+  // FK joined in all recommendation mutations
+  index('recommendations_report_id_idx').on(table.reportId),
+  // Common filter: recommendations for a report by status
+  index('recommendations_report_status_idx').on(table.reportId, table.status),
+]);
 
 // Relations
 export const recommendationsRelations = relations(recommendations, ({ one }) => ({

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, text, pgEnum, json } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, text, pgEnum, json, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
@@ -16,7 +16,10 @@ export const reports = pgTable('reports', {
   recommendations: json('recommendations'), // Store recommendations array
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (table) => [
+  // FK joined in dashboard and reports routers
+  index('reports_analysis_id_idx').on(table.analysisId),
+]);
 
 // Relations
 export const reportsRelations = relations(reports, ({ one, many }) => ({
