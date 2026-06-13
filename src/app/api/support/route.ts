@@ -1,24 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { LinearClient } from '@linear/sdk'
+import { z } from 'zod'
+import { auth } from '@/lib/auth'
 
-interface SupportRequest {
-  name: string
-  email: string
-  subject: string
-  description: string
-}
+const supportRequestSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(100),
+  email: z.string().trim().email('A valid email is required').max(254),
+  subject: z.string().trim().min(1, 'Subject is required').max(200),
+  description: z.string().trim().min(1, 'Description is required').max(5000),
+})
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, subject, description }: SupportRequest = await request.json()
-
-    // Validate required fields
-    if (!name || !email || !subject || !description) {
+    // Require an authenticated session — the support dialog runs in the
+    // authenticated dashboard, so this breaks no legitimate flow while
+    // preventing anonymous ticket spam.
+    const session = await auth.api.getSession({ headers: request.headers })
+    if (!session || !session.user) {
       return NextResponse.json(
-        { error: 'All fields are required' },
+        { error: 'Not authenticated' },
+        { status: 401 }
+      )
+    }
+
+    // Validate + bound the input (caps prevent megabyte-sized ticket bodies)
+    const parsed = supportRequestSchema.safeParse(await request.json())
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? 'Invalid input' },
         { status: 400 }
       )
     }
+    const { name, email, subject, description } = parsed.data
 
     // Validate environment variables
     if (!process.env.LINEAR_API_KEY || !process.env.LINEAR_TEAM_ID) {
@@ -34,10 +47,12 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.LINEAR_API_KEY
     })
 
-    // Create Linear issue
+    // Create Linear issue. The authenticated identity is recorded alongside the
+    // submitted name/email so spoofed form values are detectable by support.
     const issuePayload = await linearClient.createIssue({
       title: `Support: ${subject}`,
       description: `**From:** ${name} (${email})
+**Authenticated user:** ${session.user.email} (id: ${session.user.id})
 
 **Subject:** ${subject}
 
@@ -55,8 +70,6 @@ ${description}
       console.error('Linear issue creation failed:', issuePayload)
       throw new Error('Failed to create Linear issue')
     }
-
-    const issue = issuePayload.issue
 
     return NextResponse.json({
       success: true,
