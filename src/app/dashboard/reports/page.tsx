@@ -476,16 +476,16 @@ export default function ReportsPage() {
                 <Button
                   variant="outline"
                   onClick={handleCancelRetrigger}
-                  disabled={retriggerAnalysisMutation.isLoading}
+                  disabled={retriggerAnalysisMutation.isPending}
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleConfirmRetrigger}
-                  disabled={retriggerAnalysisMutation.isLoading}
+                  disabled={retriggerAnalysisMutation.isPending}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  {retriggerAnalysisMutation.isLoading
+                  {retriggerAnalysisMutation.isPending
                     ? "Retriggering..."
                     : "Retrigger Analysis"}
                 </Button>
@@ -984,16 +984,16 @@ export default function ReportsPage() {
               <Button
                 variant="outline"
                 onClick={handleCancelRetrigger}
-                disabled={retriggerAnalysisMutation.isLoading}
+                disabled={retriggerAnalysisMutation.isPending}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirmRetrigger}
-                disabled={retriggerAnalysisMutation.isLoading}
+                disabled={retriggerAnalysisMutation.isPending}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {retriggerAnalysisMutation.isLoading
+                {retriggerAnalysisMutation.isPending
                   ? "Retriggering..."
                   : "Retrigger Analysis"}
               </Button>
