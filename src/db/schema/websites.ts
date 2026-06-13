@@ -20,8 +20,9 @@ export const websites = pgTable('websites', {
   description: text('description'),
   pageType: pageTypeEnum('page_type'),
   isValidated: boolean('is_validated').default(false),
-  validationStatus: varchar('validation_status', { length: 50 }), // pending, valid, invalid, error
+  validationStatus: varchar('validation_status', { length: 50 }), // unverified, pending, valid, invalid, error
   validationMessage: text('validation_message'),
+  verificationToken: varchar('verification_token', { length: 64 }), // meta-tag ownership verification token (cleared on success)
   lastValidatedAt: timestamp('last_validated_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),

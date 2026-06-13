@@ -116,9 +116,9 @@ export async function POST(request: NextRequest) {
             url: primaryDomain.trim(),
             name: websiteName.charAt(0).toUpperCase() + websiteName.slice(1),
             description: 'Primary domain from onboarding',
-            isValidated: true,
-            validationStatus: 'valid',
-            lastValidatedAt: new Date(),
+            // Ownership unverified until the user passes meta-tag verification
+            isValidated: false,
+            validationStatus: 'unverified',
           });
           
           console.log('✅ Primary domain added to websites table');
