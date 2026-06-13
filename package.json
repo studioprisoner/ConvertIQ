@@ -16,6 +16,7 @@
     "test:isolation": "vitest run --config vitest.isolation.config.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:deploy": "bun run src/db/migrate-deploy.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:migrate:dev": "bun run src/db/migrations/typescript/run-dev-migrations.ts",
