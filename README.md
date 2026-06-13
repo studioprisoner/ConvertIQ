@@ -23,11 +23,11 @@ ConvertIQ analyzes existing ecommerce platforms or specific product/service page
 
 ## Tech Stack
 
-- **Framework**: Next.js 15.4.1 with App Router
+- **Framework**: Next.js 16 with App Router
 - **Language**: TypeScript with strict mode
 - **Styling**: Tailwind CSS v4 (alpha)
 - **Package Manager**: Bun
-- **AI Integration**: Vercel AI SDK v5 with Anthropic Claude and OpenAI support
+- **AI Integration**: Vercel AI SDK v6 with Anthropic Claude and OpenAI support
 - **Support System**: Linear SDK for integrated support ticket management
 - **Planned**: tRPC, PostgreSQL, Redis, BetterAuth, Vercel hosting
 
@@ -95,7 +95,7 @@ This project uses:
 - **TypeScript** with strict mode for type safety
 - **Tailwind CSS v4** for styling
 - **Bun** as the package manager and runtime
-- **Vercel AI SDK v5** for AI integrations
+- **Vercel AI SDK v6** for AI integrations
 
 ## Polar Sandbox Configuration
 

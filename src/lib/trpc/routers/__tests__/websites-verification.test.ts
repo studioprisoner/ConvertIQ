@@ -101,7 +101,7 @@ describe('websites router — domain ownership verification (CON-96)', () => {
     });
 
     it('returns verified:true when the homepage contains the tag', async () => {
-      const token = 'abc123def456abc123def456abc12345';
+      const token = 'fake-token-tag-present-not-a-secret';
       setDbQueue(
         [{ id: WEBSITE_ID, url: 'https://example.com', verificationToken: token }], // select
         [] // update to valid
@@ -117,7 +117,7 @@ describe('websites router — domain ownership verification (CON-96)', () => {
     });
 
     it('matches the tag regardless of attribute order', async () => {
-      const token = 'fedcba987654fedcba987654fedcba98';
+      const token = 'fake-token-attr-order-not-a-secret';
       setDbQueue(
         [{ id: WEBSITE_ID, url: 'https://example.com', verificationToken: token }],
         []
@@ -133,7 +133,7 @@ describe('websites router — domain ownership verification (CON-96)', () => {
     });
 
     it('returns verified:false when the tag is absent', async () => {
-      const token = '0000111122223333444455556666aaaa';
+      const token = 'fake-token-tag-absent-not-a-secret';
       setDbQueue(
         [{ id: WEBSITE_ID, url: 'https://example.com', verificationToken: token }],
         []
@@ -150,7 +150,7 @@ describe('websites router — domain ownership verification (CON-96)', () => {
     });
 
     it('returns verified:false (not an unhandled throw) when the fetch fails', async () => {
-      const token = '99998888777766665555444433332222';
+      const token = 'fake-token-fetch-fails-not-a-secret';
       setDbQueue([{ id: WEBSITE_ID, url: 'https://example.com', verificationToken: token }]);
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
 
@@ -162,7 +162,7 @@ describe('websites router — domain ownership verification (CON-96)', () => {
     it('returns verified:false without fetching when the target is a private address', async () => {
       const { assertPublicTarget } = await import('@/lib/url-validation');
       (assertPublicTarget as any).mockResolvedValueOnce({ safe: false, reason: 'Cannot scan private or internal IP addresses' });
-      const token = '11112222333344445555666677778888';
+      const token = 'fake-token-private-target-not-a-secret';
       setDbQueue([{ id: WEBSITE_ID, url: 'http://10.0.0.5/', verificationToken: token }]);
       const fetchSpy = vi.fn();
       vi.stubGlobal('fetch', fetchSpy);

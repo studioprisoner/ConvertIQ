@@ -1,13 +1,28 @@
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import type { Report, ReportRecommendation } from './types';
 
 export class PDFExportService {
+  // jsPDF (~127KB) and html2canvas (~50KB, browser-only) are loaded lazily so
+  // they are never parsed at module load — this file is reached by server-side
+  // routers via the reports barrel, where neither library is needed unless a
+  // PDF is actually generated.
+  private async loadJsPDF() {
+    const { default: jsPDF } = await import('jspdf');
+    return jsPDF;
+  }
+
+  private async loadHtml2Canvas() {
+    const { default: html2canvas } = await import('html2canvas');
+    return html2canvas;
+  }
+
   /**
    * Generate PDF from HTML report content
    */
   async generatePDFFromHTML(htmlElement: HTMLElement, filename: string): Promise<Blob> {
     try {
+      const html2canvas = await this.loadHtml2Canvas();
+      const jsPDF = await this.loadJsPDF();
+
       // Create canvas from HTML element
       const canvas = await html2canvas(htmlElement, {
         scale: 2, // Higher resolution
@@ -48,6 +63,7 @@ export class PDFExportService {
    */
   async generatePDFFromData(report: Report): Promise<Blob> {
     try {
+      const jsPDF = await this.loadJsPDF();
       const pdf = new jsPDF('p', 'mm', 'a4');
       let yPosition = 20;
       const pageWidth = 210;
@@ -201,6 +217,7 @@ export class PDFExportService {
     websiteUrl: string
   ): Promise<Blob> {
     try {
+      const jsPDF = await this.loadJsPDF();
       const pdf = new jsPDF('p', 'mm', 'a4');
       let yPosition = 20;
       const pageWidth = 210;

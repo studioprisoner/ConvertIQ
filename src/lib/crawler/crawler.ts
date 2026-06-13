@@ -1,5 +1,4 @@
 import * as cheerio from 'cheerio';
-import { parse as parseHtml } from 'node-html-parser';
 import { assertPublicTarget } from '@/lib/url-validation';
 // @ts-expect-error - no types available for robots-parser
 import robotsParser from 'robots-parser';
