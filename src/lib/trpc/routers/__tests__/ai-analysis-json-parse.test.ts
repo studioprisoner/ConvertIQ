@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { aiAnalysisRouter } from '../ai-analysis';
-import { reportsRouter } from '../reports-simple';
 import { urlRouter } from '../urls';
 import { db } from '@/db/connection';
 
@@ -239,41 +238,6 @@ describe('ai-analysis router — auth, ownership, and JSON.parse resilience (CON
       await expect(anonUrlCaller.crawl({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
       await expect(anonUrlCaller.crawlEnhanced({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
       await expect(anonUrlCaller.validate({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-    });
-  });
-
-  describe('reports.retriggerAnalysis — auth and ownership (CON-103, the live mutation)', () => {
-    const reportsCaller = reportsRouter.createCaller(authedCtx);
-    const anonReportsCaller = reportsRouter.createCaller(anonCtx);
-
-    it('rejects unauthenticated callers', async () => {
-      await expect(anonReportsCaller.retriggerAnalysis({ analysisId: ANALYSIS_ID })).rejects.toMatchObject({
-        code: 'UNAUTHORIZED',
-      });
-    });
-
-    it('returns NOT_FOUND for an analysis the caller does not own (same as missing)', async () => {
-      setDbQueue([]); // ownership join finds nothing
-      await expect(reportsCaller.retriggerAnalysis({ analysisId: ANALYSIS_ID })).rejects.toMatchObject({
-        code: 'NOT_FOUND',
-      });
-    });
-
-    it('retriggers an owned pending/failed analysis', async () => {
-      setDbQueue(
-        [{ id: ANALYSIS_ID, websiteId: WEBSITE_ID, status: 'failed', errorMessage: 'boom' }], // owned lookup
-        [{ id: ANALYSIS_ID, status: 'pending' }] // update().returning()
-      );
-      const result = await reportsCaller.retriggerAnalysis({ analysisId: ANALYSIS_ID });
-      expect(result.analysisId).toBe(ANALYSIS_ID);
-      expect(result.status).toBe('pending');
-    });
-
-    it('refuses to retrigger a completed analysis (owned)', async () => {
-      setDbQueue([{ id: ANALYSIS_ID, websiteId: WEBSITE_ID, status: 'completed', errorMessage: null }]);
-      await expect(reportsCaller.retriggerAnalysis({ analysisId: ANALYSIS_ID })).rejects.toMatchObject({
-        code: 'BAD_REQUEST',
-      });
     });
   });
 

@@ -1,11 +1,30 @@
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure } from '../server';
+import { createTRPCRouter, protectedProcedure } from '../server';
 import { TRPCError } from '@trpc/server';
 import { crawlResultSchema } from '@/lib/crawler/types';
+import { db } from '@/db/connection';
+import { websites } from '@/db/schema/websites';
+import { eq, and } from 'drizzle-orm';
+
+/**
+ * Throws NOT_FOUND unless the website exists AND belongs to the user. Unowned
+ * and missing IDs produce the same error so website IDs cannot be probed.
+ */
+async function assertWebsiteOwnership(websiteId: string, userId: string): Promise<void> {
+  const owned = await db
+    .select({ id: websites.id })
+    .from(websites)
+    .where(and(eq(websites.id, websiteId), eq(websites.userId, userId)))
+    .limit(1);
+
+  if (owned.length === 0) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Website not found' });
+  }
+}
 
 export const streamingAnalysisRouter = createTRPCRouter({
   // Get streaming analysis configuration for a website
-  getStreamingConfig: publicProcedure
+  getStreamingConfig: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
     }))
@@ -39,14 +58,17 @@ export const streamingAnalysisRouter = createTRPCRouter({
     }),
 
   // Prepare crawl data for streaming analysis
-  prepareCrawlData: publicProcedure
+  prepareCrawlData: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
       analysisId: z.string().uuid().optional(),
     }))
     .query(async ({ ctx, input }) => {
       console.log('🔍 Preparing crawl data for streaming analysis:', input.websiteId);
-      
+
+      // Ownership check outside the try so its NOT_FOUND isn't masked as a 500
+      await assertWebsiteOwnership(input.websiteId, ctx.user!.id);
+
       try {
         // Import database services
         const { aiAnalysisDb } = await import('@/lib/ai/database');
@@ -94,7 +116,7 @@ export const streamingAnalysisRouter = createTRPCRouter({
     }),
 
   // Log streaming analysis progress
-  logStreamingProgress: publicProcedure
+  logStreamingProgress: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
       analysisType: z.enum(['conversion_psychology', 'ux_analysis', 'technical_seo', 'comprehensive']),
@@ -128,7 +150,7 @@ export const streamingAnalysisRouter = createTRPCRouter({
     }),
 
   // Save streaming analysis results 
-  saveStreamingResults: publicProcedure
+  saveStreamingResults: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
       analysisType: z.enum(['conversion_psychology', 'ux_analysis', 'technical_seo', 'comprehensive']),
@@ -141,9 +163,11 @@ export const streamingAnalysisRouter = createTRPCRouter({
         streamingVersion: z.string().default('1.0.0'),
       }),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       console.log(`💾 Saving streaming ${input.analysisType} results for ${input.websiteId}`);
-      
+
+      await assertWebsiteOwnership(input.websiteId, ctx.user!.id);
+
       try {
         // Import database services
         const { aiAnalysisDb } = await import('@/lib/ai/database');
@@ -206,13 +230,15 @@ export const streamingAnalysisRouter = createTRPCRouter({
     }),
 
   // Get streaming analysis history
-  getStreamingHistory: publicProcedure
+  getStreamingHistory: protectedProcedure
     .input(z.object({
       websiteId: z.string().uuid(),
       limit: z.number().min(1).max(50).default(10),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       console.log('📋 Getting streaming analysis history for:', input.websiteId);
+
+      await assertWebsiteOwnership(input.websiteId, ctx.user!.id);
       
       // This would query your streaming analysis history
       // For now, return mock data structure

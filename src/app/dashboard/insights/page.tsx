@@ -66,9 +66,7 @@ export default function AIInsightsPage() {
     if (!session?.user?.id) return;
 
     try {
-      const stats = await statsMutation.mutateAsync({
-        userId: session.user.id,
-      });
+      const stats = await statsMutation.mutateAsync({});
 
       setInsights({
         topPatterns: stats.topPatterns || [],
@@ -90,7 +88,6 @@ export default function AIInsightsPage() {
     try {
       const results = await searchMutation.mutateAsync({
         query: searchQuery,
-        userId: session.user.id,
       });
 
       setSearchResults(results as SearchResult[]);
@@ -133,7 +130,6 @@ export default function AIInsightsPage() {
     try {
       const results = await similarMutation.mutateAsync({
         reportId,
-        userId: session.user.id,
       });
 
       setSimilarReports(results as SimilarReport[]);
