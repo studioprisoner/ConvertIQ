@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { AnthropicAnalysisProvider } from '@/lib/ai/providers/anthropic';
 import { crawlResultSchema } from '@/lib/crawler/types';
 import { z } from 'zod';
@@ -11,8 +12,15 @@ const streamSimpleSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    // Require an authenticated session — this endpoint runs paid Anthropic
+    // analysis, so anonymous access is direct cost abuse.
+    const session = await auth.api.getSession({ headers: req.headers });
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
     console.log('🚀 Starting simple streaming AI analysis...');
-    
+
     const body = await req.json();
     const { crawlData, analysisType, websiteId } = streamSimpleSchema.parse(body);
     
@@ -133,4 +141,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export const runtime = 'edge';
+// Node runtime (not edge): the session check imports the BetterAuth stack,
+// which uses Node crypto/pg and cannot run on the edge runtime (CON-112).
+export const runtime = 'nodejs';
