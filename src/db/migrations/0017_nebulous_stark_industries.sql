@@ -1,0 +1,1 @@
+ALTER TABLE "websites" ADD COLUMN "verification_token" varchar(64);

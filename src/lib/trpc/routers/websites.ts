@@ -8,7 +8,8 @@ import { checkFeatureAccess } from '@/lib/feature-gate';
 import { trackUsage } from '@/lib/subscription-service';
 
 // Import URL validation
-import { validateUrl } from '@/lib/url-validation';
+import { validateUrl, assertPublicTarget } from '@/lib/url-validation';
+import { randomUUID } from 'node:crypto';
 
 // Helper function to extract domain from URL
 function extractDomain(url: string): string {
@@ -106,7 +107,9 @@ export const websitesRouter = createTRPCRouter({
         return {
           ...website,
           lastScanAt: latestAnalysis?.createdAt || null,
-          status: website.isValidated ? 'active' as const : 'inactive' as const
+          // 'inactive' is reserved for explicitly invalid domains; unverified
+          // domains remain usable (ownership verification is additive, not gating)
+          status: website.validationStatus === 'invalid' ? 'inactive' as const : 'active' as const
         };
       });
 
@@ -168,10 +171,11 @@ export const websitesRouter = createTRPCRouter({
           url: input.url,
           description: input.description,
           pageType: mapPageTypeToDbEnum('homepage'),
-          isValidated: true,
-          validationStatus: 'valid',
+          // Ownership is unverified until the user passes meta-tag verification.
+          // validationMessage still reflects the URL accessibility check.
+          isValidated: false,
+          validationStatus: 'unverified',
           validationMessage: validation.message,
-          lastValidatedAt: new Date(),
         })
         .returning();
 
@@ -249,10 +253,12 @@ export const websitesRouter = createTRPCRouter({
         }
 
         updateData.url = input.url;
-        updateData.isValidated = true;
-        updateData.validationStatus = 'valid';
+        // Changing the URL resets ownership verification — the new domain has
+        // not been verified yet.
+        updateData.isValidated = false;
+        updateData.validationStatus = 'unverified';
         updateData.validationMessage = validation.message;
-        updateData.lastValidatedAt = new Date();
+        updateData.verificationToken = null;
       }
 
       const updatedWebsite = await db
@@ -398,10 +404,7 @@ export const websitesRouter = createTRPCRouter({
             .update(websites)
             .set({
               pageType: input.pageType ? mapPageTypeToDbEnum(input.pageType) : existing[0].pageType,
-              isValidated: true,
-              validationStatus: 'valid',
               validationMessage: validation.message,
-              lastValidatedAt: new Date(),
               updatedAt: new Date(),
             })
             .where(eq(websites.id, existing[0].id))
@@ -422,10 +425,10 @@ export const websitesRouter = createTRPCRouter({
             url: input.url, // Store the specific URL to allow multiple pages per domain
             name: `${urlObj.hostname}${urlObj.pathname !== '/' ? urlObj.pathname : ''}`,
             pageType: mapPageTypeToDbEnum(input.pageType || 'homepage'),
-            isValidated: true,
-            validationStatus: 'valid',
+            // Ownership unverified until meta-tag verification passes
+            isValidated: false,
+            validationStatus: 'unverified',
             validationMessage: validation.message,
-            lastValidatedAt: new Date(),
           })
           .returning();
 
@@ -533,5 +536,130 @@ export const websitesRouter = createTRPCRouter({
         website: website[0],
         latestAnalysis: latestAnalysis.length > 0 ? latestAnalysis[0] : null,
       };
+    }),
+
+  /**
+   * Request domain-ownership verification.
+   * Generates a token and returns the meta tag the user must add to their
+   * homepage. Sets the website's status to 'pending' until confirmed.
+   */
+  requestVerification: protectedProcedure
+    .input(z.object({
+      websiteId: z.string().uuid(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Ownership check: the website must belong to the caller
+      const existing = await db
+        .select({ id: websites.id })
+        .from(websites)
+        .where(and(eq(websites.id, input.websiteId), eq(websites.userId, ctx.user!.id)))
+        .limit(1);
+
+      if (existing.length === 0) {
+        throw new Error('Website not found');
+      }
+
+      const token = randomUUID().replace(/-/g, ''); // 32 hex chars
+
+      await db
+        .update(websites)
+        .set({
+          verificationToken: token,
+          validationStatus: 'pending',
+          updatedAt: new Date(),
+        })
+        .where(eq(websites.id, input.websiteId));
+
+      return {
+        token,
+        metaTag: `<meta name="convertiq-verification" content="${token}" />`,
+      };
+    }),
+
+  /**
+   * Confirm domain-ownership verification.
+   * Fetches the website's homepage and checks for the verification meta tag.
+   * On success: marks the website validated and clears the token.
+   */
+  confirmVerification: protectedProcedure
+    .input(z.object({
+      websiteId: z.string().uuid(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Ownership check + load the token and URL
+      const [website] = await db
+        .select({
+          id: websites.id,
+          url: websites.url,
+          verificationToken: websites.verificationToken,
+        })
+        .from(websites)
+        .where(and(eq(websites.id, input.websiteId), eq(websites.userId, ctx.user!.id)))
+        .limit(1);
+
+      if (!website) {
+        throw new Error('Website not found');
+      }
+      if (!website.verificationToken) {
+        throw new Error('No verification in progress. Call requestVerification first.');
+      }
+
+      // SSRF guard (CON-94): refuse private/internal targets before fetching
+      const safety = await assertPublicTarget(website.url);
+      if (!safety.safe) {
+        return { verified: false, reason: safety.reason ?? 'Target is not a public address' };
+      }
+
+      // Fetch the homepage with a timeout (modelled on checkUrlAccessibility)
+      let html: string;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(website.url, {
+          method: 'GET',
+          headers: { 'User-Agent': 'ConvertIQ-Verification/1.0' },
+          redirect: 'follow',
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          return { verified: false, reason: `Homepage returned HTTP ${response.status}` };
+        }
+        html = await response.text();
+      } catch (error) {
+        const reason = error instanceof Error && error.name === 'AbortError'
+          ? 'Request timed out after 10 seconds'
+          : 'Could not fetch the homepage';
+        return { verified: false, reason };
+      }
+
+      // Look for the verification tag. Match name + content in either attribute
+      // order so we don't depend on how the user pasted it.
+      const token = website.verificationToken;
+      const hasTag =
+        new RegExp(`name=["']convertiq-verification["'][^>]*content=["']${token}["']`, 'i').test(html) ||
+        new RegExp(`content=["']${token}["'][^>]*name=["']convertiq-verification["']`, 'i').test(html);
+
+      if (!hasTag) {
+        await db
+          .update(websites)
+          .set({ validationStatus: 'unverified', updatedAt: new Date() })
+          .where(eq(websites.id, input.websiteId));
+        return { verified: false, reason: 'Verification tag not found on homepage' };
+      }
+
+      await db
+        .update(websites)
+        .set({
+          isValidated: true,
+          validationStatus: 'valid',
+          verificationToken: null,
+          lastValidatedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(websites.id, input.websiteId));
+
+      return { verified: true };
     }),
 });
