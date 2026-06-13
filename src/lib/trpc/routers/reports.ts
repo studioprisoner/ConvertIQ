@@ -531,4 +531,73 @@ export const reportsRouter = createTRPCRouter({
         });
       }
     }),
+
+  /**
+   * Retrigger a pending or failed analysis — resets it to 'pending' so it is
+   * reprocessed (the same pending state rescanReport creates for a new scan).
+   */
+  retriggerAnalysis: protectedProcedure
+    .input(z.object({
+      analysisId: z.string().uuid(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { user } = ctx;
+
+      try {
+        // Load the analysis with an ownership check via its website. Unowned
+        // and missing IDs return the same NOT_FOUND so IDs cannot be probed.
+        const [analysis] = await ctx.db
+          .select({
+            id: analyses.id,
+            websiteId: analyses.websiteId,
+            status: analyses.status,
+          })
+          .from(analyses)
+          .leftJoin(websites, eq(analyses.websiteId, websites.id))
+          .where(and(eq(analyses.id, input.analysisId), eq(websites.userId, user.id)))
+          .limit(1);
+
+        if (!analysis) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Analysis not found or access denied'
+          });
+        }
+
+        // Only pending or failed analyses can be retriggered
+        if (!['pending', 'failed'].includes(analysis.status ?? '')) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Cannot retrigger analysis with status: ${analysis.status}. Only pending or failed analyses can be retriggered.`
+          });
+        }
+
+        const [updated] = await ctx.db
+          .update(analyses)
+          .set({
+            status: 'pending',
+            actions: 'retry',
+            errorMessage: null,
+            updatedAt: new Date()
+          })
+          .where(eq(analyses.id, input.analysisId))
+          .returning();
+
+        return {
+          message: 'Analysis retriggered successfully',
+          analysisId: updated.id,
+          websiteId: analysis.websiteId,
+          status: updated.status
+        };
+
+      } catch (error) {
+        console.error('Error retriggering analysis:', error);
+        if (error instanceof TRPCError) throw error;
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to retrigger analysis'
+        });
+      }
+    }),
 });

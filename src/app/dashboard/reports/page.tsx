@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -17,13 +17,61 @@ import { Badge } from "@/components/badge";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { lazy, Suspense } from "react";
-import PageTypeIndicator from "@/components/features/analysis/page-type-indicator";
+import PageTypeIndicator, {
+  type PageType,
+} from "@/components/features/analysis/page-type-indicator";
 import DataRichnessIndicator from "@/components/features/analysis/data-richness-indicator";
 import StructuredDataPreview from "@/components/features/analysis/structured-data-preview";
 import EnhancedRecommendationCard from "@/components/features/analysis/enhanced-recommendation-card";
 
 // Lazy load ReactMarkdown to reduce initial bundle size
 const ReactMarkdown = lazy(() => import("react-markdown"));
+
+// View-model types for the dashboard query. The `getDashboard` procedure
+// returns a union of an "in progress" shape and a "completed" shape, which
+// erases the element types of `recommendations`/`keyInsights` at the call
+// site. These concrete types describe exactly what this page reads, including
+// the optional enhanced-extraction fields populated only for v2 analyses.
+interface ReportRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: string;
+  status: string;
+  impact: { score: number; category: string };
+  effort: { score: number; category: string };
+  estimatedTimeToComplete: string;
+  expectedImpact: string;
+}
+
+interface ReportMetric {
+  score: number;
+  status: string;
+}
+
+interface ExtractionMetadata {
+  pageType?: PageType;
+  confidence?: number;
+  dataRichness?: number;
+  extractedFields?: number;
+  totalFields?: number;
+  extractionVersion?: "v1" | "v2";
+  structuredData?: Record<string, unknown>;
+}
+
+interface DashboardResult {
+  id: string;
+  websiteUrl: string;
+  scanDate: string;
+  overallScore: number;
+  status: string;
+  summary: string;
+  metrics: Record<string, ReportMetric>;
+  keyInsights: string[];
+  recommendations: ReportRecommendation[];
+  extractionMetadata?: ExtractionMetadata;
+}
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -265,7 +313,7 @@ export default function ReportsPage() {
           </div>
           <div className="flex space-x-3">
             <Button
-              variant="outline"
+              outline
               onClick={() => router.push("/dashboard/reports/archived")}
               className="text-orange-600 hover:text-orange-700"
             >
@@ -309,7 +357,8 @@ export default function ReportsPage() {
                       {report.status}
                     </Badge>
                     <Badge color="zinc">{report.pageType}</Badge>
-                    {report.extractionVersion === "v2" && (
+                    {(report as { extractionVersion?: string })
+                      .extractionVersion === "v2" && (
                       <Badge color="blue">Enhanced</Badge>
                     )}
                   </div>
@@ -334,9 +383,8 @@ export default function ReportsPage() {
                       report.status === "failed") &&
                       report.hasAnalysis && (
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
+                          outline
+                          onClick={(e: MouseEvent<HTMLButtonElement>) => {
                             e.stopPropagation();
                             handleRetriggerClick(report.id, report.websiteName);
                           }}
@@ -351,9 +399,8 @@ export default function ReportsPage() {
                       )}
 
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
+                      outline
+                      onClick={(e: MouseEvent<HTMLButtonElement>) => {
                         console.log(
                           "🖱️ Archive button onClick fired for:",
                           report.id,
@@ -408,7 +455,7 @@ export default function ReportsPage() {
         {reportsList.hasMore && (
           <div className="text-center">
             <Button
-              variant="outline"
+              outline
               onClick={() => {
                 // TODO: Implement pagination
                 console.log("Load more reports");
@@ -438,18 +485,18 @@ export default function ReportsPage() {
               </div>
               <div className="flex space-x-3 justify-end">
                 <Button
-                  variant="outline"
+                  outline
                   onClick={handleCancelArchive}
-                  disabled={archiveReportMutation.isLoading}
+                  disabled={archiveReportMutation.isPending}
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleConfirmArchive}
-                  disabled={archiveReportMutation.isLoading}
+                  disabled={archiveReportMutation.isPending}
                   className="bg-orange-600 hover:bg-orange-700 text-white"
                 >
-                  {archiveReportMutation.isLoading
+                  {archiveReportMutation.isPending
                     ? "Archiving..."
                     : "Archive Report"}
                 </Button>
@@ -474,18 +521,18 @@ export default function ReportsPage() {
               </div>
               <div className="flex space-x-3 justify-end">
                 <Button
-                  variant="outline"
+                  outline
                   onClick={handleCancelRetrigger}
-                  disabled={retriggerAnalysisMutation.isLoading}
+                  disabled={retriggerAnalysisMutation.isPending}
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleConfirmRetrigger}
-                  disabled={retriggerAnalysisMutation.isLoading}
+                  disabled={retriggerAnalysisMutation.isPending}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  {retriggerAnalysisMutation.isLoading
+                  {retriggerAnalysisMutation.isPending
                     ? "Retriggering..."
                     : "Retrigger Analysis"}
                 </Button>
@@ -521,8 +568,9 @@ export default function ReportsPage() {
     );
   }
 
-  // Use the fetched data
-  const mockScanResults = scanResults;
+  // Use the fetched data. The cast collapses the procedure's union return type
+  // into the concrete shape this page renders (see DashboardResult).
+  const mockScanResults = scanResults as unknown as DashboardResult;
 
   // Filter recommendations based on selected filters
   const filteredRecommendations = mockScanResults.recommendations.filter(
@@ -553,7 +601,7 @@ export default function ReportsPage() {
     seo: { name: "SEO & Visibility", icon: "🔍", color: "purple" },
     performance: { name: "Performance", icon: "⚡", color: "yellow" },
     content: { name: "Content & Messaging", icon: "📝", color: "indigo" },
-    technical: { name: "Technical Implementation", icon: "⚙️", color: "gray" },
+    technical: { name: "Technical Implementation", icon: "⚙️", color: "zinc" },
     design: { name: "Design & Layout", icon: "🎨", color: "pink" },
     other: { name: "Other Recommendations", icon: "📋", color: "zinc" },
   };
@@ -596,8 +644,7 @@ export default function ReportsPage() {
         {/* Top button bar - all buttons aligned */}
         <div className="flex items-center justify-between">
           <Button
-            variant="outline"
-            size="sm"
+            outline
             onClick={() => router.push("/dashboard/reports")}
           >
             ← Back to Reports
@@ -607,7 +654,7 @@ export default function ReportsPage() {
               New Scan
             </Button>
             <Button
-              variant="outline"
+              outline
               onClick={() =>
                 handleArchiveClick(
                   mockScanResults.id,
@@ -838,7 +885,6 @@ export default function ReportsPage() {
                             | "purple"
                             | "pink"
                             | "indigo"
-                            | "gray"
                             | "zinc"
                         }
                       >
@@ -946,18 +992,18 @@ export default function ReportsPage() {
             </div>
             <div className="flex space-x-3 justify-end">
               <Button
-                variant="outline"
+                outline
                 onClick={handleCancelArchive}
-                disabled={archiveReportMutation.isLoading}
+                disabled={archiveReportMutation.isPending}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirmArchive}
-                disabled={archiveReportMutation.isLoading}
+                disabled={archiveReportMutation.isPending}
                 className="bg-orange-600 hover:bg-orange-700 text-white"
               >
-                {archiveReportMutation.isLoading
+                {archiveReportMutation.isPending
                   ? "Archiving..."
                   : "Archive Report"}
               </Button>
@@ -982,18 +1028,18 @@ export default function ReportsPage() {
             </div>
             <div className="flex space-x-3 justify-end">
               <Button
-                variant="outline"
+                outline
                 onClick={handleCancelRetrigger}
-                disabled={retriggerAnalysisMutation.isLoading}
+                disabled={retriggerAnalysisMutation.isPending}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirmRetrigger}
-                disabled={retriggerAnalysisMutation.isLoading}
+                disabled={retriggerAnalysisMutation.isPending}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {retriggerAnalysisMutation.isLoading
+                {retriggerAnalysisMutation.isPending
                   ? "Retriggering..."
                   : "Retrigger Analysis"}
               </Button>
