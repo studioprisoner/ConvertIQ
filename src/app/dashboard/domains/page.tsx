@@ -10,7 +10,7 @@ import { Text } from '@/components/text';
 import { Badge } from '@/components/badge';
 import { useFeatureGate } from '@/hooks/common/use-feature-gate';
 import { FeatureGate } from '@/components/features/feature-gating/feature-gate';
-import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/16/solid';
+import { PlusIcon, PencilIcon, TrashIcon, ClipboardIcon } from '@heroicons/react/16/solid';
 import { useState, useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
 
@@ -20,6 +20,8 @@ interface Domain {
   name: string | null;
   description?: string | null;
   status?: 'active' | 'inactive' | 'pending';
+  validationStatus?: string | null;
+  isValidated?: boolean | null;
   lastScanAt?: string | null;
   createdAt: string | null;
   updatedAt: string | null;
@@ -38,11 +40,20 @@ export default function DomainsPage() {
     description: '',
   });
 
+  // Domain ownership verification (CON-106)
+  const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
+  const [verifyDomain, setVerifyDomain] = useState<Domain | null>(null);
+  const [verifyMetaTag, setVerifyMetaTag] = useState<string | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{ verified: boolean; reason?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const multipleWebsitesGate = useFeatureGate('multiple_websites');
   const domainsQuery = trpc.websites.list.useQuery();
   const createDomainMutation = trpc.websites.create.useMutation();
   const updateDomainMutation = trpc.websites.update.useMutation();
   const deleteDomainMutation = trpc.websites.delete.useMutation();
+  const requestVerificationMutation = trpc.websites.requestVerification.useMutation();
+  const confirmVerificationMutation = trpc.websites.confirmVerification.useMutation();
 
   useEffect(() => {
     if (domainsQuery.data) {
@@ -118,6 +129,60 @@ export default function DomainsPage() {
   const openDeleteDialog = (domain: Domain) => {
     setSelectedDomain(domain);
     setIsDeleteDialogOpen(true);
+  };
+
+  const openVerifyDialog = (domain: Domain) => {
+    setVerifyDomain(domain);
+    setVerifyMetaTag(null);
+    setVerifyResult(null);
+    setCopied(false);
+    setIsVerifyDialogOpen(true);
+  };
+
+  const handleRequestVerification = async () => {
+    if (!verifyDomain) return;
+    try {
+      const res = await requestVerificationMutation.mutateAsync({ websiteId: verifyDomain.id });
+      setVerifyMetaTag(res.metaTag);
+      setVerifyResult(null);
+      domainsQuery.refetch(); // status is now 'pending'
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to start verification');
+    }
+  };
+
+  const handleConfirmVerification = async () => {
+    if (!verifyDomain) return;
+    try {
+      const res = await confirmVerificationMutation.mutateAsync({ websiteId: verifyDomain.id });
+      setVerifyResult(res);
+      if (res.verified) {
+        domainsQuery.refetch(); // badge flips to Verified
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Verification check failed');
+    }
+  };
+
+  const copyMetaTag = async () => {
+    if (!verifyMetaTag) return;
+    await navigator.clipboard.writeText(verifyMetaTag);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getVerificationBadge = (domain: Domain) => {
+    const status = domain.validationStatus;
+    switch (status) {
+      case 'valid':
+        return <Badge color="green">Verified</Badge>;
+      case 'pending':
+        return <Badge color="yellow">Pending</Badge>;
+      case 'invalid':
+        return <Badge color="red">Invalid</Badge>;
+      default:
+        return <Badge color="zinc">Unverified</Badge>;
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -206,6 +271,7 @@ export default function DomainsPage() {
                 <TableHeader>Domain</TableHeader>
                 <TableHeader>URL</TableHeader>
                 <TableHeader>Status</TableHeader>
+                <TableHeader>Ownership</TableHeader>
                 <TableHeader>Last Scan</TableHeader>
                 <TableHeader>Added</TableHeader>
                 <TableHeader>Actions</TableHeader>
@@ -233,6 +299,21 @@ export default function DomainsPage() {
                     </a>
                   </TableCell>
                   <TableCell>{getStatusBadge(domain.status || 'pending')}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {getVerificationBadge(domain)}
+                      {domain.validationStatus !== 'valid' && (
+                        <Button
+                          type="button"
+                          plain
+                          onClick={() => openVerifyDialog(domain)}
+                          title="Verify domain ownership"
+                        >
+                          Verify
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {formatDate(domain.lastScanAt)}
                   </TableCell>
@@ -358,6 +439,69 @@ export default function DomainsPage() {
             >
               {updateDomainMutation.isPending ? 'Updating...' : 'Update Domain'}
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Verify Domain Ownership Dialog */}
+        <Dialog open={isVerifyDialogOpen} onClose={setIsVerifyDialogOpen}>
+          <DialogTitle>Verify domain ownership</DialogTitle>
+          <DialogDescription>
+            Prove you own {verifyDomain?.url} by adding a meta tag to its homepage.
+            Verification is optional and does not affect scanning.
+          </DialogDescription>
+          <DialogBody>
+            {!verifyMetaTag ? (
+              <Text>
+                Generate a verification tag, add it to the <code>&lt;head&gt;</code> of your
+                homepage, then come back and check. You can leave the tag in place permanently.
+              </Text>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <Text className="font-medium">1. Add this tag to your homepage&rsquo;s <code>&lt;head&gt;</code>:</Text>
+                  <div className="mt-2 flex items-center gap-2">
+                    <code className="flex-1 overflow-x-auto rounded bg-zinc-100 dark:bg-zinc-800 px-2 py-1 text-xs">
+                      {verifyMetaTag}
+                    </code>
+                    <Button type="button" plain onClick={copyMetaTag} title="Copy to clipboard">
+                      <ClipboardIcon />
+                      {copied ? 'Copied' : 'Copy'}
+                    </Button>
+                  </div>
+                </div>
+                <Text className="font-medium">2. Deploy the change, then click &ldquo;Check now&rdquo;.</Text>
+                {verifyResult && !verifyResult.verified && (
+                  <Text className="text-red-600 dark:text-red-400">
+                    Not verified yet: {verifyResult.reason}
+                  </Text>
+                )}
+                {verifyResult?.verified && (
+                  <Text className="text-green-600 dark:text-green-400">
+                    Verified — ownership confirmed.
+                  </Text>
+                )}
+              </div>
+            )}
+          </DialogBody>
+          <DialogActions>
+            <Button plain onClick={() => setIsVerifyDialogOpen(false)}>
+              {verifyResult?.verified ? 'Done' : 'Close'}
+            </Button>
+            {!verifyMetaTag ? (
+              <Button
+                onClick={handleRequestVerification}
+                disabled={requestVerificationMutation.isPending}
+              >
+                {requestVerificationMutation.isPending ? 'Generating…' : 'Generate tag'}
+              </Button>
+            ) : !verifyResult?.verified ? (
+              <Button
+                onClick={handleConfirmVerification}
+                disabled={confirmVerificationMutation.isPending}
+              >
+                {confirmVerificationMutation.isPending ? 'Checking…' : 'Check now'}
+              </Button>
+            ) : null}
           </DialogActions>
         </Dialog>
 

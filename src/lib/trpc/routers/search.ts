@@ -1,13 +1,12 @@
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure } from '../server';
+import { createTRPCRouter, protectedProcedure } from '../server';
 import { vectorSearchService } from '@/lib/search/vector-search';
 
 export const searchRouter = createTRPCRouter({
   // Semantic search for reports with keyword fallback
-  searchReports: publicProcedure
+  searchReports: protectedProcedure
     .input(z.object({
       query: z.string().min(1),
-      userId: z.string(),
       limit: z.number().min(1).max(50).default(10),
       filters: z.object({
         dateRange: z.enum(['last_week', 'last_month', 'last_3_months', 'last_year']).optional(),
@@ -15,7 +14,7 @@ export const searchRouter = createTRPCRouter({
         minScore: z.number().min(0).max(1).default(0.7),
       }).default({}),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔍 Search starting for query:', input.query);
       
       try {
@@ -25,7 +24,7 @@ export const searchRouter = createTRPCRouter({
         try {
           const results = await vectorSearchService.findSimilarReports(
             input.query,
-            input.userId,
+            ctx.user!.id,
             input.limit,
             input.filters.minScore
           );
@@ -44,7 +43,7 @@ export const searchRouter = createTRPCRouter({
             
             const keywordResults = await vectorSearchService.keywordSearch(
               input.query,
-              input.userId,
+              ctx.user!.id,
               input.limit
             );
             
@@ -64,10 +63,9 @@ export const searchRouter = createTRPCRouter({
     }),
 
   // Find similar reports to a given report
-  findSimilarReports: publicProcedure
+  findSimilarReports: protectedProcedure
     .input(z.object({
       reportId: z.string(),
-      userId: z.string(),
       limit: z.number().min(1).max(10).default(5),
     }))
     .mutation(async ({ input }) => {
@@ -89,7 +87,7 @@ export const searchRouter = createTRPCRouter({
     }),
 
   // Advanced search with custom embedding
-  advancedSearch: publicProcedure
+  advancedSearch: protectedProcedure
     .input(z.object({
       embedding: z.array(z.number()),
       filters: z.object({
@@ -125,13 +123,12 @@ export const searchRouter = createTRPCRouter({
     }),
 
   // Get recommendation clusters (grouped similar recommendations)
-  getRecommendationClusters: publicProcedure
+  getRecommendationClusters: protectedProcedure
     .input(z.object({
-      userId: z.string(),
       minClusterSize: z.number().min(2).default(3),
     }))
-    .query(async ({ input }) => {
-      console.log('🎯 Getting recommendation clusters for user:', input.userId);
+    .query(async ({ input, ctx }) => {
+      console.log('🎯 Getting recommendation clusters for user:', ctx.user!.id);
       
       try {
         // This is a simplified version - in production, you'd want more sophisticated clustering
@@ -140,7 +137,7 @@ export const searchRouter = createTRPCRouter({
         // Get all user's reports first
         const allReports = await vectorSearchService.findSimilarReports(
           'optimization recommendations performance', // Generic query to get all reports
-          input.userId,
+          ctx.user!.id,
           100,
           0.1 // Very low threshold to get all reports
         );
@@ -187,14 +184,13 @@ export const searchRouter = createTRPCRouter({
     }),
 
   // Search with query expansion using embeddings
-  expandedSearch: publicProcedure
+  expandedSearch: protectedProcedure
     .input(z.object({
       query: z.string().min(1),
-      userId: z.string(),
       expansionTerms: z.array(z.string()).default([]),
       limit: z.number().min(1).max(50).default(10),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔍 Expanded search starting for:', input.query);
       
       try {
@@ -203,7 +199,7 @@ export const searchRouter = createTRPCRouter({
         
         const results = await vectorSearchService.findSimilarReports(
           expandedQuery,
-          input.userId,
+          ctx.user!.id,
           input.limit,
           0.6 // Lower threshold for expanded search
         );
@@ -223,16 +219,14 @@ export const searchRouter = createTRPCRouter({
     }),
 
   // Get search statistics and insights
-  getSearchStats: publicProcedure
-    .input(z.object({
-      userId: z.string(),
-    }))
-    .mutation(async ({ input }) => {
-      console.log('📊 Getting search stats for user:', input.userId);
+  getSearchStats: protectedProcedure
+    .input(z.object({}))
+    .mutation(async ({ ctx }) => {
+      console.log('📊 Getting search stats for user:', ctx.user!.id);
       
       try {
         // Get stats directly from database without requiring embeddings
-        const stats = await vectorSearchService.getStatsWithoutEmbeddings(input.userId);
+        const stats = await vectorSearchService.getStatsWithoutEmbeddings(ctx.user!.id);
         
         console.log(`📊 Stats generated: ${stats.totalReports} reports, avg score ${stats.averageScore}`);
         
