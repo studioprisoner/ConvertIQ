@@ -362,20 +362,6 @@ export class PostgresVectorSearchService implements VectorSearchService {
   }
 
   /**
-   * Extract overall score from AI analysis
-   */
-  private extractOverallScore(aiAnalysis: string | null): number | undefined {
-    if (!aiAnalysis) return undefined;
-    
-    try {
-      const analysis = JSON.parse(aiAnalysis);
-      return analysis.overallScore || undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
-  /**
    * Extract common topics from AI analysis
    */
   private extractCommonTopics(aiAnalysis: string | null): string[] {
@@ -947,8 +933,8 @@ export class PostgresVectorSearchService implements VectorSearchService {
     // Technical SEO scoring (15 points)
     if (extractionResults.technicalSeo) {
       const seoFields = ['pageTitle', 'metaDescription', 'headings', 'keywords'];
-      const completedSeoFields = seoFields.filter(field => 
-        extractionResults.technicalSeo?.[field as any]
+      const completedSeoFields = seoFields.filter(field =>
+        extractionResults.technicalSeo?.[field as keyof typeof extractionResults.technicalSeo]
       ).length;
       score += (completedSeoFields / seoFields.length) * 15;
     }

@@ -12,7 +12,7 @@ export const searchRouter = createTRPCRouter({
         dateRange: z.enum(['last_week', 'last_month', 'last_3_months', 'last_year']).optional(),
         websites: z.array(z.string()).optional(),
         minScore: z.number().min(0).max(1).default(0.7),
-      }).default({}),
+      }).default({ minScore: 0.7 }),
     }))
     .mutation(async ({ input, ctx }) => {
       console.log('🔍 Search starting for query:', input.query);
@@ -95,7 +95,7 @@ export const searchRouter = createTRPCRouter({
         dateRange: z.enum(['last_week', 'last_month', 'last_3_months', 'last_year']).optional(),
         websites: z.array(z.string()).optional(),
         minScore: z.number().min(0).max(1).default(0.6),
-      }).default({}),
+      }).default({ minScore: 0.6 }),
     }))
     .mutation(async ({ input }) => {
       console.log('🔍 Advanced search starting with custom embedding');
@@ -169,7 +169,7 @@ export const searchRouter = createTRPCRouter({
           .map(([topic, reports]) => ({
             topic: topic.charAt(0).toUpperCase() + topic.slice(1) + ' Optimization',
             count: reports.length,
-            commonIssues: this.extractCommonIssues(reports),
+            commonIssues: extractCommonIssues(reports),
             avgImpact: '15-20% conversion increase', // Placeholder
           }));
         
