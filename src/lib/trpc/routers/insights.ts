@@ -7,7 +7,7 @@ import { and, eq, sql } from 'drizzle-orm';
  * Insights dashboard data (CON-120).
  *
  * Aggregates the user's completed analyses into the datasets that back the
- * `/dashboard/insights` visualizations:
+ * dashboard insights visualizations:
  *   - scoreTrend           overall score per analysis over time
  *   - issueFrequency       recommendation counts per category per day
  *   - scatter              every recommendation as an effort/impact point
@@ -46,6 +46,7 @@ export interface ScoreTrendPoint {
 }
 
 export interface InsightsDashboard {
+  websiteCount: number;
   reportCount: number;
   recommendationCount: number;
   averageScore: number;
@@ -233,7 +234,13 @@ export const insightsRouter = createTRPCRouter({
       if (status in entry) entry[status] = Number(r.count);
     }
 
+    const websiteCountRows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(websites)
+      .where(eq(websites.userId, userId));
+
     return {
+      websiteCount: Number(websiteCountRows[0]?.count ?? 0),
       reportCount: rows.length,
       recommendationCount,
       averageScore: scores > 0 ? Math.round((scoreSum / scores) * 10) / 10 : 0,
