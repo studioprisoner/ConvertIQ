@@ -46,7 +46,6 @@ import { authClient, useSession } from "@/lib/auth-client";
 import {
   ArrowRightStartOnRectangleIcon,
   ChevronUpIcon,
-  LightBulbIcon,
   ShieldCheckIcon,
   UserCircleIcon,
 } from "@heroicons/react/16/solid";
@@ -55,6 +54,7 @@ import {
   ClockIcon,
   GlobeAltIcon,
   HomeIcon,
+  LightBulbIcon,
   QuestionMarkCircleIcon,
   SparklesIcon,
   MagnifyingGlassIcon,
@@ -263,6 +263,13 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
               >
                 <ChartBarIcon />
                 <SidebarLabel>Reports</SidebarLabel>
+              </SidebarItem>
+              <SidebarItem
+                href="/dashboard/insights"
+                current={pathname.startsWith("/dashboard/insights")}
+              >
+                <LightBulbIcon />
+                <SidebarLabel>Insights</SidebarLabel>
               </SidebarItem>
               <SidebarItem
                 href="/dashboard/history"
