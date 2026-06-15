@@ -77,6 +77,17 @@ describe('search router — auth (CON-111)', () => {
     // the service was called with the SESSION user id, never a caller-supplied one
     expect(vectorSearchService.getStatsWithoutEmbeddings).toHaveBeenCalledWith(USER_ID);
   });
+
+  it('findSimilarReports scopes to the session user (CON-24 IDOR fix)', async () => {
+    // Cross-tenant guard: the reportId comes from the caller, but the service
+    // must receive the SESSION user id so similarity is restricted to the
+    // caller's own analyses and a foreign reportId cannot leak other users' data.
+    const caller = searchRouter.createCaller(authedCtx);
+    const { vectorSearchService } = await import('@/lib/search/vector-search');
+    (vectorSearchService.findSimilarRecommendations as any).mockResolvedValue([]);
+    await caller.findSimilarReports({ reportId: 'r1', limit: 5 });
+    expect(vectorSearchService.findSimilarRecommendations).toHaveBeenCalledWith('r1', USER_ID, 5);
+  });
 });
 
 describe('streaming-analysis router — auth + ownership (CON-111)', () => {

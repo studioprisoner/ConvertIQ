@@ -68,12 +68,13 @@ export const searchRouter = createTRPCRouter({
       reportId: z.string(),
       limit: z.number().min(1).max(10).default(5),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       console.log('🔍 Finding similar reports for:', input.reportId);
-      
+
       try {
         const similarReports = await vectorSearchService.findSimilarRecommendations(
           input.reportId,
+          ctx.user!.id,
           input.limit
         );
         
