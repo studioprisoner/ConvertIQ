@@ -1,4 +1,5 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { AI_MODELS } from '../models';
 import { 
   generateObject, 
   generateText,
@@ -48,7 +49,7 @@ const anthropicClient = createAnthropic({
 });
 
 export class AnthropicAnalysisProvider {
-  private model = anthropicClient('claude-3-5-sonnet-20241022');
+  private model = anthropicClient(AI_MODELS.analysis);
   private tokenUsageMonitor = {
     sessionStats: {
       totalPromptTokens: 0,
@@ -83,7 +84,7 @@ export class AnthropicAnalysisProvider {
     },
     v5Metrics: {
       sdkVersion: '5.0.0',
-      modelVersion: 'claude-3-5-sonnet-20241022',
+      modelVersion: AI_MODELS.analysis,
       errorRates: {
         timeouts: 0,
         rateLimit: 0,
@@ -366,13 +367,13 @@ export class AnthropicAnalysisProvider {
 
   async analyzeConversionPsychology(crawlData: CrawlResult): Promise<any> {
     const startTime = Date.now();
+    // Declared outside the try so the catch block can reference it without a
+    // ReferenceError (which previously masked the real API error — CON-118).
+    const contentSize = JSON.stringify(crawlData).length;
 
     try {
       console.log('🤖 Generating conversion psychology analysis...');
-      
-      // Calculate content size for dynamic timeout
-      const contentSize = JSON.stringify(crawlData).length;
-      
+
       const result = await this.executeWithOptimizedTimeout(
         'standardAnalysis',
         () => generateObject({
@@ -415,7 +416,7 @@ export class AnthropicAnalysisProvider {
         analysis,
         metadata: {
           processingTime,
-          modelUsed: 'claude-3-5-sonnet-20241022',
+          modelUsed: AI_MODELS.analysis,
           promptVersion: CONVERSION_ANALYSIS_VERSION,
           confidence: 0.9, // High confidence for structured analysis
           tokensUsed: result.usage?.totalTokens || 0,
@@ -447,13 +448,13 @@ export class AnthropicAnalysisProvider {
 
   async analyzeUX(crawlData: CrawlResult): Promise<any> {
     const startTime = Date.now();
+    // Declared outside the try so the catch block can reference it without a
+    // ReferenceError (which previously masked the real API error — CON-118).
+    const contentSize = JSON.stringify(crawlData).length;
 
     try {
       console.log('🎨 Generating UX analysis...');
-      
-      // Calculate content size for dynamic timeout
-      const contentSize = JSON.stringify(crawlData).length;
-      
+
       const result = await this.executeWithOptimizedTimeout(
         'standardAnalysis',
         () => generateObject({
@@ -489,7 +490,7 @@ export class AnthropicAnalysisProvider {
         analysis,
         metadata: {
           processingTime,
-          modelUsed: 'claude-3-5-sonnet-20241022',
+          modelUsed: AI_MODELS.analysis,
           promptVersion: UX_ANALYSIS_VERSION,
           confidence: 0.9,
           tokensUsed: result.usage?.totalTokens || 0,
@@ -559,7 +560,7 @@ export class AnthropicAnalysisProvider {
         analysis,
         metadata: {
           processingTime,
-          modelUsed: 'claude-3-5-sonnet-20241022',
+          modelUsed: AI_MODELS.analysis,
           promptVersion: SEO_ANALYSIS_VERSION,
           confidence: 0.9,
           tokensUsed: result.usage?.totalTokens || 0,
@@ -667,7 +668,7 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
         analysis,
         metadata: {
           processingTime,
-          modelUsed: 'claude-3-5-sonnet-20241022',
+          modelUsed: AI_MODELS.analysis,
           promptVersion: CONVERSION_ANALYSIS_VERSION + '-enhanced',
           confidence: 0.95, // Higher confidence with structured data
           isEnhanced: true,
@@ -747,7 +748,7 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
         extractionSummary: this.generateExtractionSummary(extractionResults),
         metadata: {
           processingTime: totalProcessingTime,
-          modelUsed: 'claude-3-5-sonnet-20241022',
+          modelUsed: AI_MODELS.analysis,
           promptVersion: 'comprehensive-2.0.0-firecrawl-v2-enhanced',
           confidence: 0.92,
           isEnhanced: true,
@@ -905,7 +906,7 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
         overallInsights: overallAnalysis,
         metadata: {
           processingTime: totalProcessingTime,
-          modelUsed: 'claude-3-5-sonnet-20241022',
+          modelUsed: AI_MODELS.analysis,
           promptVersion: 'comprehensive-1.2.0-graceful-degradation',
           confidence: failures === 0 ? 0.85 : Math.max(0.4, 0.85 - (failures * 0.15)), // Lower confidence for partial results
           isPartial: failures > 0,
@@ -1375,7 +1376,7 @@ Focus on UX gaps and opportunities based on the extracted data.`,
       analysis,
       metadata: {
         processingTime: Date.now(),
-        modelUsed: 'claude-3-5-sonnet-20241022',
+        modelUsed: AI_MODELS.analysis,
         promptVersion: UX_ANALYSIS_VERSION + '-enhanced',
         confidence: 0.95,
         isEnhanced: true,
@@ -1422,7 +1423,7 @@ Provide more specific recommendations based on the actual extracted SEO elements
       analysis,
       metadata: {
         processingTime: Date.now(),
-        modelUsed: 'claude-3-5-sonnet-20241022',
+        modelUsed: AI_MODELS.analysis,
         promptVersion: SEO_ANALYSIS_VERSION + '-enhanced',
         confidence: 0.95,
         isEnhanced: true,
@@ -1805,7 +1806,7 @@ Provide specific recommendations based on the actual extracted elements and iden
       analysis,
       metadata: {
         processingTime: Date.now(),
-        modelUsed: 'claude-3-5-sonnet-20241022',
+        modelUsed: AI_MODELS.analysis,
         promptVersion: CONVERSION_ANALYSIS_VERSION + '-enhanced',
         confidence: 0.95,
         isEnhanced: true,

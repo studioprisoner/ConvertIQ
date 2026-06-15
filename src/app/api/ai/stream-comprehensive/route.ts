@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { streamText } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { AI_MODELS } from '@/lib/ai/models';
 import { auth } from '@/lib/auth';
 import { crawlResultSchema } from '@/lib/crawler/types';
 import { z } from 'zod';
@@ -26,7 +27,7 @@ const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const model = anthropic('claude-3-5-sonnet-20241022');
+const model = anthropic(AI_MODELS.analysis);
 
 // Comprehensive streaming schema
 const comprehensiveStreamSchema = z.object({
@@ -152,7 +153,7 @@ CRITICAL: Return ONLY valid JSON matching this exact structure:
   },
   "metadata": {
     "processingTime": number,
-    "modelUsed": "claude-3-5-sonnet-20241022",
+    "modelUsed": "claude-sonnet-4-6",
     "promptVersion": "comprehensive-streaming-1.0.0",
     "confidence": number (0-1),
     "isPartial": false,
