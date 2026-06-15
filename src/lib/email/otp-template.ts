@@ -34,8 +34,12 @@ interface RenderedOtpEmail {
 const BRAND = {
   name: "ConvertIQ",
   tagline: "AI-Powered Conversion Optimisation",
-  gradientStart: "#2865FF",
+  gradientStart: "#2865FF", // brand blue — used for links
   gradientEnd: "#183C99",
+  // Header bar runs white -> dark blue so the blue brain logo and black
+  // wordmark sit on the light (left) side with good contrast.
+  headerGradientStart: "#ffffff",
+  headerGradientEnd: "#183C99",
   accent: "#0BE7FF",
   ink: "#18181b", // zinc-900
   body: "#3f3f46", // zinc-700
@@ -137,14 +141,14 @@ export function renderOtpEmail({
 
           <!-- Header -->
           <tr>
-            <td style="background:${BRAND.gradientStart}; background:linear-gradient(135deg, ${BRAND.gradientStart} 0%, ${BRAND.gradientEnd} 100%); border-radius:16px 16px 0 0; padding:28px 32px;">
+            <td style="background:${BRAND.headerGradientStart}; background:linear-gradient(135deg, ${BRAND.headerGradientStart} 0%, ${BRAND.headerGradientEnd} 100%); border-radius:16px 16px 0 0; padding:28px 32px; border:1px solid ${BRAND.border}; border-bottom:none;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="vertical-align:middle; padding-right:12px;">
                     <img src="${LOGO_URL}" width="42" height="28" alt="" style="display:block; border:0; outline:none; text-decoration:none; width:42px; height:28px;" />
                   </td>
                   <td style="vertical-align:middle;">
-                    <span style="font-family:${FONT_STACK}; font-size:22px; font-weight:700; color:#ffffff; letter-spacing:-0.3px;">${BRAND.name}</span>
+                    <span style="font-family:${FONT_STACK}; font-size:22px; font-weight:700; color:${BRAND.ink}; letter-spacing:-0.3px;">${BRAND.name}</span>
                   </td>
                 </tr>
               </table>
