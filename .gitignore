@@ -56,3 +56,10 @@ CLAUDE.md
 /src/scripts/
 
 /src/app/demo/
+
+#Personal / internal only — not for public repo
+/src/app/story/
+/docs/story.md
+/docs/architecture-map.html
+/docs/CASE-STUDY.md
+/plans
