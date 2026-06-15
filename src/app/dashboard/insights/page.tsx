@@ -18,6 +18,21 @@ import {
 } from "@heroicons/react/20/solid";
 import { trpc } from "@/lib/trpc/client";
 import { useSession } from "@/lib/auth-client";
+import dynamic from "next/dynamic";
+
+// Charts are heavy (Recharts); load them lazily and client-side only so they
+// don't bloat the initial Insights page bundle (CON-120).
+const InsightsCharts = dynamic(
+  () => import("@/components/insights/insights-charts"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-950/10 dark:border-white/10 p-6 text-center text-zinc-500 dark:text-zinc-400">
+        Loading charts…
+      </div>
+    ),
+  },
+);
 
 interface SearchResult {
   analysisId: string;
@@ -428,6 +443,16 @@ export default function AIInsightsPage() {
               )}
           </div>
         )}
+      </div>
+
+      {/* Trends & Analytics */}
+      <div className="mt-8">
+        <Heading className="mb-1">Trends &amp; Analytics</Heading>
+        <Text className="mb-6">
+          Visual breakdown of scores, recommendation patterns, and impact across
+          your portfolio.
+        </Text>
+        <InsightsCharts />
       </div>
     </div>
   );
