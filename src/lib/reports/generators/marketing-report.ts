@@ -85,7 +85,7 @@ export class MarketingReportGenerator {
       findings.push('No structured data markup limiting rich snippet opportunities');
     }
     
-    if (aiAnalysis.technicalSeo?.imageSeo?.altTextPresent < 80) {
+    if ((aiAnalysis.technicalSeo?.imageSeo?.altTextPresent ?? 100) < 80) {
       findings.push('Poor image SEO with missing alt text affecting accessibility and rankings');
     }
     
@@ -396,8 +396,8 @@ export class MarketingReportGenerator {
     description: string,
     category: 'seo' | 'content' | 'technical',
     priority: 'low' | 'medium' | 'high',
-    impact: { score: number; category: string; reasoning: string; businessImpact: string },
-    effort: { score: number; category: string; reasoning: string; timeEstimate: string; skillLevel: string },
+    impact: { score: number; category: 'low' | 'medium' | 'high' | 'critical'; reasoning: string; businessImpact: string },
+    effort: { score: number; category: 'low' | 'medium' | 'high'; reasoning: string; timeEstimate: string; skillLevel: 'beginner' | 'intermediate' | 'advanced' },
     implementationGuide: ImplementationGuide
   ): ReportRecommendation {
     return {

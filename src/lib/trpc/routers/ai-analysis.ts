@@ -5,7 +5,7 @@ import { aiAnalysisEngine } from '@/lib/ai';
 import { analysisTypeSchema, aiAnalysisResultSchema } from '@/lib/ai/types';
 import { crawlResultSchema } from '@/lib/crawler/types';
 // import { aiAnalysisDb } from '@/lib/ai/database';
-// import { embeddingQueue } from '@/lib/embeddings';
+import { embeddingQueue } from '@/lib/embeddings';
 // import type { ExtractedData } from '@/lib/extraction/types';
 
 // Static imports to fix schema synchronization issues
@@ -210,6 +210,16 @@ const aiAnalysisDb = {
       }
       
       console.log('💾 Analysis saved to database:', analysisId);
+
+      // Automatically queue embedding generation (CON-23). Non-blocking: any
+      // failure is swallowed so it can never fail the analysis save; the
+      // backfill script recovers misses. New reports get high priority.
+      try {
+        await embeddingQueue.add({ analysisId, priority: 'high' });
+      } catch (embeddingError) {
+        console.error('🔮 Failed to queue embedding generation (non-fatal):', analysisId, embeddingError);
+      }
+
       return analysisId;
     } catch (error) {
       console.error('💾 Failed to save optimized analysis:', error);
@@ -341,12 +351,6 @@ async function assertWebsiteOwnership(websiteId: string, userId: string): Promis
   }
 }
 
-const embeddingQueue = {
-  backfillEmbeddings: async () => {},
-  getStatus: () => ({ pending: 0, processing: 0, completed: 0 }),
-  add: async () => {}
-};
-
 export const aiAnalysisRouter = createTRPCRouter({
   // Test AI connection
   testConnection: protectedProcedure
@@ -384,123 +388,25 @@ export const aiAnalysisRouter = createTRPCRouter({
 
       try {
         await assertWebsiteOwnership(input.websiteId, ctx.user!.id);
-        // Create a comprehensive analysis result with rich data
-        const overallScore = Math.floor(Math.random() * 30) + 70;
-        const result = {
-          type: input.analysisType,
-          summary: `Comprehensive analysis completed for ${input.crawlData.url}. Found ${Math.floor(Math.random() * 3) + 8} optimization opportunities across conversion, UX, and SEO areas.`,
-          keyInsights: [
-            'Strong product presentation with clear value propositions',
-            'Mobile optimization shows room for improvement',
-            'Trust signals present but could be enhanced',
-            'Page loading speed is within acceptable range',
-            'Social proof elements effectively positioned',
-            'Navigation structure supports user journey',
-            'Content hierarchy guides attention well',
-            'Call-to-action placement follows best practices'
-          ],
-          recommendations: [
-            {
-              id: 'cta-visibility',
-              category: 'conversion',
-              title: 'Enhance Call-to-Action Visibility',
-              description: 'Primary CTAs should be more prominent with contrasting colors and strategic positioning to improve conversion rates.',
-              impact: { score: 8, category: 'high', reasoning: 'CTAs are critical conversion drivers' },
-              effort: { score: 3, category: 'low', reasoning: 'Simple CSS and positioning changes' },
-              priority: 'high',
-              implementation: 'Update button styling, increase size by 20%, use high-contrast colors'
-            },
-            {
-              id: 'mobile-optimization',
-              category: 'ux',
-              title: 'Optimize Mobile User Experience',
-              description: 'Improve touch targets and spacing for mobile users to reduce friction.',
-              impact: { score: 7, category: 'high', reasoning: 'Mobile traffic represents majority of users' },
-              effort: { score: 5, category: 'medium', reasoning: 'Requires responsive design updates' },
-              priority: 'high',
-              implementation: 'Increase button sizes to minimum 44px, improve spacing between elements'
-            },
-            {
-              id: 'trust-signals',
-              category: 'conversion',
-              title: 'Strengthen Trust Indicators',
-              description: 'Add more visible security badges and customer testimonials to build credibility.',
-              impact: { score: 6, category: 'medium', reasoning: 'Trust directly impacts conversion willingness' },
-              effort: { score: 4, category: 'medium', reasoning: 'Content creation and design work needed' },
-              priority: 'medium',
-              implementation: 'Add SSL badge, customer reviews section, money-back guarantee'
-            },
-            {
-              id: 'page-speed',
-              category: 'technical',
-              title: 'Optimize Page Loading Speed',
-              description: 'Compress images and optimize resources to improve loading performance.',
-              impact: { score: 7, category: 'high', reasoning: 'Page speed affects both SEO and user experience' },
-              effort: { score: 6, category: 'medium', reasoning: 'Technical optimization work required' },
-              priority: 'high',
-              implementation: 'Implement image compression, enable caching, optimize CSS/JS'
-            },
-            {
-              id: 'social-proof',
-              category: 'conversion',
-              title: 'Expand Social Proof Elements',
-              description: 'Add more customer testimonials and usage statistics to leverage social validation.',
-              impact: { score: 6, category: 'medium', reasoning: 'Social proof influences purchase decisions' },
-              effort: { score: 4, category: 'medium', reasoning: 'Content gathering and design integration' },
-              priority: 'medium',
-              implementation: 'Collect customer testimonials, add usage counters, display recent purchases'
-            },
-            {
-              id: 'meta-optimization',
-              category: 'seo',
-              title: 'Optimize Meta Tags and Descriptions',
-              description: 'Improve page titles and meta descriptions for better search engine visibility.',
-              impact: { score: 5, category: 'medium', reasoning: 'Affects organic search visibility' },
-              effort: { score: 2, category: 'low', reasoning: 'Simple content updates' },
-              priority: 'medium',
-              implementation: 'Rewrite page titles to be more descriptive, craft compelling meta descriptions'
-            }
-          ],
-          scores: {
-            overall: overallScore,
-            conversion: Math.floor(Math.random() * 25) + 65,
-            ux: Math.floor(Math.random() * 25) + 70,
-            seo: Math.floor(Math.random() * 25) + 68,
-            content: Math.floor(Math.random() * 25) + 75,
-          },
-          conversionPsychology: {
-            trustIndicators: {
-              securityBadges: true,
-              contactInformation: true,
-              aboutSection: false,
-              professionalDesign: 8
-            },
-            psychologicalTriggers: {
-              scarcity: { present: true, effectiveness: 6 },
-              socialProof: { present: true, effectiveness: 7 },
-              authority: { present: false, effectiveness: 0 },
-              reciprocity: { present: true, effectiveness: 5 }
-            }
-          },
-          uxAnalysis: {
-            navigation: { score: 8, keyFindings: ['Clear navigation structure', 'Easy to find product categories'] },
-            mobileOptimization: { score: 6, keyFindings: ['Touch targets could be larger', 'Some text too small on mobile'] },
-            performance: { score: 7, keyFindings: ['Good loading speed overall', 'Images could be compressed'] },
-            keyFindings: ['Navigation is intuitive', 'Mobile experience needs improvement', 'Visual hierarchy is effective']
-          },
-          technicalSeo: {
-            onPage: { score: 7, keyFindings: ['Meta tags present', 'Heading structure good', 'Alt text missing on some images'] },
-            performance: { score: 6, keyFindings: ['Loading speed acceptable', 'Core Web Vitals need attention'] },
-            keyFindings: ['Technical SEO foundation is solid', 'Performance optimizations needed']
-          },
-          metadata: {
-            analysisId: `analysis-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            processingTime: Math.floor(Math.random() * 3000) + 2000,
-            firecrawlVersion: input.firecrawlVersion,
-            useEnhancedAnalysis: input.useEnhancedAnalysis,
-          }
-        };
+        // Run the real AI analysis. Returns a full AIAnalysisResult with genuine
+        // scores and recommendations (replaces the previous mock). When enhanced
+        // analysis is requested, the v2 extraction data is passed through so the
+        // engine can use structured data; otherwise standard v1 analysis runs.
+        const result = await aiAnalysisEngine.analyze(
+          input.crawlData,
+          input.websiteId,
+          input.analysisType,
+          input.useEnhancedAnalysis ? (input.extractionResults ?? undefined) : undefined,
+        );
+
+        console.log(
+          '🤖 AI analysis completed for:',
+          input.crawlData.url,
+          '| score:',
+          result.overallScore,
+          '| recommendations:',
+          result.recommendations?.length ?? 0,
+        );
 
         // Save to database if requested
         if (input.saveToDb) {
@@ -514,7 +420,7 @@ export const aiAnalysisRouter = createTRPCRouter({
               isEnhancedAnalysis: input.useEnhancedAnalysis,
             }
           );
-          console.log('💾 Mock analysis saved with ID:', analysisId, 'Version:', input.firecrawlVersion);
+          console.log('💾 Analysis saved with ID:', analysisId, 'Version:', input.firecrawlVersion);
           
           // Now generate reports using the existing report generators
           try {
@@ -579,145 +485,12 @@ export const aiAnalysisRouter = createTRPCRouter({
           }
         }
 
-        console.log('🤖 AI analysis completed successfully for:', input.crawlData.url);
         return result;
-        
+
       } catch (error) {
         console.error('🤖 AI analysis failed:', error);
         throw new Error(`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-      
-      /*
-      // COMMENTED OUT ORIGINAL IMPLEMENTATION TO ISOLATE SCHEMA ISSUE
-      try {
-        
-        // Use enhanced analysis if requested and extraction results are available
-        if (input.useEnhancedAnalysis && input.extractionResults && input.firecrawlVersion === 'v2') {
-          console.log('🚀 Using enhanced Firecrawl v2 analysis with structured data');
-          
-          // Import enhanced analysis provider
-          const { anthropic } = await import('@/lib/ai/providers/anthropic');
-          
-          // Use enhanced analysis with structured data
-          result = await anthropic.analyzeConversionPsychologyEnhanced(
-            input.crawlData,
-            input.extractionResults
-          );
-        } else {
-          // Use standard analysis
-          result = await aiAnalysisEngine.analyze(
-            input.crawlData,
-            input.websiteId,
-            input.analysisType
-          );
-        }
-        
-        console.log('🤖 AI analysis completed for:', input.crawlData.url);
-        console.log('🤖 Overall score:', result.overallScore);
-        console.log('🤖 Analysis result structure:', {
-          hasRecommendations: !!result.recommendations,
-          recommendationsType: typeof result.recommendations,
-          resultKeys: Object.keys(result),
-        });
-        console.log('🤖 Recommendations count:', result.recommendations?.length || 0);
-        
-        // Save to database if requested
-        if (input.saveToDb) {
-          const analysisId = await aiAnalysisDb.saveAnalysis(
-            input.websiteId,
-            input.crawlData,
-            result,
-            {
-              extractionResults: input.extractionResults,
-              firecrawlVersion: input.firecrawlVersion,
-              isEnhancedAnalysis: input.useEnhancedAnalysis,
-            }
-          );
-          console.log('💾 Analysis saved with ID:', analysisId, 'Version:', input.firecrawlVersion);
-          
-          // Automatically generate reports after successful analysis
-          try {
-            // Import report generation services directly 
-            const { marketingReportGenerator } = await import('@/lib/reports/generators/marketing-report');
-            const { conversionReportGenerator } = await import('@/lib/reports/generators/conversion-report');
-            // Use static imports from top of file
-            
-            // Get the analysis data for report generation
-            const analysisData = await aiAnalysisDb.getAnalysisById(analysisId);
-            if (!analysisData) {
-              throw new Error('Analysis data not found for report generation');
-            }
-            
-            const reportGenerationInput = {
-              websiteUrl: input.crawlData.url,
-              businessType: 'general',
-              targetAudience: 'small business owners'
-            };
-            
-            // Generate marketing report
-            console.log('📊 Generating marketing report for analysis:', analysisId);
-            const marketingReportContent = await marketingReportGenerator.generateMarketingReport(
-              result,
-              reportGenerationInput
-            );
-            
-            const [marketingReport] = await db
-              .insert(reports)
-              .values({
-                analysisId,
-                title: `Marketing Analysis Report - ${input.crawlData.url}`,
-                type: 'marketing',
-                content: marketingReportContent,
-                summary: marketingReportContent.executiveSummary?.keyFindings?.join('. ') || 'Marketing report generated successfully',
-                createdAt: new Date(),
-                updatedAt: new Date()
-              })
-              .returning();
-            
-            console.log('📊 Marketing report generated with ID:', marketingReport.id);
-            
-            // Generate conversion report
-            console.log('📊 Generating conversion report for analysis:', analysisId);
-            const conversionReportContent = await conversionReportGenerator.generateConversionReport(
-              result,
-              reportGenerationInput
-            );
-            
-            const [conversionReport] = await db
-              .insert(reports)
-              .values({
-                analysisId,
-                title: `Conversion Analysis Report - ${input.crawlData.url}`,
-                type: 'conversion',
-                content: conversionReportContent,
-                summary: conversionReportContent.executiveSummary?.keyFindings?.join('. ') || 'Conversion report generated successfully',
-                createdAt: new Date(),
-                updatedAt: new Date()
-              })
-              .returning();
-            
-            console.log('📊 Conversion report generated with ID:', conversionReport.id);
-            console.log('✅ All reports generated successfully for analysis:', analysisId);
-          } catch (reportError) {
-            console.error('❌ Failed to generate reports after analysis:', reportError);
-            // Don't throw - analysis was successful, report generation failure shouldn't fail the analysis
-          }
-        }
-        
-        return result;
-      } catch (error) {
-        console.error('🤖 AI analysis failed:', error);
-        console.error('🤖 Error stack trace:', error instanceof Error ? error.stack : 'No stack trace');
-        console.error('🤖 Input data structure:', {
-          hasCrawlData: !!input.crawlData,
-          hasExtractionResults: !!input.extractionResults,
-          extractionResultsType: typeof input.extractionResults,
-          useEnhancedAnalysis: input.useEnhancedAnalysis,
-          firecrawlVersion: input.firecrawlVersion
-        });
-        throw new Error(`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-      */
     }),
 
   // Enhanced analysis using v2 extraction data - TEMPORARILY SIMPLIFIED
@@ -971,17 +744,17 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  // Admin: Backfill embeddings for existing analyses - TEMPORARILY SIMPLIFIED
+  // Admin: Backfill embeddings for existing analyses without one
   backfillEmbeddings: protectedProcedure
     .mutation(async () => {
-      console.log('🔮 Starting embedding backfill process (mock)');
-      
+      console.log('🔮 Starting embedding backfill process');
+
       try {
         await embeddingQueue.backfillEmbeddings();
-        
+
         return {
           success: true,
-          message: 'Embedding backfill process started (mock)',
+          message: 'Embedding backfill process started',
           timestamp: new Date().toISOString(),
         };
       } catch (error) {
@@ -990,15 +763,15 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  // Admin: Get embedding queue status - TEMPORARILY SIMPLIFIED
+  // Admin: Get embedding queue status
   getEmbeddingQueueStatus: protectedProcedure
     .query(async () => {
-      console.log('🔮 Getting embedding queue status (mock)');
-      
+      console.log('🔮 Getting embedding queue status');
+
       try {
         const status = embeddingQueue.getStatus();
-        
-        console.log('🔮 Queue status (mock):', status);
+
+        console.log('🔮 Queue status:', status);
         return status;
       } catch (error) {
         console.error('🔮 Failed to get queue status:', error);
@@ -1006,15 +779,15 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  // Admin: Generate embedding for specific analysis - TEMPORARILY SIMPLIFIED
+  // Admin: Generate embedding for a specific analysis
   generateEmbedding: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
       priority: z.enum(['normal', 'high']).default('high'),
     }))
     .mutation(async ({ input }) => {
-      console.log('🔮 Queuing embedding generation (mock) for analysis:', input.analysisId);
-      
+      console.log('🔮 Queuing embedding generation for analysis:', input.analysisId);
+
       try {
         await embeddingQueue.add({
           analysisId: input.analysisId,

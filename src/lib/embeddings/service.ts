@@ -10,10 +10,18 @@ export class VoyageEmbeddingService implements EmbeddingService {
   private readonly dimensions = 1024; // voyage-3.5 dimensions
   private readonly baseUrl = 'https://api.voyageai.com/v1';
 
-  constructor() {
-    if (!process.env.VOYAGE_API_KEY) {
+  /**
+   * Read the Voyage API key, validating it lazily at call time rather than in
+   * the constructor. Constructing this service must stay side-effect free so
+   * that importing modules which transitively depend on it (e.g. the tRPC
+   * routers / embedding queue) never crash at load time when the key is absent.
+   */
+  private getApiKey(): string {
+    const key = process.env.VOYAGE_API_KEY;
+    if (!key) {
       throw new Error('VOYAGE_API_KEY environment variable is required');
     }
+    return key;
   }
 
   /**
@@ -37,7 +45,7 @@ export class VoyageEmbeddingService implements EmbeddingService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.VOYAGE_API_KEY}`,
+            'Authorization': `Bearer ${this.getApiKey()}`,
           },
           body: JSON.stringify({
             input: [preprocessedText],
@@ -147,7 +155,7 @@ export class VoyageEmbeddingService implements EmbeddingService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.VOYAGE_API_KEY}`,
+            'Authorization': `Bearer ${this.getApiKey()}`,
           },
           body: JSON.stringify({
             input: preprocessedBatch,
