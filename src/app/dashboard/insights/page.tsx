@@ -282,7 +282,7 @@ export default function AIInsightsPage() {
             <Subheading className="mb-4">
               Search Results
               {isUsingFallback && (
-                <Badge color="amber" size="sm" className="ml-2">
+                <Badge color="amber" className="ml-2">
                   Keyword Search
                 </Badge>
               )}
@@ -314,8 +314,7 @@ export default function AIInsightsPage() {
                       </div>
                     </div>
                     <Button
-                      variant="outline"
-                      size="sm"
+                      outline
                       onClick={() => findSimilarReports(result.analysisId)}
                     >
                       Find Similar
@@ -360,10 +359,7 @@ export default function AIInsightsPage() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <Strong className="text-sm">{report.websiteUrl}</Strong>
-                    <Badge
-                      color={getSimilarityColor(report.similarity)}
-                      size="sm"
-                    >
+                    <Badge color={getSimilarityColor(report.similarity)}>
                       {(report.similarity * 100).toFixed(1)}% similar
                     </Badge>
                   </div>
@@ -374,7 +370,7 @@ export default function AIInsightsPage() {
                       </Text>
                       <div className="flex flex-wrap gap-1">
                         {report.commonTopics.slice(0, 3).map((topic, idx) => (
-                          <Badge key={idx} color="blue" size="sm">
+                          <Badge key={idx} color="blue">
                             {topic}
                           </Badge>
                         ))}
