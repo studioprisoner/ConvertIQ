@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, publicProcedure, protectedProcedure } from '../server';
 import { websites } from '@/db/schema/websites';
 import { analyses } from '@/db/schema/analyses';
+import { user } from '@/db/schema/auth';
 import { eq, desc, and, ne } from 'drizzle-orm';
 import { db } from '@/db/connection';
 import { checkFeatureAccess } from '@/lib/feature-gate';
@@ -345,13 +346,37 @@ export const websitesRouter = createTRPCRouter({
           .from(websites)
           .where(eq(websites.userId, userId));
 
-        // Check if the domain is already in user's allowed domains (ignoring www)
-        // Look at the hostname of existing website URLs
-        const isDomainAllowed = userDomains.some(domain => {
-          const domainHost = new URL(domain.url).hostname.toLowerCase();
-          const normalizedDomainHost = normalizeDomain(domainHost);
-          return normalizedScanDomain === normalizedDomainHost;
-        });
+        // The user's primaryDomain (set at onboarding) is always an allowed
+        // domain for basic-plan users, even when no website row exists yet —
+        // e.g. after deleting all their sites. Without this, a basic user who
+        // removed their site could never scan their own primary domain again.
+        const userRow = await db
+          .select({ primaryDomain: user.primaryDomain })
+          .from(user)
+          .where(eq(user.id, userId))
+          .limit(1);
+
+        const hostFromDomain = (value: string): string | null => {
+          try {
+            return normalizeDomain(new URL(value).hostname.toLowerCase());
+          } catch {
+            return value ? normalizeDomain(value.toLowerCase()) : null;
+          }
+        };
+
+        const primaryDomainHost = userRow[0]?.primaryDomain
+          ? hostFromDomain(userRow[0].primaryDomain)
+          : null;
+
+        // Check if the domain is in the user's allowed domains (ignoring www):
+        // their primaryDomain, or the hostname of any existing website URL.
+        const isDomainAllowed =
+          (primaryDomainHost != null && primaryDomainHost === normalizedScanDomain) ||
+          userDomains.some(domain => {
+            const domainHost = new URL(domain.url).hostname.toLowerCase();
+            const normalizedDomainHost = normalizeDomain(domainHost);
+            return normalizedScanDomain === normalizedDomainHost;
+          });
 
         if (!isDomainAllowed) {
           // Only check multiple_websites feature if user is trying to scan a NEW domain
