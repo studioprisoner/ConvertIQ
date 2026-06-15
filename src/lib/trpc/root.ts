@@ -5,6 +5,7 @@ import { reportsRouter } from './routers/reports';
 import { websitesRouter } from './routers/websites';
 import { userRouter } from './routers/user';
 import { searchRouter } from './routers/search';
+import { insightsRouter } from './routers/insights';
 import { streamingAnalysisRouter } from './routers/streaming-analysis';
 import { firecrawlV2Router } from './routers/firecrawl-v2';
 import { adminRouter } from './routers/admin';
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
   websites: websitesRouter,
   user: userRouter,
   search: searchRouter,
+  insights: insightsRouter,
   streaming: streamingAnalysisRouter,
   firecrawlV2: firecrawlV2Router,
   admin: adminRouter,
