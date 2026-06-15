@@ -92,11 +92,11 @@ export class ConversionReportGenerator {
       findings.push('Significant conversion optimization opportunities identified');
     }
     
-    if (aiAnalysis.conversionPsychology?.trustIndicators?.securityBadges === false) {
-      findings.push('Missing trust signals affecting user confidence and conversions');
+    if ((aiAnalysis.conversionPsychology?.trustIndicators?.score ?? 10) < 6) {
+      findings.push('Weak trust signals affecting user confidence and conversions');
     }
-    
-    if (aiAnalysis.uxAnalysis?.mobileOptimization?.score < 6) {
+
+    if ((aiAnalysis.uxAnalysis?.mobileOptimization?.score ?? 10) < 6) {
       findings.push('Mobile experience issues limiting mobile conversions');
     }
     
@@ -204,15 +204,15 @@ export class ConversionReportGenerator {
     }
     
     // Common usability issues based on analysis
-    if (aiAnalysis.uxAnalysis?.mobileOptimization?.score < 6) {
+    if ((aiAnalysis.uxAnalysis?.mobileOptimization?.score ?? 10) < 6) {
       issues.push('Mobile interface not optimized for touch interactions');
     }
-    
-    if (aiAnalysis.uxAnalysis?.navigation?.score < 6) {
+
+    if ((aiAnalysis.uxAnalysis?.navigation?.score ?? 10) < 6) {
       issues.push('Navigation structure causes user confusion');
     }
-    
-    if (aiAnalysis.uxAnalysis?.performance?.score < 6) {
+
+    if ((aiAnalysis.uxAnalysis?.performance?.score ?? 10) < 6) {
       issues.push('Slow loading times frustrating users');
     }
     
@@ -226,37 +226,15 @@ export class ConversionReportGenerator {
   private calculateTrustSignalsScore(aiAnalysis: AIAnalysisResult): number {
     const trustIndicators = aiAnalysis.conversionPsychology?.trustIndicators;
     if (!trustIndicators) return Math.max(aiAnalysis.overallScore - 1, 1);
-    
-    let score = 0;
-    let factors = 0;
-    
-    if (trustIndicators.securityBadges !== undefined) {
-      score += trustIndicators.securityBadges ? 10 : 2;
-      factors++;
-    }
-    
-    if (trustIndicators.contactInformation !== undefined) {
-      score += trustIndicators.contactInformation ? 8 : 3;
-      factors++;
-    }
-    
-    if (trustIndicators.aboutSection !== undefined) {
-      score += trustIndicators.aboutSection ? 8 : 3;
-      factors++;
-    }
-    
-    if (trustIndicators.professionalDesign !== undefined) {
-      score += trustIndicators.professionalDesign;
-      factors++;
-    }
-    
-    return factors > 0 ? Math.round(score / factors) : aiAnalysis.overallScore;
+
+    // The analysis schema exposes a 1-10 trust score plus strengths/weaknesses.
+    return trustIndicators.score;
   }
 
   private calculateSocialProofScore(aiAnalysis: AIAnalysisResult): number {
     const psychologyAnalysis = aiAnalysis.conversionPsychology;
-    if (psychologyAnalysis?.psychologicalTriggers?.socialProof?.effectiveness) {
-      return psychologyAnalysis.psychologicalTriggers.socialProof.effectiveness;
+    if (psychologyAnalysis?.psychologicalTriggers?.socialProof?.score) {
+      return psychologyAnalysis.psychologicalTriggers.socialProof.score;
     }
     
     // Check for social proof indicators
@@ -295,24 +273,28 @@ export class ConversionReportGenerator {
     const triggers = [];
     
     const psychology = aiAnalysis.conversionPsychology?.psychologicalTriggers;
-    
-    if (psychology?.scarcity?.present) {
+
+    // Each trigger carries a 1-10 score; treat a meaningful score (>= 6) as
+    // "actively present" in the page's persuasion strategy.
+    const isPresent = (trigger?: { score: number }) => (trigger?.score ?? 0) >= 6;
+
+    if (isPresent(psychology?.scarcity)) {
       triggers.push('Scarcity - Limited availability messaging');
     }
-    
-    if (psychology?.socialProof?.present) {
+
+    if (isPresent(psychology?.socialProof)) {
       triggers.push('Social Proof - Customer testimonials and reviews');
     }
-    
-    if (psychology?.authority?.present) {
+
+    if (isPresent(psychology?.authority)) {
       triggers.push('Authority - Expert credentials and certifications');
     }
-    
-    if (psychology?.reciprocity?.present) {
+
+    if (isPresent(psychology?.reciprocity)) {
       triggers.push('Reciprocity - Free resources and value-first approach');
     }
-    
-    if (psychology?.commitment?.present) {
+
+    if (isPresent(psychology?.commitment)) {
       triggers.push('Commitment - Clear guarantees and expectations');
     }
     
@@ -395,7 +377,7 @@ export class ConversionReportGenerator {
     const recommendations: ReportRecommendation[] = [];
     
     // Trust signals recommendation
-    if (aiAnalysis.conversionPsychology?.trustIndicators?.securityBadges === false) {
+    if ((aiAnalysis.conversionPsychology?.trustIndicators?.score ?? 10) < 6) {
       recommendations.push(this.createConversionRecommendation(
         'Add Security Trust Badges',
         'Display SSL certificates, payment security badges, and privacy certifications to increase user trust and confidence',
@@ -408,7 +390,7 @@ export class ConversionReportGenerator {
     }
     
     // Mobile optimization recommendation
-    if (aiAnalysis.uxAnalysis?.mobileOptimization?.score < 6) {
+    if ((aiAnalysis.uxAnalysis?.mobileOptimization?.score ?? 10) < 6) {
       recommendations.push(this.createConversionRecommendation(
         'Optimize Mobile User Experience',
         'Improve mobile interface design, touch targets, and navigation for better mobile conversions',
@@ -421,7 +403,7 @@ export class ConversionReportGenerator {
     }
     
     // Social proof recommendation
-    if (aiAnalysis.conversionPsychology?.psychologicalTriggers?.socialProof?.present === false) {
+    if ((aiAnalysis.conversionPsychology?.psychologicalTriggers?.socialProof?.score ?? 10) < 6) {
       recommendations.push(this.createConversionRecommendation(
         'Implement Social Proof Elements',
         'Add customer testimonials, reviews, and trust indicators to build credibility and encourage conversions',
@@ -441,8 +423,8 @@ export class ConversionReportGenerator {
     description: string,
     category: 'conversion' | 'ux' | 'design',
     priority: 'low' | 'medium' | 'high',
-    impact: { score: number; category: string; reasoning: string; businessImpact: string },
-    effort: { score: number; category: string; reasoning: string; timeEstimate: string; skillLevel: string },
+    impact: { score: number; category: 'low' | 'medium' | 'high' | 'critical'; reasoning: string; businessImpact: string },
+    effort: { score: number; category: 'low' | 'medium' | 'high'; reasoning: string; timeEstimate: string; skillLevel: 'beginner' | 'intermediate' | 'advanced' },
     implementationGuide: ImplementationGuide
   ): ReportRecommendation {
     return {
@@ -610,7 +592,7 @@ export class ConversionReportGenerator {
     const quickWins = [];
     
     // Trust badges quick win
-    if (aiAnalysis.conversionPsychology?.trustIndicators?.securityBadges === false) {
+    if ((aiAnalysis.conversionPsychology?.trustIndicators?.score ?? 10) < 6) {
       quickWins.push({
         title: 'Add Security Trust Badges',
         description: 'Display SSL and payment security badges',
@@ -628,7 +610,7 @@ export class ConversionReportGenerator {
     });
     
     // Contact information quick win
-    if (aiAnalysis.conversionPsychology?.trustIndicators?.contactInformation === false) {
+    if ((aiAnalysis.conversionPsychology?.trustIndicators?.score ?? 10) < 7) {
       quickWins.push({
         title: 'Add Clear Contact Information',
         description: 'Display phone, email, and address prominently',
