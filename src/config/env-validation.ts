@@ -175,7 +175,7 @@ export function getAIProviderConfig() {
   if (env.ANTHROPIC_API_KEY) {
     providers.anthropic = {
       apiKey: env.ANTHROPIC_API_KEY,
-      model: env.ANTHROPIC_MODEL || 'claude-3-haiku-20240307',
+      model: env.ANTHROPIC_MODEL || 'claude-haiku-4-5',
       maxTokens: env.ANTHROPIC_MAX_TOKENS || 4000,
     };
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { streamText } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { AI_MODELS } from '@/lib/ai/models';
 import { auth } from '@/lib/auth';
 import { z } from 'zod';
 import {
@@ -25,7 +26,7 @@ const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const model = anthropic('claude-3-5-sonnet-20241022');
+const model = anthropic(AI_MODELS.analysis);
 
 // Request schema for streaming analysis
 const streamAnalysisSchema = z.object({

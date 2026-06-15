@@ -9,6 +9,7 @@
 import { EnhancedFirecrawlService } from './enhanced-service';
 import { generateAnalysisSummary } from './analysis-helpers';
 import { anthropic } from '@ai-sdk/anthropic';
+import { AI_MODELS } from '@/lib/ai/models';
 import { generateText } from 'ai';
 import { db } from '@/db';
 import { websites, reports } from '@/db/schema';
@@ -357,7 +358,7 @@ export class WebsiteMonitoringService {
       `;
 
       const { text } = await generateText({
-        model: anthropic('claude-3-haiku-20240307'),
+        model: anthropic(AI_MODELS.fast),
         prompt,
         maxOutputTokens: 2000,
         temperature: 0.2
