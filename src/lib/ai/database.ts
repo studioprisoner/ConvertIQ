@@ -1,9 +1,9 @@
 import { db } from '@/db/connection';
 import { analyses, websites, insertAnalysisSchema } from '@/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, isNull } from 'drizzle-orm';
 import type { AIAnalysisResult } from './types';
 import type { CrawlResult } from '../crawler/types';
-import { embeddingService, textProcessor } from '@/lib/embeddings';
+import { embeddingService, textProcessor, embeddingQueue } from '@/lib/embeddings';
 import { randomUUID } from 'crypto';
 
 export class AIAnalysisDatabase {
@@ -133,10 +133,29 @@ export class AIAnalysisDatabase {
       `);
 
       console.log('💾 AI analysis saved to database:', analysisId);
+
+      // Automatically queue embedding generation (CON-23). Non-blocking by
+      // contract: any failure here is swallowed so embedding problems can never
+      // fail the analysis save — the backfill script recovers any misses. New
+      // reports run at high priority so fresh content becomes searchable first.
+      await this.queueEmbeddingGeneration(analysisId);
+
       return analysisId;
     } catch (error) {
       console.error('💾 Failed to save AI analysis:', error);
       throw new Error(`Failed to save analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Queue automatic embedding generation for a freshly-saved analysis (CON-23).
+   * Never throws: embedding failures must not fail the analysis save.
+   */
+  private async queueEmbeddingGeneration(analysisId: string): Promise<void> {
+    try {
+      await embeddingQueue.add({ analysisId, priority: 'high' });
+    } catch (error) {
+      console.error('💾 Failed to queue embedding generation (non-fatal):', analysisId, error);
     }
   }
 
@@ -376,8 +395,10 @@ export class AIAnalysisDatabase {
         .where(
           and(
             eq(analyses.status, 'completed'),
-            // Check for null embedding
-            eq(analyses.embedding, null as any)
+            // embedding IS NULL — `eq(col, null)` compiles to `= NULL`, which is
+            // never true in SQL, so backfill must use isNull to find un-embedded
+            // rows. (Previously this always returned zero rows.)
+            isNull(analyses.embedding)
           )
         )
         .orderBy(desc(analyses.createdAt));

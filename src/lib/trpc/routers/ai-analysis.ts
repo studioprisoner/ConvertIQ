@@ -5,7 +5,7 @@ import { aiAnalysisEngine } from '@/lib/ai';
 import { analysisTypeSchema, aiAnalysisResultSchema } from '@/lib/ai/types';
 import { crawlResultSchema } from '@/lib/crawler/types';
 // import { aiAnalysisDb } from '@/lib/ai/database';
-// import { embeddingQueue } from '@/lib/embeddings';
+import { embeddingQueue } from '@/lib/embeddings';
 // import type { ExtractedData } from '@/lib/extraction/types';
 
 // Static imports to fix schema synchronization issues
@@ -210,6 +210,16 @@ const aiAnalysisDb = {
       }
       
       console.log('💾 Analysis saved to database:', analysisId);
+
+      // Automatically queue embedding generation (CON-23). Non-blocking: any
+      // failure is swallowed so it can never fail the analysis save; the
+      // backfill script recovers misses. New reports get high priority.
+      try {
+        await embeddingQueue.add({ analysisId, priority: 'high' });
+      } catch (embeddingError) {
+        console.error('🔮 Failed to queue embedding generation (non-fatal):', analysisId, embeddingError);
+      }
+
       return analysisId;
     } catch (error) {
       console.error('💾 Failed to save optimized analysis:', error);
@@ -340,12 +350,6 @@ async function assertWebsiteOwnership(websiteId: string, userId: string): Promis
     throw new Error('Website not found');
   }
 }
-
-const embeddingQueue = {
-  backfillEmbeddings: async () => {},
-  getStatus: () => ({ pending: 0, processing: 0, completed: 0 }),
-  add: async () => {}
-};
 
 export const aiAnalysisRouter = createTRPCRouter({
   // Test AI connection
@@ -971,17 +975,17 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  // Admin: Backfill embeddings for existing analyses - TEMPORARILY SIMPLIFIED
+  // Admin: Backfill embeddings for existing analyses without one
   backfillEmbeddings: protectedProcedure
     .mutation(async () => {
-      console.log('🔮 Starting embedding backfill process (mock)');
-      
+      console.log('🔮 Starting embedding backfill process');
+
       try {
         await embeddingQueue.backfillEmbeddings();
-        
+
         return {
           success: true,
-          message: 'Embedding backfill process started (mock)',
+          message: 'Embedding backfill process started',
           timestamp: new Date().toISOString(),
         };
       } catch (error) {
@@ -990,15 +994,15 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  // Admin: Get embedding queue status - TEMPORARILY SIMPLIFIED
+  // Admin: Get embedding queue status
   getEmbeddingQueueStatus: protectedProcedure
     .query(async () => {
-      console.log('🔮 Getting embedding queue status (mock)');
-      
+      console.log('🔮 Getting embedding queue status');
+
       try {
         const status = embeddingQueue.getStatus();
-        
-        console.log('🔮 Queue status (mock):', status);
+
+        console.log('🔮 Queue status:', status);
         return status;
       } catch (error) {
         console.error('🔮 Failed to get queue status:', error);
@@ -1006,15 +1010,15 @@ export const aiAnalysisRouter = createTRPCRouter({
       }
     }),
 
-  // Admin: Generate embedding for specific analysis - TEMPORARILY SIMPLIFIED
+  // Admin: Generate embedding for a specific analysis
   generateEmbedding: protectedProcedure
     .input(z.object({
       analysisId: z.string().uuid(),
       priority: z.enum(['normal', 'high']).default('high'),
     }))
     .mutation(async ({ input }) => {
-      console.log('🔮 Queuing embedding generation (mock) for analysis:', input.analysisId);
-      
+      console.log('🔮 Queuing embedding generation for analysis:', input.analysisId);
+
       try {
         await embeddingQueue.add({
           analysisId: input.analysisId,
