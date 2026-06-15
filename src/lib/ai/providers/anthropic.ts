@@ -854,7 +854,16 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
       
       const overallScore = validScores.length > 0 ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length) : 5;
       
-      const failures = analysisResults.filter(result => result.status === 'rejected').length;
+      // A monitored section RESOLVES with a fallback object (metadata.isFallback)
+      // when its real Anthropic call fails — it doesn't reject — so counting only
+      // rejected promises undercounts failures. That made fully-degraded runs
+      // report confidence 0.85 / isPartial false, masking that no real analysis
+      // happened (CON-118). Count a section as failed if it rejected OR fell back.
+      const sectionSettled = [analysisResults[0], analysisResults[1], analysisResults[2]];
+      const sectionValues = [conversionResult, uxResult, seoResult];
+      const failures = sectionSettled.filter((settled, i) =>
+        settled.status === 'rejected' || sectionValues[i]?.metadata?.isFallback === true
+      ).length;
       const partialWarning = failures > 0 ? `\n\n⚠️ **Note**: ${failures} analysis sections used fallback data due to processing timeouts. This is a temporary issue that will be resolved in future scans.` : '';
       
       // Generate detailed overall insights with optimized AI call
