@@ -68,6 +68,7 @@ export interface VectorSearchService {
 
   findSimilarRecommendations(
     reportId: string,
+    userId: string,
     limit: number
   ): Promise<SimilarRecommendation[]>;
 
@@ -185,17 +186,20 @@ export class PostgresVectorSearchService implements VectorSearchService {
    */
   async findSimilarRecommendations(
     reportId: string,
+    userId: string,
     limit: number = 5
   ): Promise<SimilarRecommendation[]> {
     try {
-      // Get the embedding of the source report
+      // Get the embedding of the source report, scoped to the requesting user.
+      // The join to websites + userId filter prevents reading another user's report.
       const sourceReport = await db
         .select({
           embedding: analyses.embedding,
           websiteId: analyses.websiteId,
         })
         .from(analyses)
-        .where(eq(analyses.id, reportId))
+        .innerJoin(websites, eq(analyses.websiteId, websites.id))
+        .where(and(eq(analyses.id, reportId), eq(websites.userId, userId)))
         .limit(1);
 
       if (sourceReport.length === 0 || !sourceReport[0].embedding) {
@@ -204,7 +208,8 @@ export class PostgresVectorSearchService implements VectorSearchService {
 
       const sourceEmbedding = sourceReport[0].embedding;
 
-      // Find similar reports (excluding the source report)
+      // Find similar reports (excluding the source report), restricted to the
+      // requesting user's own analyses so results never leak across tenants.
       const results = await db
         .select({
           analysisId: analyses.id,
@@ -216,6 +221,7 @@ export class PostgresVectorSearchService implements VectorSearchService {
         .innerJoin(websites, eq(analyses.websiteId, websites.id))
         .where(
           and(
+            eq(websites.userId, userId),
             eq(analyses.status, 'completed'),
             // Exclude the source report
             sql`${analyses.id} != ${reportId}`,
