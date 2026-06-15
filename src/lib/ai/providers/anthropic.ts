@@ -765,7 +765,7 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
 
   async generateComprehensiveAnalysis(crawlData: CrawlResult): Promise<any> {
     const startTime = Date.now();
-    const TOTAL_TIMEOUT = 90000; // 90 seconds - increased for better success rate
+    const TOTAL_TIMEOUT = 75000; // 75s app-level cap — must stay below the route's Vercel maxDuration (90s) so a slow run degrades gracefully instead of being hard-killed (CON-118)
     
     // Enhanced timeout monitoring
     const timeoutMonitor = {
@@ -809,7 +809,10 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
   private async performComprehensiveAnalysisInternal(crawlData: CrawlResult, startTime: number, totalTimeout: number, timeoutMonitor: any): Promise<any> {
     try {
       // Calculate individual timeout based on total timeout - leave time for summary generation
-      const individualTimeout = Math.min(30000, Math.floor((totalTimeout - 10000) / 3)); // Max 30s each, or 1/3 of remaining time
+      // Sections run in PARALLEL (Promise.allSettled below), so each gets ~the full
+      // budget — not budget/3. The old /3 math capped each at 26.6s and timed out
+      // every section (CON-118). Reserve ~20s headroom for the executive-summary call.
+      const individualTimeout = Math.min(55000, totalTimeout - 20000); // ~55s per parallel section
       console.log(`⏱️ Individual analysis timeout increased to ${individualTimeout}ms`);
       
       // Run all analyses in parallel with enhanced monitoring and timeout handling
