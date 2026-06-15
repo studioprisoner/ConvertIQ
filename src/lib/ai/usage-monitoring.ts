@@ -45,9 +45,17 @@ export interface DailyUsageReport {
  */
 const PRICING = {
   anthropic: {
-    'claude-3-5-sonnet': {
+    'claude-sonnet-4-6': {
       inputTokens: 3.00 / 1000000,  // $3 per million input tokens
       outputTokens: 15.00 / 1000000  // $15 per million output tokens
+    },
+    'claude-haiku-4-5': {
+      inputTokens: 1.00 / 1000000,  // $1 per million input tokens
+      outputTokens: 5.00 / 1000000  // $5 per million output tokens
+    },
+    'claude-opus-4-8': {
+      inputTokens: 5.00 / 1000000,  // $5 per million input tokens
+      outputTokens: 25.00 / 1000000  // $25 per million output tokens
     }
   },
   voyage: {
@@ -108,7 +116,7 @@ class AIUsageTracker {
   estimateAnthropicCost(
     inputTokens: number = 0,
     outputTokens: number = 0,
-    model: keyof typeof PRICING.anthropic = 'claude-3-5-sonnet'
+    model: keyof typeof PRICING.anthropic = 'claude-sonnet-4-6'
   ): number {
     const pricing = PRICING.anthropic[model];
     return (inputTokens * pricing.inputTokens) + (outputTokens * pricing.outputTokens);

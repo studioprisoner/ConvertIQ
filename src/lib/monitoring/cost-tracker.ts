@@ -158,7 +158,7 @@ class CostTrackingService {
     tokensUsed: number,
     inputTokens: number,
     outputTokens: number,
-    modelName: string = 'claude-3-haiku-20240307',
+    modelName: string = 'claude-haiku-4-5',
     metadata?: {
       userId?: string;
       websiteId?: string;
@@ -185,16 +185,21 @@ class CostTrackingService {
   calculateAnthropicCost(
     inputTokens: number,
     outputTokens: number,
-    modelName: string = 'claude-3-haiku-20240307'
+    modelName: string = 'claude-haiku-4-5'
   ): number {
-    // Anthropic pricing (as of 2024)
+    // Anthropic pricing, per 1k tokens (current 4.x lineup + retained legacy rows
+    // for historical cost records). Keep in sync with src/lib/ai/models.ts (CON-116).
     const pricing: Record<string, { input: number; output: number }> = {
-      'claude-3-haiku-20240307': { input: 0.00025, output: 0.00125 }, // per 1k tokens
+      'claude-haiku-4-5': { input: 0.001, output: 0.005 },
+      'claude-sonnet-4-6': { input: 0.003, output: 0.015 },
+      'claude-opus-4-8': { input: 0.005, output: 0.025 },
+      // legacy (retired/deprecated) — retained so old records still price
+      'claude-3-haiku-20240307': { input: 0.00025, output: 0.00125 },
       'claude-3-sonnet-20240229': { input: 0.003, output: 0.015 },
       'claude-3-opus-20240229': { input: 0.015, output: 0.075 },
     };
-    
-    const rates = pricing[modelName] || pricing['claude-3-haiku-20240307'];
+
+    const rates = pricing[modelName] || pricing['claude-haiku-4-5'];
     
     const inputCost = (inputTokens / 1000) * rates.input;
     const outputCost = (outputTokens / 1000) * rates.output;
