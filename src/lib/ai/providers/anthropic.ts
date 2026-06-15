@@ -119,7 +119,7 @@ export class AnthropicAnalysisProvider {
     // Base timeouts for different operation types
     baseTimeouts: {
       quickAnalysis: 15000,    // 15s for fast operations (executive summary)
-      standardAnalysis: 30000, // 30s for standard analysis (conversion, UX, SEO)
+      standardAnalysis: 80000, // headroom above the 70s per-section monitored cap so that cap is the single binding limit (CON-118)
       complexAnalysis: 45000,  // 45s for complex operations (comprehensive analysis)
       connectionTest: 5000,    // 5s for health checks
     },
@@ -532,8 +532,10 @@ export class AnthropicAnalysisProvider {
           schema: technicalSeoAnalysisSchema,
           temperature: 0.3,
         }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SEO analysis timeout after 35s')), 35000)
+        new Promise((_, reject) =>
+          // Headroom above the 70s per-section monitored cap (CON-118); that cap is
+          // the single binding limit, this is just a backstop for direct calls.
+          setTimeout(() => reject(new Error('SEO analysis timeout after 80s')), 80000)
         )
       ]) as any;
 
@@ -766,7 +768,7 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
 
   async generateComprehensiveAnalysis(crawlData: CrawlResult): Promise<any> {
     const startTime = Date.now();
-    const TOTAL_TIMEOUT = 75000; // 75s app-level cap — must stay below the route's Vercel maxDuration (90s) so a slow run degrades gracefully instead of being hard-killed (CON-118)
+    const TOTAL_TIMEOUT = 85000; // 85s app-level cap — below the route's Vercel maxDuration (90s) so a slow run degrades gracefully instead of being hard-killed (CON-118)
     
     // Enhanced timeout monitoring
     const timeoutMonitor = {
@@ -813,7 +815,7 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
       // Sections run in PARALLEL (Promise.allSettled below), so each gets ~the full
       // budget — not budget/3. The old /3 math capped each at 26.6s and timed out
       // every section (CON-118). Reserve ~20s headroom for the executive-summary call.
-      const individualTimeout = Math.min(55000, totalTimeout - 20000); // ~55s per parallel section
+      const individualTimeout = Math.min(70000, totalTimeout - 15000); // ~70s per parallel section (single binding cap; inner caps below are higher)
       console.log(`⏱️ Individual analysis timeout increased to ${individualTimeout}ms`);
       
       // Run all analyses in parallel with enhanced monitoring and timeout handling
@@ -1168,7 +1170,8 @@ Keep recommendations specific and actionable for small business owners.`;
       timeout,
       timeoutMonitor,
       sectionStartTime,
-      3 // maxRetries
+      0 // maxRetries — analysis calls take 35-70s; retrying a slow/timed-out call
+        // just guarantees a TOTAL_TIMEOUT. Fail fast to a fallback instead (CON-118).
     );
   }
 
