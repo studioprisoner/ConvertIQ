@@ -224,30 +224,15 @@ Address "Speed Equals Sales" principle:
 
 ## OUTPUT REQUIREMENTS
 
-Format your response as a structured JSON object with these enhanced fields:
-
-**REQUIRED REVENUE-FOCUSED FIELDS:**
+Format your response as a structured JSON object with EXACTLY these fields (do not add others — keep it focused so the response stays fast):
 - type: "conversion_psychology" (literal value)
-- websiteOverview: Include business model assessment, revenue potential, and competitive positioning
-- revenueProjections: {
-  - conversionRateIncrease: "Estimated percentage point improvement"
-  - monthlyRevenueImpact: "Dollar amount projection"  
-  - aovImpact: "Average order value improvement"
-  - implementationROI: "Payback period and cost-benefit analysis"
-}
-- mobileRevenueOpportunities: Mobile-specific revenue optimization strategies
-- platformIntelligence: Platform-specific recommendations with revenue impact
-- psychologicalTriggers: Each trigger with authenticity assessment and revenue correlation
-- trustIndicators: Trust improvements with purchase barrier removal focus
-- topRecommendations: Prioritized by revenue impact, not generic scores
-- quickWins: High-impact, low-effort changes with immediate revenue lift
-- strategicInitiatives: Medium-term projects with substantial revenue upside
-- competitiveAdvantage: Opportunities to outperform market competitors
-- implementationPriority: {
-  - phase1: "Immediate revenue opportunities (0-30 days)"
-  - phase2: "Strategic improvements (1-3 months)"  
-  - phase3: "Competitive advantage initiatives (3-6 months)"
-}
+- websiteOverview: { businessType, targetAudience, overallScore (1-10), summary }
+- psychologicalTriggers: each of scarcity, socialProof, authority, reciprocity, commitment as { score (1-10), currentImplementation, opportunities } — focus on legitimate, non-manipulative revenue opportunities
+- trustIndicators: { score (1-10), strengths[], weaknesses[] }
+- topRecommendations: [{ title, description, implementation[], impact (1-10), effort (1-10), priority (1-10), whyItMatters }] — prioritized by revenue impact
+- ethicalCompliance: { status, concerns, recommendations[] }
+- immediateActions: { priority1, priority2, priority3 }
+- overallScore (1-10), keyFindings[], priorityRecommendations[]
 
 **BUSINESS METRICS TO ADDRESS:**
 - Conversion Rate optimization opportunities
