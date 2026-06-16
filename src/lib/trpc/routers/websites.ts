@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure, protectedProcedure } from '../server';
-import { websites } from '@/db/schema/websites';
+import { websites, pageTypeEnum } from '@/db/schema/websites';
 import { analyses } from '@/db/schema/analyses';
 import { user } from '@/db/schema/auth';
 import { eq, desc, and, ne } from 'drizzle-orm';
@@ -35,7 +35,9 @@ function isSameDomain(url1: string, url2: string): boolean {
 }
 
 // Helper function to map validation page types to database enum values
-function mapPageTypeToDbEnum(pageType: string): string {
+type PageType = (typeof pageTypeEnum.enumValues)[number];
+
+function mapPageTypeToDbEnum(pageType: string): PageType {
   switch (pageType) {
     case 'homepage': return 'homepage';
     case 'product': return 'ecommerce-product';
