@@ -50,6 +50,9 @@ const anthropicClient = createAnthropic({
 
 export class AnthropicAnalysisProvider {
   private model = anthropicClient(AI_MODELS.analysis);
+  // Conversion Psychology runs on the faster model so its heavy output stays
+  // within the per-section budget (CON-119); UX/SEO/summary use `this.model`.
+  private conversionModel = anthropicClient(AI_MODELS.conversion);
   private tokenUsageMonitor = {
     sessionStats: {
       totalPromptTokens: 0,
@@ -377,7 +380,7 @@ export class AnthropicAnalysisProvider {
       const result = await this.executeWithOptimizedTimeout(
         'standardAnalysis',
         () => generateObject({
-          model: this.model,
+          model: this.conversionModel,
           system: CONVERSION_PSYCHOLOGY_SYSTEM_PROMPT,
           prompt: generateConversionAnalysisPrompt(crawlData),
           schema: conversionPsychologyAnalysisSchema,
@@ -416,7 +419,7 @@ export class AnthropicAnalysisProvider {
         analysis,
         metadata: {
           processingTime,
-          modelUsed: AI_MODELS.analysis,
+          modelUsed: AI_MODELS.conversion,
           promptVersion: CONVERSION_ANALYSIS_VERSION,
           confidence: 0.9, // High confidence for structured analysis
           tokensUsed: result.usage?.totalTokens || 0,
@@ -778,34 +781,42 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
       sectionTimeouts: [] as Array<{section: string, startTime: number, endTime?: number, timedOut: boolean}>
     };
 
+    // Held outside the try so it can be cleared in `finally`. Without this the
+    // timer kept firing `❌ TOTAL TIMEOUT` ~85s into a run that had already
+    // resolved successfully (~82s), polluting error monitoring (CON-119).
+    let totalTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
     try {
       console.log('🤖 Starting comprehensive analysis with enhanced timeout monitoring...');
       console.log(`⏱️ Total timeout increased to ${TOTAL_TIMEOUT}ms for URL: ${crawlData.url}`);
       console.log(`📊 Content size: ${JSON.stringify(crawlData).length} characters`);
-      
+
       // Create a promise that will timeout the entire analysis if it takes too long
       const analysisPromise = this.performComprehensiveAnalysisInternal(crawlData, startTime, TOTAL_TIMEOUT, timeoutMonitor);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => {
+      const timeoutPromise = new Promise((_, reject) => {
+        totalTimeoutHandle = setTimeout(() => {
           console.error(`❌ TOTAL TIMEOUT: Analysis exceeded ${TOTAL_TIMEOUT}ms for ${crawlData.url}`);
           this.logTimeoutAnalysis(timeoutMonitor);
           reject(new Error(`Total comprehensive analysis timeout after ${TOTAL_TIMEOUT/1000}s`));
-        }, TOTAL_TIMEOUT)
-      );
-      
+        }, TOTAL_TIMEOUT);
+      });
+
       const result = await Promise.race([analysisPromise, timeoutPromise]);
-      
+
       // Log successful completion
       const totalTime = Date.now() - startTime;
       console.log(`✅ Analysis completed successfully in ${totalTime}ms for ${crawlData.url}`);
       this.logSuccessfulAnalysis(timeoutMonitor, totalTime);
-      
+
       return result;
     } catch (error) {
       const totalTime = Date.now() - startTime;
       console.error(`💥 Comprehensive analysis failed after ${totalTime}ms:`, error);
       this.logFailedAnalysis(timeoutMonitor, totalTime, error);
       throw new Error(`Comprehensive analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      // Stop the total-timeout timer once the race has settled either way.
+      if (totalTimeoutHandle) clearTimeout(totalTimeoutHandle);
     }
   }
 

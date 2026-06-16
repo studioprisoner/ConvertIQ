@@ -11,8 +11,16 @@
  * drop-in replacement.
  */
 export const AI_MODELS = {
-  /** Primary analysis model — conversion / UX / SEO / comprehensive. */
+  /** Primary analysis model — UX / SEO / comprehensive summary. */
   analysis: process.env.ANTHROPIC_ANALYSIS_MODEL ?? 'claude-sonnet-4-6',
+  /**
+   * Conversion Psychology section model (CON-119). Conversion has the heaviest
+   * schema/prompt and consistently blew the 70s per-section cap on Sonnet,
+   * forcing a fallback while UX/SEO succeeded. Run it on the fast model so all
+   * three sections complete within the serverless budget. Env-overridable to
+   * promote it back to Sonnet once an async path removes the time limit.
+   */
+  conversion: process.env.ANTHROPIC_CONVERSION_MODEL ?? 'claude-haiku-4-5',
   /** Fast, low-cost model for lightweight tasks (health checks, monitoring). */
   fast: process.env.ANTHROPIC_FAST_MODEL ?? 'claude-haiku-4-5',
 } as const;
