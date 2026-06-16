@@ -88,6 +88,9 @@ export const conversionPsychologyAnalysisSchema = z.object({
     weaknesses: z.array(z.string()),
   }),
 
+  // Capped at 5 (CON-119): an unbounded array of 7-field recommendation objects
+  // was the main grammar/token sink that pushed the conversion section past the
+  // 70s per-section cap and forced a fallback — even on Haiku.
   topRecommendations: z.array(z.object({
     title: z.string(),
     description: z.string(),
@@ -96,19 +99,11 @@ export const conversionPsychologyAnalysisSchema = z.object({
     effort: z.number().min(1).max(10),
     priority: z.number().min(1).max(10),
     whyItMatters: z.string(),
-  })),
+  })).max(5),
 
-  ethicalCompliance: z.object({
-    status: z.string(),
-    concerns: z.string(),
-    recommendations: z.array(z.string()),
-  }),
-
-  immediateActions: z.object({
-    priority1: z.string(),
-    priority2: z.string(),
-    priority3: z.string(),
-  }),
+  // ethicalCompliance + immediateActions removed (CON-119): extra grammar weight
+  // that nothing downstream consumes — the engine sets its own ethicalCompliance,
+  // and priorityRecommendations (below) is generated directly.
 
   overallScore: z.number().min(1).max(10),
   keyFindings: z.array(z.string()),

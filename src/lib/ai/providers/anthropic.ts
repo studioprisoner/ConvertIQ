@@ -403,10 +403,9 @@ export class AnthropicAnalysisProvider {
           // Add missing legacy fields for backward compatibility
           overallScore: analysis.conversionPsychologyAnalysis.websiteOverview?.overallScore || 5,
           keyFindings: analysis.conversionPsychologyAnalysis.topRecommendations?.map((r: any) => r.title) || [],
-          priorityRecommendations: analysis.conversionPsychologyAnalysis.immediateActions ? 
-            [analysis.conversionPsychologyAnalysis.immediateActions.priority1,
-             analysis.conversionPsychologyAnalysis.immediateActions.priority2,
-             analysis.conversionPsychologyAnalysis.immediateActions.priority3].filter(Boolean) : [],
+          priorityRecommendations: (analysis.conversionPsychologyAnalysis.topRecommendations || [])
+            .slice(0, 3)
+            .map((r: any) => r.title),
         };
       }
       
@@ -655,10 +654,9 @@ Focus on gaps and opportunities based on what was actually extracted vs. best pr
           ...analysis.conversionPsychologyAnalysis,
           overallScore: analysis.conversionPsychologyAnalysis.websiteOverview?.overallScore || 5,
           keyFindings: analysis.conversionPsychologyAnalysis.topRecommendations?.map((r: any) => r.title) || [],
-          priorityRecommendations: analysis.conversionPsychologyAnalysis.immediateActions ? 
-            [analysis.conversionPsychologyAnalysis.immediateActions.priority1,
-             analysis.conversionPsychologyAnalysis.immediateActions.priority2,
-             analysis.conversionPsychologyAnalysis.immediateActions.priority3].filter(Boolean) : [],
+          priorityRecommendations: (analysis.conversionPsychologyAnalysis.topRecommendations || [])
+            .slice(0, 3)
+            .map((r: any) => r.title),
         };
       }
       
