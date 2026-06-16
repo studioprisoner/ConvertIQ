@@ -229,9 +229,7 @@ Format your response as a structured JSON object with EXACTLY these fields (do n
 - websiteOverview: { businessType, targetAudience, overallScore (1-10), summary }
 - psychologicalTriggers: each of scarcity, socialProof, authority, reciprocity, commitment as { score (1-10), currentImplementation, opportunities } — focus on legitimate, non-manipulative revenue opportunities
 - trustIndicators: { score (1-10), strengths[], weaknesses[] }
-- topRecommendations: [{ title, description, implementation[], impact (1-10), effort (1-10), priority (1-10), whyItMatters }] — prioritized by revenue impact
-- ethicalCompliance: { status, concerns, recommendations[] }
-- immediateActions: { priority1, priority2, priority3 }
+- topRecommendations: [{ title, description, implementation[], impact (1-10), effort (1-10), priority (1-10), whyItMatters }] — AT MOST 5, the highest-revenue-impact only
 - overallScore (1-10), keyFindings[], priorityRecommendations[]
 
 **BUSINESS METRICS TO ADDRESS:**
