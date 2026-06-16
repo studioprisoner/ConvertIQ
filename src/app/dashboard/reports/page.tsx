@@ -650,6 +650,18 @@ export default function ReportsPage() {
             ← Back to Reports
           </Button>
           <div className="flex space-x-3">
+            <Button
+              outline
+              onClick={() =>
+                router.push(
+                  `/dashboard/scan?url=${encodeURIComponent(mockScanResults.websiteUrl)}&autostart=1`,
+                )
+              }
+              title="Re-run the analysis for this URL — creates a new report"
+            >
+              <ArrowPathIcon className="h-4 w-4 mr-1" />
+              Rescan
+            </Button>
             <Button onClick={() => router.push("/dashboard/scan")}>
               New Scan
             </Button>
