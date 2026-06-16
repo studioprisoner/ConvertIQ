@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, FormEvent, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, FormEvent, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { useFeatureGate } from "@/hooks/common/use-feature-gate";
 import { FeatureGate } from "@/components/features/feature-gating/feature-gate";
@@ -39,6 +39,7 @@ interface ProcessingStep {
 
 export default function ScanPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const [url, setUrl] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -474,8 +475,8 @@ export default function ScanPage() {
     },
   });
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: FormEvent) => {
+    e?.preventDefault();
     console.log("🎯 Form submitted with URL:", url);
     setError(null);
 
@@ -530,6 +531,32 @@ export default function ScanPage() {
       setIsProcessing(false);
     }
   };
+
+  // Rescan deep-link (CON-123): pre-fill the URL from ?url= on mount so the
+  // user doesn't re-type it.
+  useEffect(() => {
+    const urlParam = searchParams.get("url");
+    if (urlParam) setUrl(urlParam);
+    // mount only — don't fight the user's typing afterwards
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ...and auto-start the scan once when ?autostart=1, after the URL state is
+  // applied and the feature gate has loaded. The ref guards against re-firing
+  // on re-render; we clear the query params so a refresh doesn't re-scan.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    const urlParam = searchParams.get("url");
+    if (!urlParam || searchParams.get("autostart") !== "1") return;
+    if (url !== urlParam || isProcessing) return; // wait for setUrl to apply
+    if (scanFeatureGate.loading) return; // wait for the gate to resolve, then
+    // let handleSubmit run — it surfaces the access-denied error if denied.
+    autoStartedRef.current = true;
+    router.replace("/dashboard/scan");
+    void handleSubmit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, isProcessing, scanFeatureGate.loading, searchParams]);
 
   // Domain dialog handlers
   const handleAddDomain = () => {
