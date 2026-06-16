@@ -334,21 +334,6 @@ export class AnthropicAnalysisProvider {
     return baseTimeout;
   }
   
-  private createOptimizedTimeout(timeoutMs: number, operationType: string): Promise<never> {
-    return new Promise((_, reject) => {
-      const timeoutId = setTimeout(() => {
-        // Update timeout metrics
-        this.performanceMonitor.v5Metrics.errorRates.timeouts += 1;
-        this.performanceMonitor.v5Metrics.errorRates.total += 1;
-        
-        reject(new Error(`AI SDK v5 timeout: ${operationType} exceeded ${timeoutMs}ms limit`));
-      }, timeoutMs);
-      
-      // Ensure timeout is cleared if promise resolves first
-      timeoutId.unref?.(); // Node.js specific: don't keep process alive
-    });
-  }
-  
   private async executeWithOptimizedTimeout<T>(
     operationType: keyof typeof this.timeoutConfig.baseTimeouts,
     operation: () => Promise<T>,
@@ -362,10 +347,23 @@ export class AnthropicAnalysisProvider {
     
     const operationName = `${operationType}${retryAttempt > 0 ? ` (retry ${retryAttempt})` : ''}`;
     
-    return Promise.race([
-      operation(),
-      this.createOptimizedTimeout(adjustedTimeout, operationName)
-    ]);
+    // Timer is cleared once the op settles so it can't fire late and falsely
+    // increment the timeout metrics after a successful run (CON-119).
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        this.performanceMonitor.v5Metrics.errorRates.timeouts += 1;
+        this.performanceMonitor.v5Metrics.errorRates.total += 1;
+        reject(new Error(`AI SDK v5 timeout: ${operationName} exceeded ${adjustedTimeout}ms limit`));
+      }, adjustedTimeout);
+      timeoutHandle.unref?.(); // don't keep the process alive
+    });
+
+    try {
+      return await Promise.race([operation(), timeoutPromise]);
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
   }
 
   async analyzeConversionPsychology(crawlData: CrawlResult): Promise<any> {
@@ -1204,6 +1202,9 @@ Keep recommendations specific and actionable for small business owners.`;
 
     console.log(`🔄 ${sectionName} attempt ${currentAttempt}/${maxRetries + 1} starting...`);
 
+    // Cleared in `finally` so a section that finishes before its cap doesn't
+    // later fire a spurious "⏰ … timeout" log once the timer elapses (CON-119).
+    let sectionTimeoutHandle: ReturnType<typeof setTimeout> | undefined;
     try {
       const result = await Promise.race([
         analysisFunction().then(result => {
@@ -1223,12 +1224,12 @@ Keep recommendations specific and actionable for small business owners.`;
           
           return result;
         }),
-        new Promise((_, reject) => 
-          setTimeout(() => {
+        new Promise((_, reject) => {
+          sectionTimeoutHandle = setTimeout(() => {
             console.error(`⏰ ${sectionName} attempt ${currentAttempt} timeout after ${timeout}ms`);
             reject(new Error(`${sectionName} timeout after ${timeout}ms on attempt ${currentAttempt}`));
-          }, timeout)
-        )
+          }, timeout);
+        })
       ]);
 
       return result;
@@ -1275,8 +1276,11 @@ Keep recommendations specific and actionable for small business owners.`;
       fallbackResult.metadata.totalAttempts = currentAttempt;
       fallbackResult.metadata.totalDuration = totalDuration;
       fallbackResult.metadata.retriesExhausted = true;
-      
+
       return fallbackResult;
+    } finally {
+      // Stop this attempt's timer once the race has settled, either way.
+      if (sectionTimeoutHandle) clearTimeout(sectionTimeoutHandle);
     }
   }
 
