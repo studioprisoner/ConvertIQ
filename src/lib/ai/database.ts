@@ -31,79 +31,12 @@ export class AIAnalysisDatabase {
       if (websiteCheck.length === 0) {
         throw new Error(`Website with ID ${websiteId} not found in database. Cannot save analysis.`);
       }
-      // Aggressively compress JSON data for database storage
-      const compressForDatabase = (data: any, fieldType: 'crawl' | 'analysis' | 'extraction'): string => {
-        try {
-          let compressedData;
-          
-          if (fieldType === 'crawl') {
-            // Ultra-minimal crawl data - absolute essentials only
-            compressedData = {
-              url: data.url,
-              timestamp: data.timestamp,
-              statusCode: data.statusCode,
-              loadTime: data.performance?.loadTime,
-              htmlSize: data.performance?.htmlSize,
-              title: data.htmlAnalysis?.meta?.title?.substring(0, 100),
-              wordCount: data.htmlAnalysis?.structure?.wordCount,
-              compressed: true,
-              originalSize: JSON.stringify(data).length
-            };
-          } else if (fieldType === 'analysis') {
-            // Ultra-minimal analysis results - just core scores and summary
-            compressedData = {
-              type: data.analysis?.type || data.type,
-              overallScore: data.analysis?.overallScore || data.overallScore,
-              businessType: data.analysis?.websiteOverview?.businessType,
-              summary: data.analysis?.websiteOverview?.summary?.substring(0, 200),
-              topRecommendationsCount: (data.analysis?.topRecommendations || data.topRecommendations)?.length || 0,
-              compressed: true,
-              originalSize: JSON.stringify(data).length
-            };
-          } else {
-            // Ultra-minimal extraction results
-            compressedData = {
-              pageType: data.structuredData?.pageType,
-              confidence: data.structuredData?.confidence,
-              businessName: data.structuredData?.data?.product?.name,
-              category: data.structuredData?.data?.product?.category,
-              dataQualityScore: data.extractionMetrics?.dataQualityScore,
-              fieldsExtracted: data.extractionMetrics?.fieldsExtracted,
-              compressed: true,
-              originalSize: JSON.stringify(data).length
-            };
-          }
-          
-          const stringified = JSON.stringify(compressedData);
-          const maxSize = 10000; // 10KB limit per field - extremely aggressive
-          
-          if (stringified.length > maxSize) {
-            console.log(`💾 Data still too large for ${fieldType}: ${stringified.length} → storing minimal summary`);
-            return JSON.stringify({
-              summary: `Minimal ${fieldType} summary`,
-              url: fieldType === 'crawl' ? data.url : undefined,
-              score: fieldType === 'analysis' ? (data.analysis?.overallScore || data.overallScore) : undefined,
-              timestamp: new Date().toISOString(),
-              originalSize: JSON.stringify(data).length,
-              status: 'minimal_storage'
-            });
-          }
-          
-          return stringified;
-        } catch (error) {
-          console.error(`💾 Error compressing ${fieldType} data:`, error);
-          return JSON.stringify({
-            error: 'Failed to compress data',
-            errorMessage: error instanceof Error ? error.message : 'Unknown error',
-            fieldType,
-            timestamp: new Date().toISOString()
-          });
-        }
-      };
-
-      // Use raw SQL to avoid Drizzle's automatic column inclusion
+      // Persist the FULL result, not a lossy summary (CON-117). The earlier
+      // version compressed `ai_analysis` down to score+summary and dropped the
+      // recommendations, which broke reports/embeddings that need the real
+      // content. Store the complete JSON; the analyses table has no size cap.
       const analysisId = randomUUID();
-      
+
       await db.execute(sql`
         INSERT INTO analyses (
           id,
@@ -121,10 +54,10 @@ export class AIAnalysisDatabase {
           ${analysisId},
           ${websiteId},
           'completed',
-          ${compressForDatabase(crawlData, 'crawl')},
-          ${compressForDatabase(aiAnalysisResult, 'analysis')},
+          ${JSON.stringify(crawlData)},
+          ${JSON.stringify(aiAnalysisResult)},
           ${metadata?.firecrawlVersion || 'v2'},
-          ${metadata?.extractionResults ? compressForDatabase(metadata.extractionResults, 'extraction') : null},
+          ${metadata?.extractionResults ? JSON.stringify(metadata.extractionResults) : null},
           ${metadata?.isEnhancedAnalysis || false},
           ${crawlData.performance?.loadTime || null},
           ${crawlData.performance?.htmlSize || null},
@@ -225,7 +158,16 @@ export class AIAnalysisDatabase {
         return null;
       }
 
-      return JSON.parse(result[0].aiAnalysis) as AIAnalysisResult;
+      // Malformed JSON must degrade to null, not throw (CON-92 resilience).
+      try {
+        return JSON.parse(result[0].aiAnalysis) as AIAnalysisResult;
+      } catch (parseError) {
+        console.error('💾 getLatestAnalysis: malformed aiAnalysis JSON', {
+          analysisId: result[0].id,
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+        });
+        return null;
+      }
     } catch (error) {
       console.error('💾 Failed to get latest analysis:', error);
       throw new Error(`Failed to retrieve analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -257,7 +199,20 @@ export class AIAnalysisDatabase {
         id: result.id,
         status: result.status || 'unknown',
         createdAt: result.createdAt || new Date(),
-        aiAnalysis: result.aiAnalysis ? JSON.parse(result.aiAnalysis) : undefined,
+        // A single corrupted row degrades to undefined rather than failing the
+        // whole list (CON-92 resilience).
+        aiAnalysis: (() => {
+          if (!result.aiAnalysis) return undefined;
+          try {
+            return JSON.parse(result.aiAnalysis) as AIAnalysisResult;
+          } catch (parseError) {
+            console.error('💾 getWebsiteAnalyses: malformed aiAnalysis JSON', {
+              analysisId: result.id,
+              error: parseError instanceof Error ? parseError.message : String(parseError),
+            });
+            return undefined;
+          }
+        })(),
       }));
     } catch (error) {
       console.error('💾 Failed to get website analyses:', error);
@@ -289,11 +244,21 @@ export class AIAnalysisDatabase {
         return null;
       }
 
-      return {
-        analysis: JSON.parse(result[0].analysis) as AIAnalysisResult,
-        crawlData: JSON.parse(result[0].rawData) as CrawlResult,
-        website: result[0].website,
-      };
+      // Malformed JSON degrades to null so the caller surfaces a controlled
+      // "not found" rather than a SyntaxError (CON-92 resilience).
+      try {
+        return {
+          analysis: JSON.parse(result[0].analysis) as AIAnalysisResult,
+          crawlData: JSON.parse(result[0].rawData) as CrawlResult,
+          website: result[0].website,
+        };
+      } catch (parseError) {
+        console.error('💾 getAnalysisById: malformed analysis/rawData JSON', {
+          analysisId,
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+        });
+        return null;
+      }
     } catch (error) {
       console.error('💾 Failed to get analysis by ID:', error);
       throw new Error(`Failed to retrieve analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
