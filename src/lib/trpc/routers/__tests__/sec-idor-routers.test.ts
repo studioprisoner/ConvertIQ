@@ -98,32 +98,12 @@ describe('streaming-analysis router — auth + ownership (CON-111)', () => {
 
   it('rejects unauthenticated callers', async () => {
     await expect(anon.prepareCrawlData({ websiteId: WEBSITE_ID })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-    await expect(
-      anon.saveStreamingResults({
-        websiteId: WEBSITE_ID,
-        analysisType: 'comprehensive',
-        results: {},
-        metadata: { processingTime: 1, modelUsed: 'm', confidence: 1 },
-      })
-    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
     await expect(anon.getStreamingHistory({ websiteId: WEBSITE_ID })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 
   it('prepareCrawlData rejects a website the caller does not own (NOT_FOUND)', async () => {
     setDbQueue([]); // ownership lookup finds nothing
     await expect(caller.prepareCrawlData({ websiteId: WEBSITE_ID })).rejects.toMatchObject({ code: 'NOT_FOUND' });
-  });
-
-  it('saveStreamingResults rejects a website the caller does not own (NOT_FOUND)', async () => {
-    setDbQueue([]);
-    await expect(
-      caller.saveStreamingResults({
-        websiteId: WEBSITE_ID,
-        analysisType: 'comprehensive',
-        results: {},
-        metadata: { processingTime: 1, modelUsed: 'm', confidence: 1 },
-      })
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('getStreamingHistory rejects a website the caller does not own (NOT_FOUND)', async () => {

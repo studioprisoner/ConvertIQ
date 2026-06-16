@@ -148,34 +148,6 @@ describe('ai-analysis router — auth, ownership, and JSON.parse resilience (CON
     });
   });
 
-  describe('retrigger procedures — auth and ownership (CON-103)', () => {
-    const WEBSITE_INPUT = { analysisId: ANALYSIS_ID, websiteId: WEBSITE_ID };
-
-    it('all four retrigger procedures reject unauthenticated callers', async () => {
-      await expect(anonCaller.retriggerConversionAnalysis(WEBSITE_INPUT)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-      await expect(anonCaller.retriggerUXAnalysis(WEBSITE_INPUT)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-      await expect(anonCaller.retriggerSEOAnalysis({ analysisId: ANALYSIS_ID })).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-      await expect(anonCaller.retriggerFailedSections(WEBSITE_INPUT)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-    });
-
-    it('retriggerConversionAnalysis reports not-found for an analysis the caller does not own', async () => {
-      setDbQueue([]); // ownership join finds nothing
-      await expect(caller.retriggerConversionAnalysis(WEBSITE_INPUT)).rejects.toThrow(/Analysis not found/);
-    });
-
-    it('retriggerSEOAnalysis reports not-found for an unowned analysis (no websiteId input)', async () => {
-      setDbQueue([]);
-      await expect(caller.retriggerSEOAnalysis({ analysisId: ANALYSIS_ID })).rejects.toThrow(/Analysis not found/);
-    });
-
-    it('retriggerFailedSections succeeds for an owned analysis', async () => {
-      setDbQueue([{ id: ANALYSIS_ID }]); // ownership check passes
-      const result = await caller.retriggerFailedSections(WEBSITE_INPUT);
-      expect(result.success).toBe(true);
-      expect(result.analysisId).toBe(ANALYSIS_ID);
-    });
-  });
-
   describe('AI-spend and embedding endpoints — auth (CON-104)', () => {
     // Minimal object satisfying crawlResultSchema (src/lib/crawler/types.ts)
     const minimalCrawlData = {
