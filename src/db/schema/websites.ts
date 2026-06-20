@@ -1,8 +1,26 @@
-import { pgTable, uuid, varchar, timestamp, text, boolean, pgEnum, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, text, boolean, pgEnum, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { user } from './auth';
+
+export const domains = pgTable('domains', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull(),
+  rootDomain: varchar('root_domain', { length: 253 }).notNull(),
+  displayName: varchar('display_name', { length: 255 }),
+  description: text('description'),
+  isValidated: boolean('is_validated').default(false).notNull(),
+  validationStatus: varchar('validation_status', { length: 50 }).default('unverified'),
+  validationMessage: text('validation_message'),
+  verificationToken: varchar('verification_token', { length: 64 }),
+  lastValidatedAt: timestamp('last_validated_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('domains_user_root_domain_idx').on(table.userId, table.rootDomain),
+  index('domains_user_id_idx').on(table.userId),
+]);
 
 export const pageTypeEnum = pgEnum('page_type_enum', [
   'homepage', 'about', 'contact', 'pricing', 'blog-post', 'blog-category',
@@ -15,6 +33,7 @@ export const pageTypeEnum = pgEnum('page_type_enum', [
 export const websites = pgTable('websites', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull(), // Temporarily removed foreign key constraint for testing
+  domainId: uuid('domain_id').references(() => domains.id, { onDelete: 'cascade' }),
   url: varchar('url', { length: 500 }).notNull(),
   name: varchar('name', { length: 255 }),
   description: text('description'),
@@ -34,10 +53,22 @@ export const websites = pgTable('websites', {
 ]);
 
 // Relations
-export const websitesRelations = relations(websites, ({ one, many }) => ({
+export const domainsRelations = relations(domains, ({ one, many }) => ({
+  user: one(user, {
+    fields: [domains.userId],
+    references: [user.id],
+  }),
+  websites: many(websites),
+}));
+
+export const websitesRelations = relations(websites, ({ one }) => ({
   user: one(user, {
     fields: [websites.userId],
     references: [user.id],
+  }),
+  domain: one(domains, {
+    fields: [websites.domainId],
+    references: [domains.id],
   }),
 }));
 
@@ -47,3 +78,6 @@ export const selectWebsiteSchema = createSelectSchema(websites);
 
 export type Website = z.infer<typeof selectWebsiteSchema>;
 export type InsertWebsite = z.infer<typeof insertWebsiteSchema>;
+
+export type Domain = typeof domains.$inferSelect;
+export type InsertDomain = typeof domains.$inferInsert;
