@@ -2,6 +2,7 @@
 
 import { useSession } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc/client";
+import { useFeatureGate } from "@/hooks/common/use-feature-gate";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
@@ -11,6 +12,8 @@ import {
   ChartBarSquareIcon,
   MagnifyingGlassIcon,
   ChartBarIcon,
+  ArrowRightIcon,
+  SparklesIcon,
 } from "@heroicons/react/20/solid";
 
 // Charts are heavy (Recharts); load them lazily and client-side only so they
@@ -56,6 +59,7 @@ export default function DashboardPage() {
   const { data, isLoading } = trpc.insights.getDashboard.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
+  const multipleWebsitesGate = useFeatureGate('multiple_websites');
 
   const show = (value: number | undefined) => (isLoading || value == null ? "—" : value);
 
@@ -77,6 +81,50 @@ export default function DashboardPage() {
           New Scan
         </Link>
       </div>
+
+      {/* First-visit welcome banner — shown only when user has no reports yet (CON-132) */}
+      {!isLoading && data?.reportCount === 0 && (
+        <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 p-8">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-3">
+              Get started
+            </p>
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-3">
+              Analyse your first page
+            </h2>
+            <p className="text-zinc-600 dark:text-zinc-300 mb-6 leading-relaxed">
+              Paste any URL from your website and get AI-powered conversion recommendations
+              in minutes. We&apos;ll identify quick wins, trust signals, and opportunities
+              your visitors see right now.
+            </p>
+            <Link
+              href="/dashboard/scan"
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+            >
+              Start your first scan
+              <ArrowRightIcon className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Contextual Pro upgrade banner for Basic users who have completed at least one scan (CON-133) */}
+      {!multipleWebsitesGate.loading && !multipleWebsitesGate.hasAccess && !isLoading && (data?.reportCount ?? 0) > 0 && (
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <SparklesIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              <span className="font-semibold">Unlock Pro</span> — scan multiple domains, manage up to 10 sites, and get deeper insights.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/billing"
+            className="flex-shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap"
+          >
+            Upgrade to Pro →
+          </Link>
+        </div>
+      )}
 
       {/* Real overview stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

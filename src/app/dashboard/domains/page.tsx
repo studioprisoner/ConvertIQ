@@ -9,7 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Text } from '@/components/text';
 import { Badge } from '@/components/badge';
 import { FeatureGate } from '@/components/features/feature-gating/feature-gate';
-import { PlusIcon, PencilIcon, TrashIcon, ClipboardIcon } from '@heroicons/react/16/solid';
+import { PlusIcon, PencilIcon, TrashIcon, ClipboardIcon, CheckIcon, ArrowRightIcon } from '@heroicons/react/16/solid';
+import { GlobeAltIcon } from '@heroicons/react/20/solid';
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
 
@@ -195,11 +197,41 @@ export default function DomainsPage() {
     <FeatureGate
       featureKey="multiple_websites"
       fallback={
-        <div className="text-center py-12">
-          <Heading>Domain Management</Heading>
-          <Text className="mt-4">
-            Multiple domain management is only available on Pro plans. Pro plans can manage up to 10 domains.
-          </Text>
+        <div className="space-y-6">
+          <Heading>Domains</Heading>
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-10">
+            <div className="max-w-sm mx-auto text-center">
+              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-4">
+                <GlobeAltIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-2">
+                Manage multiple domains
+              </h2>
+              <Text className="mb-6">
+                Pro plan lets you manage up to 10 root domains — track scans, verify ownership,
+                and organise your entire web portfolio in one place.
+              </Text>
+              <div className="space-y-2 text-left mb-7">
+                {[
+                  'Up to 10 domains',
+                  'Domain ownership verification',
+                  'Per-domain scan history',
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                    <CheckIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <Link
+                href="/dashboard/billing"
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Upgrade to Pro
+                <ArrowRightIcon className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
         </div>
       }
     >

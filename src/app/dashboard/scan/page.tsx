@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, FormEvent, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
@@ -57,6 +58,7 @@ export default function ScanPage() {
     enhanced_analysis_enabled: boolean;
     batch_processing_enabled: boolean;
   } | null>(null);
+  const [showDomainUpgradePrompt, setShowDomainUpgradePrompt] = useState(false);
   const [domainDialog, setDomainDialog] = useState<{
     domain: string;
     currentCount: number;
@@ -194,6 +196,13 @@ export default function ScanPage() {
         "📝 Checking if error starts with DOMAIN_NOT_ALLOWED:",
         errorMessage.startsWith("DOMAIN_NOT_ALLOWED:"),
       );
+
+      if (errorMessage === "DOMAIN_VALIDATION_REQUIRED") {
+        console.log("🔒 Basic plan domain restriction — showing upgrade prompt");
+        setShowDomainUpgradePrompt(true);
+        setIsProcessing(false);
+        return;
+      }
 
       if (errorMessage.startsWith("DOMAIN_NOT_ALLOWED:")) {
         console.log("🎯 Processing DOMAIN_NOT_ALLOWED error");
@@ -479,6 +488,7 @@ export default function ScanPage() {
     e?.preventDefault();
     console.log("🎯 Form submitted with URL:", url);
     setError(null);
+    setShowDomainUpgradePrompt(false);
 
     // Check feature access before starting scan
     console.log("🔐 Checking feature access:", scanFeatureGate);
@@ -861,6 +871,34 @@ export default function ScanPage() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {/* Upgrade prompt for Basic users who scan a domain outside their primary domain (CON-133) */}
+                {showDomainUpgradePrompt && (
+                  <div className="rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-5">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <div>
+                        <p className="font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                          Pro plan required for multiple domains
+                        </p>
+                        <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                          Your Basic plan is limited to your primary domain. Upgrade to Pro to scan any domain and manage up to 10 sites.
+                        </p>
+                        <Link
+                          href="/dashboard/billing"
+                          className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                        >
+                          Upgrade to Pro
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                          </svg>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.form>
             ) : (
               <motion.div
