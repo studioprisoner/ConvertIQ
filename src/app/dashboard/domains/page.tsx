@@ -8,7 +8,6 @@ import { Input } from '@/components/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/table';
 import { Text } from '@/components/text';
 import { Badge } from '@/components/badge';
-import { useFeatureGate } from '@/hooks/common/use-feature-gate';
 import { FeatureGate } from '@/components/features/feature-gating/feature-gate';
 import { PlusIcon, PencilIcon, TrashIcon, ClipboardIcon } from '@heroicons/react/16/solid';
 import { useState, useEffect } from 'react';
@@ -16,15 +15,16 @@ import { trpc } from '@/lib/trpc/client';
 
 interface Domain {
   id: string;
-  url: string;
-  name: string | null;
+  rootDomain: string;
+  displayName: string | null;
   description?: string | null;
-  status?: 'active' | 'inactive' | 'pending';
+  status?: 'active' | 'inactive';
   validationStatus?: string | null;
   isValidated?: boolean | null;
-  lastScanAt?: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
+  pageCount: number;
+  lastScanAt: Date | string | null;
+  createdAt: Date | string | null;
+  updatedAt: Date | string | null;
 }
 
 export default function DomainsPage() {
@@ -35,8 +35,8 @@ export default function DomainsPage() {
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
-    name: '',
-    url: '',
+    displayName: '',
+    domain: '',
     description: '',
   });
 
@@ -47,7 +47,6 @@ export default function DomainsPage() {
   const [verifyResult, setVerifyResult] = useState<{ verified: boolean; reason?: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const multipleWebsitesGate = useFeatureGate('multiple_websites');
   const domainsQuery = trpc.websites.list.useQuery();
   const createDomainMutation = trpc.websites.create.useMutation();
   const updateDomainMutation = trpc.websites.update.useMutation();
@@ -57,7 +56,7 @@ export default function DomainsPage() {
 
   useEffect(() => {
     if (domainsQuery.data) {
-      setDomains(domainsQuery.data);
+      setDomains(domainsQuery.data as Domain[]);
       setLoading(false);
     }
   }, [domainsQuery.data]);
@@ -65,18 +64,16 @@ export default function DomainsPage() {
   const handleAddDomain = async () => {
     try {
       await createDomainMutation.mutateAsync({
-        name: formData.name,
-        url: formData.url,
+        displayName: formData.displayName,
+        domain: formData.domain,
         description: formData.description || undefined,
       });
-      
+
       setIsAddDialogOpen(false);
-      setFormData({ name: '', url: '', description: '' });
+      setFormData({ displayName: '', domain: '', description: '' });
       domainsQuery.refetch();
     } catch (error) {
       console.error('Failed to add domain:', error);
-      
-      // Show user-friendly error message
       const errorMessage = error instanceof Error ? error.message : 'Failed to add domain';
       alert(errorMessage);
     }
@@ -84,18 +81,17 @@ export default function DomainsPage() {
 
   const handleEditDomain = async () => {
     if (!selectedDomain) return;
-    
+
     try {
       await updateDomainMutation.mutateAsync({
         id: selectedDomain.id,
-        name: formData.name,
-        url: formData.url,
+        displayName: formData.displayName || undefined,
         description: formData.description || undefined,
       });
-      
+
       setIsEditDialogOpen(false);
       setSelectedDomain(null);
-      setFormData({ name: '', url: '', description: '' });
+      setFormData({ displayName: '', domain: '', description: '' });
       domainsQuery.refetch();
     } catch (error) {
       console.error('Failed to update domain:', error);
@@ -104,10 +100,10 @@ export default function DomainsPage() {
 
   const handleDeleteDomain = async () => {
     if (!selectedDomain) return;
-    
+
     try {
       await deleteDomainMutation.mutateAsync({ id: selectedDomain.id });
-      
+
       setIsDeleteDialogOpen(false);
       setSelectedDomain(null);
       domainsQuery.refetch();
@@ -119,8 +115,8 @@ export default function DomainsPage() {
   const openEditDialog = (domain: Domain) => {
     setSelectedDomain(domain);
     setFormData({
-      name: domain.name || '',
-      url: domain.url,
+      displayName: domain.displayName || '',
+      domain: domain.rootDomain,
       description: domain.description || '',
     });
     setIsEditDialogOpen(true);
@@ -142,10 +138,10 @@ export default function DomainsPage() {
   const handleRequestVerification = async () => {
     if (!verifyDomain) return;
     try {
-      const res = await requestVerificationMutation.mutateAsync({ websiteId: verifyDomain.id });
+      const res = await requestVerificationMutation.mutateAsync({ domainId: verifyDomain.id });
       setVerifyMetaTag(res.metaTag);
       setVerifyResult(null);
-      domainsQuery.refetch(); // status is now 'pending'
+      domainsQuery.refetch();
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to start verification');
     }
@@ -154,10 +150,10 @@ export default function DomainsPage() {
   const handleConfirmVerification = async () => {
     if (!verifyDomain) return;
     try {
-      const res = await confirmVerificationMutation.mutateAsync({ websiteId: verifyDomain.id });
+      const res = await confirmVerificationMutation.mutateAsync({ domainId: verifyDomain.id });
       setVerifyResult(res);
       if (res.verified) {
-        domainsQuery.refetch(); // badge flips to Verified
+        domainsQuery.refetch();
       }
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Verification check failed');
@@ -172,8 +168,7 @@ export default function DomainsPage() {
   };
 
   const getVerificationBadge = (domain: Domain) => {
-    const status = domain.validationStatus;
-    switch (status) {
+    switch (domain.validationStatus) {
       case 'valid':
         return <Badge color="green">Verified</Badge>;
       case 'pending':
@@ -182,19 +177,6 @@ export default function DomainsPage() {
         return <Badge color="red">Invalid</Badge>;
       default:
         return <Badge color="zinc">Unverified</Badge>;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge color="green">Active</Badge>;
-      case 'inactive':
-        return <Badge color="zinc">Inactive</Badge>;
-      case 'pending':
-        return <Badge color="yellow">Pending</Badge>;
-      default:
-        return <Badge color="zinc">{status}</Badge>;
     }
   };
 
@@ -210,7 +192,7 @@ export default function DomainsPage() {
   };
 
   return (
-    <FeatureGate 
+    <FeatureGate
       featureKey="multiple_websites"
       fallback={
         <div className="text-center py-12">
@@ -226,7 +208,7 @@ export default function DomainsPage() {
           <div>
             <Heading>Domains</Heading>
             <Text>
-              Manage your domains for analysis and monitoring. Pro plans can manage up to 10 domains.
+              Manage your root domains for analysis and monitoring. Pro plans can manage up to 10 domains.
               {domains.length > 0 && (
                 <span className="block mt-1">
                   Currently using {domains.length} of 10 domains.
@@ -237,11 +219,11 @@ export default function DomainsPage() {
               )}
             </Text>
           </div>
-          <Button 
-            type="button" 
+          <Button
+            type="button"
             onClick={() => setIsAddDialogOpen(true)}
             disabled={domains.length >= 10}
-            title={domains.length >= 10 ? "Domain limit reached (10/10). Remove domains to add new ones." : "Add a new domain"}
+            title={domains.length >= 10 ? 'Domain limit reached (10/10). Remove domains to add new ones.' : 'Add a new domain'}
           >
             <PlusIcon />
             Add Domain
@@ -255,8 +237,8 @@ export default function DomainsPage() {
         ) : domains.length === 0 ? (
           <div className="text-center py-12">
             <Text>No domains added yet.</Text>
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               className="mt-4"
               onClick={() => setIsAddDialogOpen(true)}
             >
@@ -269,8 +251,7 @@ export default function DomainsPage() {
             <TableHead>
               <TableRow>
                 <TableHeader>Domain</TableHeader>
-                <TableHeader>URL</TableHeader>
-                <TableHeader>Status</TableHeader>
+                <TableHeader>Pages</TableHeader>
                 <TableHeader>Ownership</TableHeader>
                 <TableHeader>Last Scan</TableHeader>
                 <TableHeader>Added</TableHeader>
@@ -282,23 +263,23 @@ export default function DomainsPage() {
                 <TableRow key={domain.id}>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{domain.name || 'Unnamed Domain'}</div>
+                      <div className="font-medium">{domain.displayName || domain.rootDomain}</div>
+                      <a
+                        href={`https://${domain.rootDomain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-zinc-500 hover:text-blue-600 truncate block max-w-xs"
+                      >
+                        {domain.rootDomain}
+                      </a>
                       {domain.description && (
                         <div className="text-sm text-gray-500">{domain.description}</div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <a 
-                      href={domain.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 truncate block max-w-xs"
-                    >
-                      {domain.url}
-                    </a>
+                    <span className="text-sm">{domain.pageCount}</span>
                   </TableCell>
-                  <TableCell>{getStatusBadge(domain.status || 'pending')}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {getVerificationBadge(domain)}
@@ -314,9 +295,7 @@ export default function DomainsPage() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    {formatDate(domain.lastScanAt)}
-                  </TableCell>
+                  <TableCell>{formatDate(domain.lastScanAt)}</TableCell>
                   <TableCell>{formatDate(domain.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -346,26 +325,25 @@ export default function DomainsPage() {
         <Dialog open={isAddDialogOpen} onClose={setIsAddDialogOpen}>
           <DialogTitle>Add New Domain</DialogTitle>
           <DialogDescription>
-            Add a domain to your account for analysis and monitoring. You can scan any page from this domain.
+            Add a root domain to your account. You can then scan any page on that domain.
           </DialogDescription>
           <DialogBody>
             <Fieldset>
               <FieldGroup>
                 <Field>
-                  <Label>Domain Name</Label>
+                  <Label>Display Name</Label>
                   <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={formData.displayName}
+                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
                     placeholder="My Business Website"
                   />
                 </Field>
                 <Field>
-                  <Label>Domain URL</Label>
+                  <Label>Domain</Label>
                   <Input
-                    value={formData.url}
-                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    placeholder="https://example.com"
-                    type="url"
+                    value={formData.domain}
+                    onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                    placeholder="example.com"
                   />
                 </Field>
                 <Field>
@@ -385,7 +363,7 @@ export default function DomainsPage() {
             </Button>
             <Button
               onClick={handleAddDomain}
-              disabled={!formData.name || !formData.url || createDomainMutation.isPending}
+              disabled={!formData.displayName || !formData.domain || createDomainMutation.isPending}
             >
               {createDomainMutation.isPending ? 'Adding...' : 'Add Domain'}
             </Button>
@@ -396,26 +374,21 @@ export default function DomainsPage() {
         <Dialog open={isEditDialogOpen} onClose={setIsEditDialogOpen}>
           <DialogTitle>Edit Domain</DialogTitle>
           <DialogDescription>
-            Update the domain information.
+            Update the display name or description. The domain itself cannot be changed.
           </DialogDescription>
           <DialogBody>
             <Fieldset>
               <FieldGroup>
                 <Field>
-                  <Label>Domain Name</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="My Business Website"
-                  />
+                  <Label>Domain</Label>
+                  <Input value={selectedDomain?.rootDomain || ''} disabled />
                 </Field>
                 <Field>
-                  <Label>Domain URL</Label>
+                  <Label>Display Name</Label>
                   <Input
-                    value={formData.url}
-                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    placeholder="https://example.com"
-                    type="url"
+                    value={formData.displayName}
+                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                    placeholder="My Business Website"
                   />
                 </Field>
                 <Field>
@@ -435,7 +408,7 @@ export default function DomainsPage() {
             </Button>
             <Button
               onClick={handleEditDomain}
-              disabled={!formData.name || !formData.url || updateDomainMutation.isPending}
+              disabled={updateDomainMutation.isPending}
             >
               {updateDomainMutation.isPending ? 'Updating...' : 'Update Domain'}
             </Button>
@@ -446,7 +419,7 @@ export default function DomainsPage() {
         <Dialog open={isVerifyDialogOpen} onClose={setIsVerifyDialogOpen}>
           <DialogTitle>Verify domain ownership</DialogTitle>
           <DialogDescription>
-            Prove you own {verifyDomain?.url} by adding a meta tag to its homepage.
+            Prove you own {verifyDomain?.rootDomain} by adding a meta tag to its homepage.
             Verification is optional and does not affect scanning.
           </DialogDescription>
           <DialogBody>
@@ -509,8 +482,8 @@ export default function DomainsPage() {
         <Dialog open={isDeleteDialogOpen} onClose={setIsDeleteDialogOpen}>
           <DialogTitle>Delete Domain</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete &ldquo;{selectedDomain?.name}&rdquo;? This action cannot be undone.
-            All associated reports and data will be permanently removed.
+            Are you sure you want to delete &ldquo;{selectedDomain?.displayName || selectedDomain?.rootDomain}&rdquo;?
+            This action cannot be undone. All associated reports and data will be permanently removed.
           </DialogDescription>
           <DialogActions>
             <Button plain onClick={() => setIsDeleteDialogOpen(false)}>

@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { createTRPCRouter, publicProcedure, protectedProcedure } from '../server';
-import { websites, pageTypeEnum } from '@/db/schema/websites';
+import { websites, domains, pageTypeEnum } from '@/db/schema/websites';
 import { analyses } from '@/db/schema/analyses';
 import { user } from '@/db/schema/auth';
-import { eq, desc, and, ne } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { db } from '@/db/connection';
 import { checkFeatureAccess } from '@/lib/feature-gate';
 import { trackUsage } from '@/lib/subscription-service';
@@ -12,26 +12,14 @@ import { trackUsage } from '@/lib/subscription-service';
 import { validateUrl, assertPublicTarget } from '@/lib/url-validation';
 import { randomUUID } from 'node:crypto';
 
-// Helper function to extract domain from URL
-function extractDomain(url: string): string {
+// Normalize any URL or bare domain to its root domain (e.g. "https://www.example.com/path" → "example.com")
+function normalizeRootDomain(url: string): string {
   try {
-    const urlObj = new URL(url);
-    return urlObj.hostname.toLowerCase();
+    const input = url.startsWith('http') ? url : `https://${url}`;
+    return new URL(input).hostname.toLowerCase().replace(/^www\./, '');
   } catch {
-    return url.toLowerCase();
+    return url.toLowerCase().replace(/^www\./, '');
   }
-}
-
-// Helper function to normalize domain (remove www prefix)
-function normalizeDomain(hostname: string): string {
-  return hostname.toLowerCase().replace(/^www\./, '');
-}
-
-// Helper function to check if two URLs belong to the same domain (ignoring www)
-function isSameDomain(url1: string, url2: string): boolean {
-  const domain1 = normalizeDomain(extractDomain(url1));
-  const domain2 = normalizeDomain(extractDomain(url2));
-  return domain1 === domain2;
 }
 
 // Helper function to map validation page types to database enum values
@@ -48,233 +36,154 @@ function mapPageTypeToDbEnum(pageType: string): PageType {
   }
 }
 
+const DOMAIN_LIMIT = 10;
+
 export const websitesRouter = createTRPCRouter({
   /**
-   * List all domains for authenticated user (Pro feature)
+   * List all root domains for authenticated user (Pro feature).
+   * Returns one entry per root domain with aggregated page count and last scan date.
    */
   list: protectedProcedure
     .query(async ({ ctx }) => {
       const userId = ctx.session.user.id;
-      
-      // Check if user has access to multiple domains feature
+
       const featureAccess = await checkFeatureAccess(userId, 'multiple_websites');
       if (!featureAccess.hasAccess) {
         throw new Error('Multiple domains feature requires Pro subscription');
       }
 
-      // First get all websites for the user
-      const userWebsites = await db
+      const userDomains = await db
         .select()
+        .from(domains)
+        .where(eq(domains.userId, userId))
+        .orderBy(desc(domains.updatedAt));
+
+      // Aggregate page count and last-updated date per domain from websites table
+      const websiteRows = await db
+        .select({ domainId: websites.domainId, updatedAt: websites.updatedAt })
         .from(websites)
-        .where(eq(websites.userId, userId))
-        .orderBy(desc(websites.updatedAt));
+        .where(eq(websites.userId, userId));
 
-      // Get all completed analyses (we'll filter by domain in memory for now)
-      // In a production app with many analyses, we'd want to optimize this further
-      const allAnalyses = await db
-        .select({
-          createdAt: analyses.createdAt,
-          rawData: analyses.rawData
-        })
-        .from(analyses)
-        .where(eq(analyses.status, 'completed'))
-        .orderBy(desc(analyses.createdAt));
-
-      // Build a map of domains to their most recent analysis
-      const domainToLatestAnalysis = new Map<string, { createdAt: Date }>();
-      
-      for (const analysis of allAnalyses) {
-        if (!analysis.rawData) continue;
-        
-        try {
-          const rawDataObj = JSON.parse(analysis.rawData);
-          const scannedUrl = rawDataObj.url || rawDataObj.finalUrl || rawDataObj.redirectUrl;
-          if (!scannedUrl || scannedUrl.trim() === '') continue;
-          
-          const scannedDomain = extractDomain(scannedUrl);
-          
-          // Only store if this is the most recent for this domain
-          if (!domainToLatestAnalysis.has(scannedDomain)) {
-            domainToLatestAnalysis.set(scannedDomain, { createdAt: analysis.createdAt });
-          }
-        } catch {
-          continue;
+      const pageCountMap = new Map<string, number>();
+      const lastScanMap = new Map<string, Date>();
+      for (const w of websiteRows) {
+        if (!w.domainId) continue;
+        pageCountMap.set(w.domainId, (pageCountMap.get(w.domainId) ?? 0) + 1);
+        const prev = lastScanMap.get(w.domainId);
+        if (!prev || (w.updatedAt && w.updatedAt > prev)) {
+          lastScanMap.set(w.domainId, w.updatedAt!);
         }
       }
 
-      // Map websites to their scan dates based on domain matching
-      const websitesWithScanDates = userWebsites.map(website => {
-        const websiteDomain = extractDomain(website.url);
-        const latestAnalysis = domainToLatestAnalysis.get(websiteDomain);
-
-        return {
-          ...website,
-          lastScanAt: latestAnalysis?.createdAt || null,
-          // 'inactive' is reserved for explicitly invalid domains; unverified
-          // domains remain usable (ownership verification is additive, not gating)
-          status: website.validationStatus === 'invalid' ? 'inactive' as const : 'active' as const
-        };
-      });
-
-      return websitesWithScanDates;
+      return userDomains.map(d => ({
+        ...d,
+        pageCount: pageCountMap.get(d.id) ?? 0,
+        lastScanAt: lastScanMap.get(d.id) ?? null,
+        status: d.validationStatus === 'invalid' ? 'inactive' as const : 'active' as const,
+      }));
     }),
 
   /**
-   * Create new domain (Pro feature)
+   * Add a new root domain (Pro feature).
+   * Accepts a bare domain ("example.com") or full URL ("https://example.com").
    */
   create: protectedProcedure
     .input(z.object({
-      name: z.string().min(1, 'Domain name is required'),
-      url: z.string().url('Please enter a valid URL'),
+      displayName: z.string().min(1, 'Display name is required'),
+      domain: z.string().min(1, 'Domain is required'),
       description: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.session.user.id;
-      
-      // Check if user has access to multiple domains feature
+
       const featureAccess = await checkFeatureAccess(userId, 'multiple_websites');
       if (!featureAccess.hasAccess) {
         throw new Error('Multiple domains feature requires Pro subscription');
       }
 
-      // Validate the URL (skip accessibility check to avoid timeouts)
-      const validation = await validateUrl(input.url, undefined, undefined, undefined, true);
-      if (!validation.isValid) {
-        throw new Error(validation.error || 'Invalid URL');
+      const rootDomain = normalizeRootDomain(input.domain);
+
+      if (!rootDomain || rootDomain.includes('/')) {
+        throw new Error('Invalid domain — enter a domain like "example.com"');
       }
 
-      // Check current domain count and enforce limits
-      const userWebsites = await db
+      const existing = await db
         .select()
-        .from(websites)
-        .where(eq(websites.userId, userId));
+        .from(domains)
+        .where(eq(domains.userId, userId));
 
-      // Pro plan limit: 10 domains
-      const DOMAIN_LIMIT = 10;
-      if (userWebsites.length >= DOMAIN_LIMIT) {
-        throw new Error(`Pro plan allows up to ${DOMAIN_LIMIT} domains. You currently have ${userWebsites.length} domains. Please remove some domains or upgrade your plan.`);
+      if (existing.length >= DOMAIN_LIMIT) {
+        throw new Error(
+          `Pro plan allows up to ${DOMAIN_LIMIT} domains. You have ${existing.length}. Remove a domain to add a new one.`,
+        );
       }
 
-      // Check if domain with this URL already exists for this user (ignoring www)
-      const inputDomain = normalizeDomain(extractDomain(input.url));
-      const existing = userWebsites.find(website => {
-        const websiteDomain = normalizeDomain(extractDomain(website.url));
-        return websiteDomain === inputDomain;
-      });
-      if (existing) {
-        throw new Error('Domain already exists (www and non-www versions are treated as the same domain)');
+      const dup = existing.find(d => d.rootDomain === rootDomain);
+      if (dup) {
+        throw new Error(`${rootDomain} is already in your domains list.`);
       }
 
-      // Create new domain
-      const newWebsite = await db
-        .insert(websites)
+      const [newDomain] = await db
+        .insert(domains)
         .values({
           userId,
-          name: input.name,
-          url: input.url,
+          rootDomain,
+          displayName: input.displayName,
           description: input.description,
-          pageType: mapPageTypeToDbEnum('homepage'),
-          // Ownership is unverified until the user passes meta-tag verification.
-          // validationMessage still reflects the URL accessibility check.
           isValidated: false,
           validationStatus: 'unverified',
-          validationMessage: validation.message,
         })
         .returning();
 
-      // Track usage
       await trackUsage(userId, 'add_website');
 
-      return newWebsite[0];
+      return newDomain;
     }),
 
   /**
-   * Update domain (Pro feature)
+   * Update display name / description of a root domain (Pro feature).
+   * The rootDomain itself is immutable — delete and re-add to change it.
    */
   update: protectedProcedure
     .input(z.object({
       id: z.string().uuid(),
-      name: z.string().min(1, 'Domain name is required').optional(),
-      url: z.string().url('Please enter a valid URL').optional(),
+      displayName: z.string().min(1).optional(),
       description: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.session.user.id;
-      
-      // Check if user has access to multiple domains feature
+
       const featureAccess = await checkFeatureAccess(userId, 'multiple_websites');
       if (!featureAccess.hasAccess) {
         throw new Error('Multiple domains feature requires Pro subscription');
       }
 
-      // Check if website exists and belongs to user
-      const existing = await db
+      const [existing] = await db
         .select()
-        .from(websites)
-        .where(and(
-          eq(websites.id, input.id),
-          eq(websites.userId, userId)
-        ))
+        .from(domains)
+        .where(and(eq(domains.id, input.id), eq(domains.userId, userId)))
         .limit(1);
 
-      if (existing.length === 0) {
-        throw new Error('Website not found or access denied');
-      }
+      if (!existing) throw new Error('Domain not found or access denied');
 
-      const updateData: any = {
+      const updateData: Partial<typeof domains.$inferInsert> = {
         updatedAt: new Date(),
       };
-
-      if (input.name) updateData.name = input.name;
+      if (input.displayName) updateData.displayName = input.displayName;
       if (input.description !== undefined) updateData.description = input.description;
-      
-      if (input.url) {
-        // Validate the new URL
-        const validation = await validateUrl(input.url);
-        if (!validation.isValid) {
-          throw new Error(validation.error || 'Invalid URL');
-        }
 
-        // Check if another website with this domain already exists for this user (ignoring www)
-        const inputDomain = normalizeDomain(extractDomain(input.url));
-        const allUserWebsites = await db
-          .select()
-          .from(websites)
-          .where(and(
-            eq(websites.userId, userId),
-            // Exclude current website
-            ne(websites.id, input.id)
-          ));
-
-        const domainExists = allUserWebsites.some(website => {
-          const websiteDomain = normalizeDomain(extractDomain(website.url));
-          return websiteDomain === inputDomain;
-        });
-
-        if (domainExists) {
-          throw new Error('Another website with this domain already exists (www and non-www versions are treated as the same domain)');
-        }
-
-        updateData.url = input.url;
-        // Changing the URL resets ownership verification — the new domain has
-        // not been verified yet.
-        updateData.isValidated = false;
-        updateData.validationStatus = 'unverified';
-        updateData.validationMessage = validation.message;
-        updateData.verificationToken = null;
-      }
-
-      const updatedWebsite = await db
-        .update(websites)
+      const [updated] = await db
+        .update(domains)
         .set(updateData)
-        .where(eq(websites.id, input.id))
+        .where(eq(domains.id, input.id))
         .returning();
 
-      return updatedWebsite[0];
+      return updated;
     }),
 
   /**
-   * Delete domain (Pro feature)
+   * Delete a root domain (Pro feature).
+   * Cascade FK removes linked websites rows and their analyses.
    */
   delete: protectedProcedure
     .input(z.object({
@@ -282,37 +191,30 @@ export const websitesRouter = createTRPCRouter({
     }))
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.session.user.id;
-      
-      // Check if user has access to multiple domains feature
+
       const featureAccess = await checkFeatureAccess(userId, 'multiple_websites');
       if (!featureAccess.hasAccess) {
         throw new Error('Multiple domains feature requires Pro subscription');
       }
 
-      // Check if website exists and belongs to user
-      const existing = await db
-        .select()
-        .from(websites)
-        .where(and(
-          eq(websites.id, input.id),
-          eq(websites.userId, userId)
-        ))
+      const [existing] = await db
+        .select({ id: domains.id })
+        .from(domains)
+        .where(and(eq(domains.id, input.id), eq(domains.userId, userId)))
         .limit(1);
 
-      if (existing.length === 0) {
-        throw new Error('Website not found or access denied');
-      }
+      if (!existing) throw new Error('Domain not found or access denied');
 
-      // Delete the website (this will cascade delete analyses due to foreign key constraint)
-      await db
-        .delete(websites)
-        .where(eq(websites.id, input.id));
+      await db.delete(domains).where(eq(domains.id, input.id));
 
       return { success: true };
     }),
 
   /**
-   * Create or get existing website record (with Pro plan domain validation)
+   * Create or get existing website record (with Pro plan domain validation).
+   * Used by the scan flow. Finds/creates a domains row for the root domain,
+   * then finds/creates a websites row for the specific URL.
+   * Return type is unchanged so the scan page is unaffected.
    */
   createOrGet: protectedProcedure
     .input(z.object({
@@ -336,145 +238,122 @@ export const websitesRouter = createTRPCRouter({
     }> => {
       try {
         const userId = ctx.session.user.id;
-        
-        // Extract domain from URL for validation (do this first)
         const urlObj = new URL(input.url);
-        const scanDomain = urlObj.hostname.toLowerCase();
-        const normalizedScanDomain = normalizeDomain(scanDomain);
+        const rootDomain = normalizeRootDomain(input.url);
 
-        // Get user's existing domains first
-        const userDomains = await db
+        // Load user's domain list
+        const userDomainRows = await db
           .select()
-          .from(websites)
-          .where(eq(websites.userId, userId));
+          .from(domains)
+          .where(eq(domains.userId, userId));
 
-        // The user's primaryDomain (set at onboarding) is always an allowed
-        // domain for basic-plan users, even when no website row exists yet —
-        // e.g. after deleting all their sites. Without this, a basic user who
-        // removed their site could never scan their own primary domain again.
-        const userRow = await db
+        // Load primaryDomain for basic-plan compatibility
+        const [userRow] = await db
           .select({ primaryDomain: user.primaryDomain })
           .from(user)
           .where(eq(user.id, userId))
           .limit(1);
 
-        const hostFromDomain = (value: string): string | null => {
-          try {
-            return normalizeDomain(new URL(value).hostname.toLowerCase());
-          } catch {
-            return value ? normalizeDomain(value.toLowerCase()) : null;
-          }
-        };
-
-        const primaryDomainHost = userRow[0]?.primaryDomain
-          ? hostFromDomain(userRow[0].primaryDomain)
+        const primaryRootDomain = userRow?.primaryDomain
+          ? normalizeRootDomain(userRow.primaryDomain)
           : null;
 
-        // Check if the domain is in the user's allowed domains (ignoring www):
-        // their primaryDomain, or the hostname of any existing website URL.
-        const isDomainAllowed =
-          (primaryDomainHost != null && primaryDomainHost === normalizedScanDomain) ||
-          userDomains.some(domain => {
-            const domainHost = new URL(domain.url).hostname.toLowerCase();
-            const normalizedDomainHost = normalizeDomain(domainHost);
-            return normalizedScanDomain === normalizedDomainHost;
-          });
+        const existingDomain = userDomainRows.find(d => d.rootDomain === rootDomain);
+        const isPrimaryDomain = primaryRootDomain === rootDomain;
 
-        if (!isDomainAllowed) {
-          // Only check multiple_websites feature if user is trying to scan a NEW domain
+        if (!existingDomain && !isPrimaryDomain) {
           const featureAccess = await checkFeatureAccess(userId, 'multiple_websites');
-          
+
           if (!featureAccess.hasAccess) {
             throw new Error('DOMAIN_VALIDATION_REQUIRED');
           }
 
-          // User has Pro plan, check domain limits (count unique domains, not URLs)
-          const DOMAIN_LIMIT = 10;
-          
-          // Count unique domains from user's websites
-          const uniqueDomains = new Set();
-          userDomains.forEach(domain => {
-            const domainHost = new URL(domain.url).hostname.toLowerCase();
-            const normalizedDomainHost = normalizeDomain(domainHost);
-            uniqueDomains.add(normalizedDomainHost);
-          });
-          
-          if (uniqueDomains.size >= DOMAIN_LIMIT) {
-            throw new Error(`DOMAIN_LIMIT_REACHED:This domain is not in your allowed domains list. Pro plan allows up to ${DOMAIN_LIMIT} domains. Please add this domain to your domains list first or scan a URL from your existing domains.`);
+          if (userDomainRows.length >= DOMAIN_LIMIT) {
+            throw new Error(
+              `DOMAIN_LIMIT_REACHED:This domain is not in your allowed domains list. Pro plan allows up to ${DOMAIN_LIMIT} domains. Please add this domain to your domains list first or scan a URL from your existing domains.`,
+            );
           } else {
-            // User has space - offer to add domain
-            throw new Error(`DOMAIN_NOT_ALLOWED:This domain is not in your allowed domains list. Would you like to add "${normalizedScanDomain}" to your domains? You are using ${uniqueDomains.size} of ${DOMAIN_LIMIT} domains.`);
+            throw new Error(
+              `DOMAIN_NOT_ALLOWED:This domain is not in your allowed domains list. Would you like to add "${rootDomain}" to your domains? You are using ${userDomainRows.length} of ${DOMAIN_LIMIT} domains.`,
+            );
           }
         }
 
-        // Only validate URL if domain is allowed (to avoid timeout blocking domain validation)
-        // Skip accessibility check to avoid timeouts during testing/development
         const validation = await validateUrl(input.url, input.pageType, undefined, undefined, true);
-        if (!validation.isValid) {
-          throw new Error(validation.error || 'Invalid URL');
+        if (!validation.isValid) throw new Error(validation.error || 'Invalid URL');
+
+        // Find or create the domains row (auto-creates for basic-plan / primary domain users)
+        let domainRow = existingDomain;
+        if (!domainRow) {
+          const [created] = await db
+            .insert(domains)
+            .values({
+              userId,
+              rootDomain,
+              displayName: rootDomain,
+              isValidated: false,
+              validationStatus: 'unverified',
+            })
+            .onConflictDoNothing()
+            .returning();
+
+          domainRow = created ?? (
+            await db
+              .select()
+              .from(domains)
+              .where(and(eq(domains.userId, userId), eq(domains.rootDomain, rootDomain)))
+              .limit(1)
+          )[0];
         }
 
-        // Check if website already exists for this specific URL
-        // This allows multiple reports for different pages of the same domain
-        const existing = await db
+        // Find or create the websites row for this specific URL
+        const [existingWebsite] = await db
           .select()
           .from(websites)
-          .where(and(
-            eq(websites.url, input.url),
-            eq(websites.userId, userId)
-          ))
+          .where(and(eq(websites.url, input.url), eq(websites.userId, userId)))
           .limit(1);
 
-        if (existing.length > 0) {
-          // Update existing website with latest info
-          const updated = await db
+        if (existingWebsite) {
+          const [updated] = await db
             .update(websites)
             .set({
-              pageType: input.pageType ? mapPageTypeToDbEnum(input.pageType) : existing[0].pageType,
+              pageType: input.pageType
+                ? mapPageTypeToDbEnum(input.pageType)
+                : existingWebsite.pageType,
+              domainId: domainRow?.id ?? existingWebsite.domainId,
               validationMessage: validation.message,
               updatedAt: new Date(),
             })
-            .where(eq(websites.id, existing[0].id))
+            .where(eq(websites.id, existingWebsite.id))
             .returning();
 
-          // Return the existing record with the same URL for crawling
-          return {
-            ...updated[0],
-            scanUrl: input.url
-          };
+          return { ...updated, scanUrl: input.url };
         }
 
-        // Create new website record for this specific URL
-        const newWebsite = await db
+        const [newWebsite] = await db
           .insert(websites)
           .values({
             userId,
-            url: input.url, // Store the specific URL to allow multiple pages per domain
+            domainId: domainRow?.id,
+            url: input.url,
             name: `${urlObj.hostname}${urlObj.pathname !== '/' ? urlObj.pathname : ''}`,
             pageType: mapPageTypeToDbEnum(input.pageType || 'homepage'),
-            // Ownership unverified until meta-tag verification passes
             isValidated: false,
             validationStatus: 'unverified',
             validationMessage: validation.message,
           })
           .returning();
 
-        // Return the new record with the same URL for crawling
-        return {
-          ...newWebsite[0],
-          scanUrl: input.url
-        };
+        return { ...newWebsite, scanUrl: input.url };
       } catch (error) {
         // Don't log domain validation errors as they are expected user flow
         if (error instanceof Error && (
-          error.message.startsWith('DOMAIN_NOT_ALLOWED:') || 
+          error.message.startsWith('DOMAIN_NOT_ALLOWED:') ||
           error.message.startsWith('DOMAIN_LIMIT_REACHED:')
         )) {
-          // These are expected validation errors, not system failures
           throw error;
         }
-        
-        // Only log unexpected errors
+
         console.error('Website creation failed:', error);
         throw new Error(`Failed to create website: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
@@ -540,7 +419,6 @@ export const websitesRouter = createTRPCRouter({
       websiteId: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      // Get website info
       const website = await db
         .select()
         .from(websites)
@@ -551,7 +429,6 @@ export const websitesRouter = createTRPCRouter({
         throw new Error('Website not found');
       }
 
-      // Get latest analysis for this website
       const latestAnalysis = await db
         .select()
         .from(analyses)
@@ -568,34 +445,31 @@ export const websitesRouter = createTRPCRouter({
   /**
    * Request domain-ownership verification.
    * Generates a token and returns the meta tag the user must add to their
-   * homepage. Sets the website's status to 'pending' until confirmed.
+   * homepage. Sets the domain's status to 'pending' until confirmed.
    */
   requestVerification: protectedProcedure
     .input(z.object({
-      websiteId: z.string().uuid(),
+      domainId: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      // Ownership check: the website must belong to the caller
-      const existing = await db
-        .select({ id: websites.id })
-        .from(websites)
-        .where(and(eq(websites.id, input.websiteId), eq(websites.userId, ctx.user!.id)))
+      const [existing] = await db
+        .select({ id: domains.id })
+        .from(domains)
+        .where(and(eq(domains.id, input.domainId), eq(domains.userId, ctx.user!.id)))
         .limit(1);
 
-      if (existing.length === 0) {
-        throw new Error('Website not found');
-      }
+      if (!existing) throw new Error('Domain not found');
 
-      const token = randomUUID().replace(/-/g, ''); // 32 hex chars
+      const token = randomUUID().replace(/-/g, '');
 
       await db
-        .update(websites)
+        .update(domains)
         .set({
           verificationToken: token,
           validationStatus: 'pending',
           updatedAt: new Date(),
         })
-        .where(eq(websites.id, input.websiteId));
+        .where(eq(domains.id, input.domainId));
 
       return {
         token,
@@ -605,44 +479,39 @@ export const websitesRouter = createTRPCRouter({
 
   /**
    * Confirm domain-ownership verification.
-   * Fetches the website's homepage and checks for the verification meta tag.
-   * On success: marks the website validated and clears the token.
+   * Fetches the root domain homepage and checks for the verification meta tag.
+   * On success: marks the domain validated and clears the token.
    */
   confirmVerification: protectedProcedure
     .input(z.object({
-      websiteId: z.string().uuid(),
+      domainId: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      // Ownership check + load the token and URL
-      const [website] = await db
-        .select({
-          id: websites.id,
-          url: websites.url,
-          verificationToken: websites.verificationToken,
-        })
-        .from(websites)
-        .where(and(eq(websites.id, input.websiteId), eq(websites.userId, ctx.user!.id)))
+      const [domain] = await db
+        .select()
+        .from(domains)
+        .where(and(eq(domains.id, input.domainId), eq(domains.userId, ctx.user!.id)))
         .limit(1);
 
-      if (!website) {
-        throw new Error('Website not found');
-      }
-      if (!website.verificationToken) {
+      if (!domain) throw new Error('Domain not found');
+      if (!domain.verificationToken) {
         throw new Error('No verification in progress. Call requestVerification first.');
       }
 
+      // Always fetch the root domain homepage, regardless of which page was originally added
+      const homepageUrl = `https://${domain.rootDomain}/`;
+
       // SSRF guard (CON-94): refuse private/internal targets before fetching
-      const safety = await assertPublicTarget(website.url);
+      const safety = await assertPublicTarget(homepageUrl);
       if (!safety.safe) {
         return { verified: false, reason: safety.reason ?? 'Target is not a public address' };
       }
 
-      // Fetch the homepage with a timeout (modelled on checkUrlAccessibility)
       let html: string;
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
-        const response = await fetch(website.url, {
+        const response = await fetch(homepageUrl, {
           method: 'GET',
           headers: { 'User-Agent': 'ConvertIQ-Verification/1.0' },
           redirect: 'follow',
@@ -661,23 +530,22 @@ export const websitesRouter = createTRPCRouter({
         return { verified: false, reason };
       }
 
-      // Look for the verification tag. Match name + content in either attribute
-      // order so we don't depend on how the user pasted it.
-      const token = website.verificationToken;
+      // Match name + content in either attribute order
+      const token = domain.verificationToken;
       const hasTag =
         new RegExp(`name=["']convertiq-verification["'][^>]*content=["']${token}["']`, 'i').test(html) ||
         new RegExp(`content=["']${token}["'][^>]*name=["']convertiq-verification["']`, 'i').test(html);
 
       if (!hasTag) {
         await db
-          .update(websites)
+          .update(domains)
           .set({ validationStatus: 'unverified', updatedAt: new Date() })
-          .where(eq(websites.id, input.websiteId));
+          .where(eq(domains.id, input.domainId));
         return { verified: false, reason: 'Verification tag not found on homepage' };
       }
 
       await db
-        .update(websites)
+        .update(domains)
         .set({
           isValidated: true,
           validationStatus: 'valid',
@@ -685,7 +553,7 @@ export const websitesRouter = createTRPCRouter({
           lastValidatedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(websites.id, input.websiteId));
+        .where(eq(domains.id, input.domainId));
 
       return { verified: true };
     }),

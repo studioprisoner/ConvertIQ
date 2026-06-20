@@ -563,8 +563,8 @@ export default function ScanPage() {
     if (!domainDialog) return;
 
     createDomainMutation.mutate({
-      name: domainDialog.domain,
-      url: `https://${domainDialog.domain}`,
+      displayName: domainDialog.domain,
+      domain: domainDialog.domain,
       description: `Added during scan process for ${url}`,
     });
   };
