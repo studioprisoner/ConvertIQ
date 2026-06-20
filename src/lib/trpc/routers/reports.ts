@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../server';
-import { websites } from '@/db/schema/websites';
+import { websites, domains } from '@/db/schema/websites';
 import { analyses } from '@/db/schema/analyses';
 import { eq, and, desc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
@@ -204,10 +204,11 @@ export const reportsRouter = createTRPCRouter({
     .input(z.object({
       limit: z.number().optional().default(20),
       offset: z.number().optional().default(0),
+      domainId: z.string().uuid().optional(),
     }))
     .query(async ({ ctx, input }) => {
       const { user } = ctx;
-      
+
       try {
         // Get all websites for this user with their latest non-archived analysis
         const reportsData = await ctx.db
@@ -217,6 +218,8 @@ export const reportsRouter = createTRPCRouter({
             websiteName: websites.name,
             pageType: websites.pageType,
             websiteCreatedAt: websites.createdAt,
+            domainId: websites.domainId,
+            rootDomain: domains.rootDomain,
             analysisId: analyses.id,
             analysisStatus: analyses.status,
             analysisCreatedAt: analyses.createdAt,
@@ -225,7 +228,12 @@ export const reportsRouter = createTRPCRouter({
           })
           .from(websites)
           .innerJoin(analyses, eq(analyses.websiteId, websites.id))
-          .where(eq(websites.userId, user.id))
+          .leftJoin(domains, eq(domains.id, websites.domainId))
+          .where(
+            input.domainId
+              ? and(eq(websites.userId, user.id), eq(websites.domainId, input.domainId))
+              : eq(websites.userId, user.id)
+          )
           .orderBy(desc(analyses.createdAt));
 
         // Filter out archived reports and get the latest analysis for each website
@@ -258,22 +266,26 @@ export const reportsRouter = createTRPCRouter({
           websiteName: string;
           websiteUrl: string;
           pageType: string;
+          domainId: string | null;
+          rootDomain: string | null;
           analysisStatus: string;
           aiAnalysis: string | null;
           analysisCreatedAt: Date | null;
           websiteCreatedAt: Date | null;
           errorMessage: string | null;
         }
-        
+
         const reports = paginatedReports.map((row: ReportRow) => {
           const aiAnalysis = row.aiAnalysis ? JSON.parse(row.aiAnalysis) : null;
-          
+
           return {
             id: row.analysisId || row.websiteId,
             websiteId: row.websiteId,
             websiteUrl: row.websiteUrl,
             websiteName: row.websiteName || new URL(row.websiteUrl).hostname,
             pageType: row.pageType || 'homepage',
+            domainId: row.domainId,
+            rootDomain: row.rootDomain,
             scanDate: row.analysisCreatedAt?.toISOString() || row.websiteCreatedAt?.toISOString() || new Date().toISOString(),
             status: row.analysisStatus,
             overallScore: aiAnalysis?.overallScore || null,
