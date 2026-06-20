@@ -77,6 +77,7 @@ export default function ReportsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const websiteId = searchParams.get("websiteId");
+  const selectedDomainId = searchParams.get("domain") ?? undefined;
 
   const [filterPriority, setFilterPriority] = useState<
     "all" | "high" | "medium" | "low"
@@ -105,13 +106,18 @@ export default function ReportsPage() {
   >(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
+  // Fetch user's domains for the filter dropdown (list view only)
+  const { data: domainsData } = trpc.websites.list.useQuery(undefined, {
+    enabled: !websiteId,
+  });
+
   // Fetch reports list if no websiteId, otherwise fetch specific dashboard
   const {
     data: reportsList,
     isLoading: isLoadingList,
     error: errorList,
   } = trpc.reports.getReportsList.useQuery(
-    { limit: 20, offset: 0 },
+    { limit: 20, offset: 0, domainId: selectedDomainId },
     { enabled: !websiteId }, // Only fetch list when no specific websiteId
   );
 
@@ -308,7 +314,7 @@ export default function ReportsPage() {
             <Heading>Reports</Heading>
             <Text className="mt-2">
               Your conversion analysis reports ({reportsList.reports.length}{" "}
-              total)
+              {selectedDomainId ? "in this domain" : "total"})
             </Text>
           </div>
           <div className="flex space-x-3">
@@ -325,6 +331,38 @@ export default function ReportsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Domain filter — only shown for Pro users with multiple domains */}
+        {domainsData && domainsData.length > 1 && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+              Filter by domain:
+            </span>
+            <select
+              value={selectedDomainId ?? ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                router.push(val ? `/dashboard/reports?domain=${val}` : "/dashboard/reports");
+              }}
+              className="text-sm border border-zinc-300 dark:border-zinc-600 rounded-md px-3 py-1.5 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white"
+            >
+              <option value="">All domains</option>
+              {domainsData.map((domain) => (
+                <option key={domain.id} value={domain.id}>
+                  {domain.displayName || domain.rootDomain}
+                </option>
+              ))}
+            </select>
+            {selectedDomainId && (
+              <button
+                onClick={() => router.push("/dashboard/reports")}
+                className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="space-y-4">
           {reportsList.reports.map((report) => (
