@@ -12,11 +12,6 @@ import {
 
 const resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
 
-console.log("🔍 Better Auth Configuration Debug:");
-console.log("Google Provider imported:", typeof google);
-console.log("Google Client ID:", process.env.GOOGLE_CLIENT_ID ? "✓ Present" : "✗ Missing");
-console.log("Google Client Secret:", process.env.GOOGLE_CLIENT_SECRET ? "✓ Present" : "✗ Missing");
-
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -62,22 +57,20 @@ export const auth = betterAuth({
       autoSignIn: true, // Automatically sign in after OTP verification
       async sendVerificationOTP({ email, otp, type }) {
         try {
-          console.log(`Sending OTP to ${email}, type: ${type}`);
-
           const { subject, html, text } = renderOtpEmail({
             otp,
             type: type as OtpEmailType,
           });
 
           const result = await resend.emails.send({
-            from: "ConvertIQ <noreply@convertiq.cloud>", // Using your verified domain
+            from: "ConvertIQ <hello@convertiq.cloud>",
+            replyTo: "support@convertiq.cloud",
             to: email,
             subject,
             html,
             text,
           });
 
-          console.log('Email sent successfully:', result.data?.id);
         } catch (error) {
           console.error('Failed to send OTP email:', error);
           throw error;
