@@ -2,6 +2,7 @@
 
 import { useSession } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc/client";
+import { useFeatureGate } from "@/hooks/common/use-feature-gate";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
@@ -12,6 +13,7 @@ import {
   MagnifyingGlassIcon,
   ChartBarIcon,
   ArrowRightIcon,
+  SparklesIcon,
 } from "@heroicons/react/20/solid";
 
 // Charts are heavy (Recharts); load them lazily and client-side only so they
@@ -57,6 +59,7 @@ export default function DashboardPage() {
   const { data, isLoading } = trpc.insights.getDashboard.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
+  const multipleWebsitesGate = useFeatureGate('multiple_websites');
 
   const show = (value: number | undefined) => (isLoading || value == null ? "—" : value);
 
@@ -102,6 +105,24 @@ export default function DashboardPage() {
               <ArrowRightIcon className="w-4 h-4" />
             </Link>
           </div>
+        </div>
+      )}
+
+      {/* Contextual Pro upgrade banner for Basic users who have completed at least one scan (CON-133) */}
+      {!multipleWebsitesGate.loading && !multipleWebsitesGate.hasAccess && !isLoading && (data?.reportCount ?? 0) > 0 && (
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <SparklesIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              <span className="font-semibold">Unlock Pro</span> — scan multiple domains, manage up to 10 sites, and get deeper insights.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/billing"
+            className="flex-shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap"
+          >
+            Upgrade to Pro →
+          </Link>
         </div>
       )}
 
