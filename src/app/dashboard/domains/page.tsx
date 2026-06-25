@@ -284,7 +284,6 @@ export default function DomainsPage() {
               <TableRow>
                 <TableHeader>Domain</TableHeader>
                 <TableHeader>Pages</TableHeader>
-                <TableHeader>Ownership</TableHeader>
                 <TableHeader>Last Scan</TableHeader>
                 <TableHeader>Added</TableHeader>
                 <TableHeader>Actions</TableHeader>
@@ -311,21 +310,6 @@ export default function DomainsPage() {
                   </TableCell>
                   <TableCell>
                     <span className="text-sm">{domain.pageCount}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getVerificationBadge(domain)}
-                      {domain.validationStatus !== 'valid' && (
-                        <Button
-                          type="button"
-                          plain
-                          onClick={() => openVerifyDialog(domain)}
-                          title="Verify domain ownership"
-                        >
-                          Verify
-                        </Button>
-                      )}
-                    </div>
                   </TableCell>
                   <TableCell>{formatDate(domain.lastScanAt)}</TableCell>
                   <TableCell>{formatDate(domain.createdAt)}</TableCell>
