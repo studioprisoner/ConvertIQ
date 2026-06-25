@@ -22,6 +22,8 @@ import { Button } from "@/components/button";
 import { getUserFeatureFlags } from "@/lib/feature-flags/service";
 import { timeFirecrawlOperation } from "@/lib/monitoring/firecrawl-monitor";
 import { useSession } from "@/lib/auth-client";
+import { GlobeAltIcon } from "@heroicons/react/20/solid";
+import { cn } from "@/lib/utils";
 
 type ScanPhase =
   | "website-creation"
@@ -1217,40 +1219,49 @@ export default function ScanPage() {
             domains list. Would you like to add it to continue with the scan?
           </DialogDescription>
           <DialogBody>
-            <div className="space-y-3">
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <svg
-                    className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-100">
+            <div className="space-y-4">
+              <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <GlobeAltIcon className="w-5 h-5 text-blue-700 dark:text-blue-400" />
+                  <span className="font-semibold text-[#1e3a8a] dark:text-blue-200 text-sm">
                     Domain Usage
-                  </h4>
+                  </span>
                 </div>
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  You are currently using {domainDialog.currentCount} of{" "}
-                  {domainDialog.limit} domains. Adding this domain will use{" "}
-                  {domainDialog.currentCount + 1} of {domainDialog.limit}{" "}
-                  domains.
-                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-500">Domains used</span>
+                    <span className="font-medium text-blue-600">
+                      {domainDialog.currentCount} / {domainDialog.limit}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 h-2">
+                    {Array.from({ length: domainDialog.limit }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "flex-1 h-2 min-w-px rounded-full animate-pill-in",
+                          i < domainDialog.currentCount
+                            ? "bg-[#21e268]"
+                            : "bg-[#b8efaf]"
+                        )}
+                        style={{
+                          transformOrigin: "left center",
+                          animationDelay: `${i * 30}ms`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                <p>
-                  <strong>Domain:</strong> {domainDialog.domain}
-                </p>
-                <p>
-                  <strong>Scan URL:</strong> {url}
-                </p>
+              <div className="space-y-1 text-[13px]">
+                <div className="flex gap-1.5">
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">Domain:</span>
+                  <span className="text-zinc-500">{domainDialog.domain}</span>
+                </div>
+                <div className="flex gap-1.5">
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">Scan URL:</span>
+                  <span className="text-zinc-500">{url}</span>
+                </div>
               </div>
             </div>
           </DialogBody>
